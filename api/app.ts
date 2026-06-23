@@ -12,6 +12,12 @@ import path from 'path'
 import dotenv from 'dotenv'
 import { fileURLToPath } from 'url'
 import authRoutes from './routes/auth.js'
+import filesRoutes from './routes/files.js'
+import todosRoutes from './routes/todos.js'
+import notesRoutes from './routes/notes.js'
+import chatRoutes from './routes/chat.js'
+import timelineRoutes from './routes/timeline.js'
+import initDB from './init-db.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -30,6 +36,11 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
  * API Routes
  */
 app.use('/api/auth', authRoutes)
+app.use('/api/files', filesRoutes)
+app.use('/api/todos', todosRoutes)
+app.use('/api/notes', notesRoutes)
+app.use('/api/chat', chatRoutes)
+app.use('/api/timeline', timelineRoutes)
 
 /**
  * health
@@ -43,6 +54,13 @@ app.use(
     })
   },
 )
+
+/**
+ * Initialize database tables
+ */
+initDB().catch((err) => {
+  console.error('Failed to initialize database:', err)
+})
 
 /**
  * error handler middleware

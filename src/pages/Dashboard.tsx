@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
+import { uploadToOSS } from '@/utils/oss';
 import {
   CheckCircle2,
   Circle,
@@ -13,9 +14,14 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { todos, files, notes, timeline, addFile, addTimelineEvent } = useAppStore();
+  const { todos, files, notes, timeline, addFile, addTimelineEvent, loadData } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [dropMessage, setDropMessage] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const pendingTodos = todos.filter((t) => t.status !== 'completed');
   const urgentTodos = todos.filter((t) => t.priority === 'urgent' || t.priority === 'high');
@@ -36,36 +42,52 @@ export default function Dashboard() {
   }, []);
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    async (e: React.DragEvent) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
+      setUploading(true);
 
       const droppedFiles = Array.from(e.dataTransfer.files);
       const droppedText = e.dataTransfer.getData('text/plain');
 
       if (droppedFiles.length > 0) {
-        droppedFiles.forEach((file) => {
-          const fileType = getFileType(file.name);
-          const newFile = {
-            id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: file.name,
-            type: fileType,
-            size: file.size,
-            tags: ['拖拽上传'],
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          addFile(newFile);
-          addTimelineEvent({
-            id: `e-${Date.now()}`,
-            type: 'file_upload',
-            title: `上传了 ${file.name}`,
-            relatedId: newFile.id,
-            timestamp: new Date().toISOString(),
+        setDropMessage(`正在上传 ${droppedFiles.length} 个文件到云端...`);
+        
+        try {
+          const uploadPromises = droppedFiles.map(async (file) => {
+            const fileType = getFileType(file.name);
+            const { url, key } = await uploadToOSS(file);
+            
+            const newFile = {
+              id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              name: file.name,
+              type: fileType,
+              size: file.size,
+              tags: ['拖拽上传'],
+              url,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            
+            addFile(newFile);
+            addTimelineEvent({
+              id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              type: 'file_upload',
+              title: `上传了 ${file.name}`,
+              relatedId: newFile.id,
+              timestamp: new Date().toISOString(),
+            });
+            
+            return newFile;
           });
-        });
-        setDropMessage(`已导入 ${droppedFiles.length} 个文件，AI 正在解析...`);
+
+          await Promise.all(uploadPromises);
+          setDropMessage(`已成功上传 ${droppedFiles.length} 个文件到阿里云OSS`);
+        } catch (error) {
+          console.error('Upload error:', error);
+          setDropMessage('上传失败，请检查OSS配置');
+        }
       } else if (droppedText) {
         const newFile = {
           id: `f-${Date.now()}`,
@@ -81,6 +103,7 @@ export default function Dashboard() {
         setDropMessage('已导入文本内容，AI 正在分析...');
       }
 
+      setUploading(false);
       setTimeout(() => setDropMessage(''), 3000);
     },
     [addFile, addTimelineEvent]

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
+import { uploadToOSS } from '@/utils/oss';
 import {
   Search,
   Grid3X3,
@@ -13,6 +14,8 @@ import {
   Trash2,
   Tag,
   X,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 import type { FileFilter, ViewMode } from '@/types';
 
@@ -35,11 +38,13 @@ const fileColors: Record<string, string> = {
 };
 
 export default function Files() {
-  const { files, removeFile } = useAppStore();
+  const { files, removeFile, addFile, addTimelineEvent } = useAppStore();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FileFilter>('all');
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const allTags = [...new Set(files.flatMap((f) => f.tags))];
 
@@ -56,12 +61,71 @@ export default function Files() {
     );
   };
 
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(selectedFiles)) {
+        const { url } = await uploadToOSS(file);
+        const fileType = getFileType(file.name);
+        
+        addFile({
+          id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: fileType,
+          size: file.size,
+          tags: ['手动上传'],
+          url,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        addTimelineEvent({
+          id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          type: 'file_upload',
+          title: `上传了 ${file.name}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="font-serif text-2xl font-bold text-parchment-100">文件中心</h1>
-        <p className="text-sm text-parchment-400 mt-1">统一管理所有文件，支持全文搜索</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-serif text-2xl font-bold text-parchment-100">文件中心</h1>
+          <p className="text-sm text-parchment-400 mt-1">统一管理所有文件，支持全文搜索</p>
+        </div>
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="btn-primary flex items-center gap-2"
+        >
+          {uploading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <Upload className="w-4 h-4" />
+          )}
+          {uploading ? '上传中...' : '上传文件'}
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleUpload}
+          className="hidden"
+        />
       </div>
 
       {/* Search & Controls */}
@@ -243,4 +307,12 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function getFileType(name: string): 'document' | 'image' | 'pdf' | 'link' | 'email' | 'other' {
+  const ext = name.split('.').pop()?.toLowerCase() || '';
+  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) return 'image';
+  if (ext === 'pdf') return 'pdf';
+  if (['doc', 'docx', 'txt', 'md', 'xlsx', 'xls', 'ppt', 'pptx'].includes(ext)) return 'document';
+  return 'other';
 }

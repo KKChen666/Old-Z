@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 .vite
+
+# Environment variables (contains secrets - never commit!)
+.env
+.env.local
+.env.*.local
