@@ -60,7 +60,7 @@ router.get('/', async (_req: Request, res: Response) => {
 // 创建待办
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { id, title, description, priority, status, dueDate, tags, subtasks } = req.body;
+    const { id, title, description, priority, status, dueDate, tags, subtasks, fileIds } = req.body;
     const now = new Date();
 
     await pool.execute(
@@ -71,6 +71,12 @@ router.post('/', async (req: Request, res: Response) => {
     if (tags && tags.length > 0) {
       for (const tag of tags) {
         await pool.execute('INSERT IGNORE INTO todo_tags (todo_id, tag) VALUES (?, ?)', [id, tag]);
+      }
+    }
+
+    if (fileIds && fileIds.length > 0) {
+      for (const fileId of fileIds) {
+        await pool.execute('INSERT IGNORE INTO todo_files (todo_id, file_id) VALUES (?, ?)', [id, fileId]);
       }
     }
 
