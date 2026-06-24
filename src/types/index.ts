@@ -22,6 +22,7 @@ export interface Todo {
   fileIds: string[];
   noteIds: string[];
   subtasks: SubTask[];
+  isTodayTodo?: boolean;
   createdAt: string;
 }
 

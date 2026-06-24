@@ -4,6 +4,11 @@
 
 ```mermaid
 graph TB
+    subgraph Electron["Electron 桌面壳"]
+        M["Main Process（主进程）"]
+        R["Renderer Process（渲染进程）"]
+        P["Preload Script"]
+    end
     subgraph Frontend["前端层"]
         A["React + TypeScript + Tailwind CSS"]
         B["Zustand 状态管理"]
@@ -17,6 +22,9 @@ graph TB
     subgraph Data["数据层"]
         G["LocalStorage / Mock 数据"]
     end
+    M -->|"启动"| D
+    R -->|"加载"| A
+    P -->|"contextBridge"| R
     A --> D
     D --> G
     E --> G
@@ -25,13 +33,24 @@ graph TB
 
 ## 2. 技术描述
 
+- **桌面框架**：Electron（主进程 + 渲染进程架构）
 - **前端**：React 18 + TypeScript + Tailwind CSS 3 + Vite
-- **初始化工具**：vite-init
-- **后端**：Express.js（轻量 API 服务）
+- **后端**：Express.js（轻量 API 服务，由 Electron 主进程管理）
 - **数据库**：Mock 数据（前端 Zustand store + LocalStorage 持久化）
 - **UI 组件**：Lucide React 图标库
 - **状态管理**：Zustand
 - **路由**：React Router DOM v6
+- **打包**：electron-builder（NSIS 安装包）
+
+### 开发模式
+1. Vite 开发服务器（热更新，端口 5173）
+2. Express API 服务器（端口 3001）
+3. Electron 窗口加载 Vite 开发服务器 URL
+
+### 生产模式
+1. Vite 构建前端静态文件 → `dist/`
+2. TypeScript 编译 Electron 主进程 → `dist-electron/`
+3. Electron 加载本地 `dist/index.html`，同时启动 API 子进程
 
 ## 3. 路由定义
 

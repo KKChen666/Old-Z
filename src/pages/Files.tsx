@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { uploadToOSS } from '@/utils/oss';
 import {
@@ -16,8 +16,14 @@ import {
   Upload,
   Loader2,
   Download,
+  Eye,
+  ZoomIn,
+  ZoomOut,
+  RotateCw,
+  Maximize2,
+  CheckSquare,
 } from 'lucide-react';
-import type { FileFilter, ViewMode } from '@/types';
+import type { FileFilter, ViewMode, FileItem, Todo } from '@/types';
 
 const fileIcons: Record<string, typeof FileText> = {
   document: FileText,
@@ -51,14 +57,197 @@ function getFileType(name: string): 'document' | 'image' | 'pdf' | 'link' | 'ema
   return 'other';
 }
 
+function FilePreviewModal({ file, onClose }: { file: FileItem; onClose: () => void }) {
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [textContent, setTextContent] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
+  const [textError, setTextError] = useState(false);
+
+  const isImage = file.type === 'image';
+  const isPdf = file.name.split('.').pop()?.toLowerCase() === 'pdf';
+  const isText = ['txt', 'md', 'json', 'js', 'ts', 'tsx', 'jsx', 'css', 'html', 'xml', 'csv', 'log', 'yaml', 'yml'].includes(
+    file.name.split('.').pop()?.toLowerCase() || ''
+  );
+  const isDoc = ['doc', 'docx', 'xlsx', 'xls', 'ppt', 'pptx'].includes(
+    file.name.split('.').pop()?.toLowerCase() || ''
+  );
+  const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(file.name.split('.').pop()?.toLowerCase() || '');
+  const isAudio = ['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(file.name.split('.').pop()?.toLowerCase() || '');
+
+  useEffect(() => {
+    if (isText && file.url) {
+      setLoading(true);
+      setTextError(false);
+      fetch(file.url)
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        })
+        .then((text) => setTextContent(text))
+        .catch(() => setTextError(true))
+        .finally(() => setLoading(false));
+    }
+  }, [file.url, isText]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const handleDownload = () => {
+    if (!file.url) return;
+    const a = document.createElement('a');
+    a.href = file.url;
+    a.download = file.name;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  };
+
+  const renderFallback = (message: string) => (
+    <div className="flex flex-col items-center justify-center h-full text-parchment-400">
+      <FileIcon className="w-16 h-16 mb-4 text-ink-600" />
+      <p className="text-lg font-medium">{message}</p>
+      <div className="flex items-center gap-3 mt-4">
+        <button onClick={handleDownload} className="btn-primary flex items-center gap-2">
+          <Download className="w-4 h-4" /> 下载文件
+        </button>
+        {file.url && (
+          <a href={file.url} target="_blank" rel="noopener noreferrer" className="btn-ghost flex items-center gap-2">
+            <Maximize2 className="w-4 h-4" /> 新窗口打开
+          </a>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderPreview = () => {
+    if (!file.url) return renderFallback('该文件没有可用的链接');
+
+    if (isImage) {
+      if (imageError) return renderFallback('图片加载失败');
+      return (
+        <div className="flex items-center justify-center h-full overflow-auto p-8">
+          <img
+            src={file.url}
+            alt={file.name}
+            className="max-w-full max-h-full object-contain transition-transform duration-200"
+            style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
+            onError={() => setImageError(true)}
+          />
+        </div>
+      );
+    }
+
+    if (isPdf) {
+      return (
+        <div className="w-full h-full relative">
+          <iframe src={file.url} className="w-full h-full border-0" title={file.name} />
+          <div className="absolute bottom-4 right-4">
+            <button onClick={handleDownload} className="px-3 py-1.5 bg-ink-800/80 text-parchment-400 text-xs rounded-lg hover:bg-ink-700/80 transition-colors">
+              加载异常？点击下载
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (isVideo) {
+      return (
+        <div className="flex items-center justify-center h-full p-8">
+          <video src={file.url} controls className="max-w-full max-h-full rounded-lg">您的浏览器不支持视频播放</video>
+        </div>
+      );
+    }
+
+    if (isAudio) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full gap-6">
+          <FileText className="w-20 h-20 text-gold-400" />
+          <p className="text-parchment-200 font-medium">{file.name}</p>
+          <audio src={file.url} controls className="w-80">您的浏览器不支持音频播放</audio>
+        </div>
+      );
+    }
+
+    if (isText) {
+      if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-gold-400" /></div>;
+      if (textError) return renderFallback('无法加载文件内容（可能是跨域限制）');
+      return (
+        <div className="h-full overflow-auto p-6">
+          <pre className="text-parchment-200 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">{textContent}</pre>
+        </div>
+      );
+    }
+
+    if (isDoc) {
+      const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.url)}`;
+      return (
+        <div className="w-full h-full relative">
+          <iframe src={officeUrl} className="w-full h-full border-0" title={file.name} />
+          <div className="absolute bottom-4 right-4">
+            <button onClick={handleDownload} className="px-3 py-1.5 bg-ink-800/80 text-parchment-400 text-xs rounded-lg hover:bg-ink-700/80 transition-colors">
+              无法预览？点击下载
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return renderFallback('不支持预览此文件类型');
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <div className="relative w-[90vw] h-[85vh] max-w-5xl glass-card flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-ink-700/50">
+          <div className="flex items-center gap-3 min-w-0">
+            {(() => { const Icon = fileIcons[file.type] || FileIcon; return <Icon className="w-5 h-5 text-parchment-400 flex-shrink-0" />; })()}
+            <span className="text-parchment-100 font-medium truncate">{file.name}</span>
+            <span className="text-xs text-parchment-400 flex-shrink-0">{formatFileSize(file.size)}</span>
+          </div>
+          <div className="flex items-center gap-1">
+            {isImage && !imageError && (
+              <>
+                <button onClick={() => setZoom((z) => Math.max(0.25, z - 0.25))} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="缩小"><ZoomOut className="w-4 h-4" /></button>
+                <span className="text-xs text-parchment-400 w-12 text-center">{Math.round(zoom * 100)}%</span>
+                <button onClick={() => setZoom((z) => Math.min(4, z + 0.25))} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="放大"><ZoomIn className="w-4 h-4" /></button>
+                <button onClick={() => setRotation((r) => (r + 90) % 360)} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="旋转"><RotateCw className="w-4 h-4" /></button>
+                <button onClick={() => { setZoom(1); setRotation(0); }} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="重置"><Maximize2 className="w-4 h-4" /></button>
+              </>
+            )}
+            {file.url && <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="新窗口打开"><Maximize2 className="w-4 h-4" /></a>}
+            <button onClick={handleDownload} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="下载"><Download className="w-4 h-4" /></button>
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden bg-ink-950/50">{renderPreview()}</div>
+      </div>
+    </div>
+  );
+}
+
 export default function Files() {
-  const { files, removeFile, addFile, addTimelineEvent } = useAppStore();
+  const { files, removeFile, addFile, addTimelineEvent, addTodo } = useAppStore();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FileFilter>('all');
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showTodoForm, setShowTodoForm] = useState(false);
+  const [selectedFileForTodo, setSelectedFileForTodo] = useState<FileItem | null>(null);
+  const [todoTitle, setTodoTitle] = useState('');
+  const [todoPriority, setTodoPriority] = useState<Todo['priority']>('medium');
 
   const allTags = [...new Set(files.flatMap((f) => f.tags))];
 
@@ -73,6 +262,39 @@ export default function Files() {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+  };
+
+  const handleCreateTodoFromFile = (file: FileItem) => {
+    setSelectedFileForTodo(file);
+    setTodoTitle(`处理文件: ${file.name}`);
+    setShowTodoForm(true);
+  };
+
+  const confirmCreateTodo = () => {
+    if (!todoTitle.trim() || !selectedFileForTodo) return;
+    const todo: Todo = {
+      id: `t-${Date.now()}`,
+      title: todoTitle,
+      description: '',
+      priority: todoPriority,
+      status: 'pending',
+      tags: [],
+      fileIds: [selectedFileForTodo.id],
+      noteIds: [],
+      subtasks: [],
+      createdAt: new Date().toISOString(),
+    };
+    addTodo(todo);
+    addTimelineEvent({
+      id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      type: 'todo_created',
+      title: `创建了待办: ${todoTitle}`,
+      timestamp: new Date().toISOString(),
+    });
+    setShowTodoForm(false);
+    setSelectedFileForTodo(null);
+    setTodoTitle('');
+    setTodoPriority('medium');
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -231,6 +453,22 @@ export default function Files() {
                       <Icon className="w-5 h-5" />
                     </div>
                     <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleCreateTodoFromFile(file)}
+                        className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                        title="添加到待办"
+                      >
+                        <CheckSquare className="w-4 h-4" />
+                      </button>
+                      {file.url && (
+                        <button
+                          onClick={() => setPreviewFile(file)}
+                          className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                          title="预览"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                      )}
                       {file.url && (
                         <button
                           onClick={() => handleDownload(file)}
@@ -300,6 +538,22 @@ export default function Files() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleCreateTodoFromFile(file)}
+                            className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                            title="添加到待办"
+                          >
+                            <CheckSquare className="w-3.5 h-3.5" />
+                          </button>
+                          {file.url && (
+                            <button
+                              onClick={() => setPreviewFile(file)}
+                              className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                              title="预览"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           {file.url && (
                             <button
                               onClick={() => handleDownload(file)}
@@ -334,6 +588,73 @@ export default function Files() {
           </div>
         )}
       </div>
+
+      {/* Todo Creation Modal */}
+      {showTodoForm && selectedFileForTodo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in" onClick={() => setShowTodoForm(false)}>
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div className="relative w-full max-w-md glass-card p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-serif font-bold text-parchment-100">创建待办</h3>
+              <button onClick={() => setShowTodoForm(false)} className="p-1 rounded-md hover:bg-ink-800 text-parchment-400">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-3 p-3 bg-ink-800/40 rounded-lg">
+              <FileText className="w-5 h-5 text-parchment-400 flex-shrink-0" />
+              <span className="text-sm text-parchment-200 truncate">{selectedFileForTodo.name}</span>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs text-parchment-400">待办标题</label>
+              <input
+                type="text"
+                value={todoTitle}
+                onChange={(e) => setTodoTitle(e.target.value)}
+                className="input-field w-full"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs text-parchment-400">优先级</label>
+              <div className="flex gap-2">
+                {(['low', 'medium', 'high', 'urgent'] as const).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setTodoPriority(p)}
+                    className={`flex-1 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                      todoPriority === p
+                        ? p === 'urgent' || p === 'high'
+                          ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                          : p === 'medium'
+                          ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
+                          : 'bg-forest-400/20 text-forest-200 border border-forest-400/30'
+                        : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30 hover:text-parchment-200'
+                    }`}
+                  >
+                    {p === 'low' ? '低' : p === 'medium' ? '中' : p === 'high' ? '高' : '紧急'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <button onClick={confirmCreateTodo} className="btn-primary flex-1">
+                创建待办
+              </button>
+              <button onClick={() => setShowTodoForm(false)} className="btn-ghost flex-1">
+                取消
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewFile && (
+        <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
+      )}
     </div>
   );
 }

@@ -12,6 +12,7 @@ import {
   Paperclip,
   FileText,
   X,
+  Star,
 } from 'lucide-react';
 import type { TodoFilter, PriorityFilter, Todo } from '@/types';
 
@@ -63,11 +64,15 @@ export default function Todos() {
 
   const cycleStatus = (todo: Todo) => {
     const next: Record<string, Todo['status']> = {
-      pending: 'in_progress',
+      pending: 'completed',
       in_progress: 'completed',
       completed: 'pending',
     };
     updateTodo(todo.id, { status: next[todo.status] });
+  };
+
+  const toggleTodayTodo = (todo: Todo) => {
+    updateTodo(todo.id, { isTodayTodo: !todo.isTodayTodo });
   };
 
   const toggleFile = (fileId: string) => {
@@ -277,15 +282,16 @@ export default function Todos() {
             return (
               <div
                 key={todo.id}
-                className={`glass-card border-l-4 ${priorityColors[todo.priority]} animate-fade-in`}
+                className={`glass-card border-l-4 ${priorityColors[todo.priority]} animate-fade-in relative`}
                 style={{ animationDelay: `${index * 30}ms` }}
               >
+                {todo.status === 'completed' && (
+                  <div className="absolute left-4 right-4 top-1/2 h-[2px] bg-parchment-500/60 rounded-full z-10 pointer-events-none" />
+                )}
                 <div className="flex items-start gap-3 p-4">
                   <button onClick={() => cycleStatus(todo)} className="mt-0.5 flex-shrink-0">
                     {todo.status === 'completed' ? (
                       <CheckCircle2 className="w-5 h-5 text-forest-400" />
-                    ) : todo.status === 'in_progress' ? (
-                      <div className="w-5 h-5 rounded-full border-2 border-gold-400 border-t-transparent animate-spin" />
                     ) : (
                       <Circle className="w-5 h-5 text-ink-500 hover:text-gold-400 transition-colors" />
                     )}
@@ -366,12 +372,25 @@ export default function Todos() {
                     )}
                   </div>
 
-                  <button
-                    onClick={() => deleteTodo(todo.id)}
-                    className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors flex-shrink-0"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => toggleTodayTodo(todo)}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        todo.isTodayTodo
+                          ? 'text-gold-400 hover:text-gold-300'
+                          : 'text-parchment-400 hover:text-gold-400 hover:bg-ink-700/50'
+                      }`}
+                      title={todo.isTodayTodo ? '取消今日待办' : '设为今日待办'}
+                    >
+                      <Star className={`w-4 h-4 ${todo.isTodayTodo ? 'fill-gold-400' : ''}`} />
+                    </button>
+                    <button
+                      onClick={() => deleteTodo(todo.id)}
+                      className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             );

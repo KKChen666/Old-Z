@@ -37,6 +37,7 @@ const initDB = async () => {
         priority ENUM('low','medium','high','urgent') NOT NULL DEFAULT 'medium',
         status ENUM('pending','in_progress','completed') NOT NULL DEFAULT 'pending',
         due_date DATE,
+        is_today_todo BOOLEAN NOT NULL DEFAULT FALSE,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);

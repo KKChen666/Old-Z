@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { uploadToOSS } from '@/utils/oss';
 import {
@@ -11,13 +11,16 @@ import {
   AlertTriangle,
   TrendingUp,
   StickyNote,
+  FolderOpen,
 } from 'lucide-react';
+import type { Todo } from '@/types';
 
 export default function Dashboard() {
-  const { todos, files, notes, timeline, addFile, addTimelineEvent, loadData } = useAppStore();
+  const { todos, files, notes, timeline, addFile, addTimelineEvent, updateTodo, loadData } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [dropMessage, setDropMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadData();
@@ -25,9 +28,20 @@ export default function Dashboard() {
 
   const pendingTodos = todos.filter((t) => t.status !== 'completed');
   const urgentTodos = todos.filter((t) => t.priority === 'urgent' || t.priority === 'high');
+  const todayTodos = todos.filter((t) => t.isTodayTodo);
+  const todayPendingTodos = todayTodos.filter((t) => t.status !== 'completed');
   const recentFiles = files.slice(0, 4);
   const recentNotes = notes.slice(0, 3);
   const recentEvents = timeline.slice(0, 5);
+
+  const cycleTodoStatus = (todo: Todo) => {
+    const next: Record<string, Todo['status']> = {
+      pending: 'completed',
+      in_progress: 'completed',
+      completed: 'pending',
+    };
+    updateTodo(todo.id, { status: next[todo.status] });
+  };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -109,6 +123,58 @@ export default function Dashboard() {
     [addFile, addTimelineEvent]
   );
 
+  const handleFileSelect = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const selectedFiles = e.target.files;
+      if (!selectedFiles || selectedFiles.length === 0) return;
+
+      setUploading(true);
+      setDropMessage(`正在上传 ${selectedFiles.length} 个文件到云端...`);
+
+      try {
+        const uploadPromises = Array.from(selectedFiles).map(async (file) => {
+          const fileType = getFileType(file.name);
+          const { url } = await uploadToOSS(file);
+
+          const newFile = {
+            id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            name: file.name,
+            type: fileType,
+            size: file.size,
+            tags: ['本地上传'],
+            url,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          addFile(newFile);
+          addTimelineEvent({
+            id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+            type: 'file_upload',
+            title: `上传了 ${file.name}`,
+            relatedId: newFile.id,
+            timestamp: new Date().toISOString(),
+          });
+
+          return newFile;
+        });
+
+        await Promise.all(uploadPromises);
+        setDropMessage(`已成功上传 ${selectedFiles.length} 个文件`);
+      } catch (error) {
+        console.error('Upload error:', error);
+        setDropMessage('上传失败，请检查网络或OSS配置');
+      } finally {
+        setUploading(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+        setTimeout(() => setDropMessage(''), 3000);
+      }
+    },
+    [addFile, addTimelineEvent]
+  );
+
   return (
     <div
       className="p-6 max-w-7xl mx-auto space-y-6"
@@ -134,19 +200,38 @@ export default function Dashboard() {
 
       {/* Drop Zone */}
       <div
-        className={`drop-zone p-8 text-center transition-all duration-300 ${
+        className={`drop-zone p-8 text-center transition-all duration-300 cursor-pointer ${
           isDragging ? 'drop-zone-active' : 'hover:border-ink-500'
         }`}
+        onClick={() => fileInputRef.current?.click()}
       >
         <div className={`transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`}>
           <Upload className={`w-10 h-10 mx-auto mb-3 ${isDragging ? 'text-gold-400' : 'text-ink-500'} transition-colors`} />
           <p className={`text-lg font-medium ${isDragging ? 'text-gold-400' : 'text-parchment-300'}`}>
-            {isDragging ? '释放以导入内容' : '拖拽任何内容到这里'}
+            {uploading ? '正在上传...' : isDragging ? '释放以导入内容' : '拖拽文件到这里，或点击选择文件'}
           </p>
           <p className="text-sm text-ink-400 mt-1">
             支持文件、图片、PDF、网页链接、邮件等
           </p>
+          <button
+            className="btn-primary mt-4 inline-flex items-center gap-2"
+            disabled={uploading}
+            onClick={(e) => {
+              e.stopPropagation();
+              fileInputRef.current?.click();
+            }}
+          >
+            <FolderOpen className="w-4 h-4" />
+            选择本地文件
+          </button>
         </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          multiple
+          onChange={handleFileSelect}
+          className="hidden"
+        />
         {dropMessage && (
           <div className="mt-4 px-4 py-2 bg-forest-800/40 rounded-lg text-forest-200 text-sm animate-fade-in">
             <Sparkles className="w-4 h-4 inline mr-1" />
@@ -183,52 +268,62 @@ export default function Dashboard() {
             <h2 className="font-serif text-lg font-semibold text-parchment-100">
               今日待办
             </h2>
-            <span className="text-xs text-parchment-400">{pendingTodos.length} 项待处理</span>
+            <span className="text-xs text-parchment-400">{todayPendingTodos.length} 项待处理</span>
           </div>
           <div className="space-y-3">
-            {todos.slice(0, 5).map((todo) => (
-              <div
-                key={todo.id}
-                className="flex items-start gap-3 p-3 rounded-lg bg-ink-800/40 hover:bg-ink-800/60 transition-colors group"
-              >
-                <div className="mt-0.5">
-                  {todo.status === 'completed' ? (
-                    <CheckCircle2 className="w-5 h-5 text-forest-400" />
-                  ) : (
-                    <Circle className="w-5 h-5 text-ink-500 group-hover:text-gold-400 transition-colors" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${todo.status === 'completed' ? 'line-through text-parchment-500' : 'text-parchment-100'}`}>
-                    {todo.title}
-                  </p>
-                  {todo.description && (
-                    <p className="text-xs text-parchment-400 mt-0.5 truncate">
-                      {todo.description}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2 mt-2">
-                    <span className={`tag text-[10px] ${
-                      todo.priority === 'high' ? 'priority-high' :
-                      todo.priority === 'medium' ? 'priority-medium' : 'priority-low'
-                    }`}>
-                      {todo.priority === 'high' ? '高' : todo.priority === 'medium' ? '中' : '低'}
-                    </span>
-                    {todo.dueDate && (
-                      <span className="flex items-center gap-1 text-[10px] text-parchment-400">
-                        <Clock className="w-3 h-3" />
-                        {todo.dueDate}
-                      </span>
-                    )}
-                    {todo.subtasks.length > 0 && (
-                      <span className="text-[10px] text-parchment-400">
-                        {todo.subtasks.filter((s) => s.done).length}/{todo.subtasks.length} 子任务
-                      </span>
+            {todayTodos.length === 0 ? (
+              <div className="text-center py-8">
+                <CheckCircle2 className="w-10 h-10 text-ink-600 mx-auto mb-2" />
+                <p className="text-sm text-parchment-400">暂无今日待办</p>
+                <p className="text-xs text-ink-500 mt-1">在待办管理中点击星标添加</p>
+              </div>
+            ) : (
+              todayTodos.map((todo) => (
+                <div
+                  key={todo.id}
+                  className="flex items-start gap-3 p-3 rounded-lg bg-ink-800/40 hover:bg-ink-800/60 transition-colors group cursor-pointer"
+                  onClick={() => cycleTodoStatus(todo)}
+                >
+                  <div className="mt-0.5">
+                    {todo.status === 'completed' ? (
+                      <CheckCircle2 className="w-5 h-5 text-forest-400" />
+                    ) : (
+                      <Circle className="w-5 h-5 text-ink-500 group-hover:text-gold-400 transition-colors" />
                     )}
                   </div>
+                  <div className="flex-1 min-w-0">
+                    <p className={`text-sm font-medium ${todo.status === 'completed' ? 'line-through text-parchment-500' : 'text-parchment-100'}`}>
+                      {todo.title}
+                    </p>
+                    {todo.description && (
+                      <p className="text-xs text-parchment-400 mt-0.5 truncate">
+                        {todo.description}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className={`tag text-[10px] ${
+                        todo.priority === 'urgent' ? 'priority-high' :
+                        todo.priority === 'high' ? 'priority-high' :
+                        todo.priority === 'medium' ? 'priority-medium' : 'priority-low'
+                      }`}>
+                        {todo.priority === 'urgent' ? '紧急' : todo.priority === 'high' ? '高' : todo.priority === 'medium' ? '中' : '低'}
+                      </span>
+                      {todo.dueDate && (
+                        <span className="flex items-center gap-1 text-[10px] text-parchment-400">
+                          <Clock className="w-3 h-3" />
+                          {todo.dueDate}
+                        </span>
+                      )}
+                      {todo.subtasks.length > 0 && (
+                        <span className="text-[10px] text-parchment-400">
+                          {todo.subtasks.filter((s) => s.done).length}/{todo.subtasks.length} 子任务
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

@@ -1,4 +1,10 @@
-const API_BASE = '/api';
+// In Electron production mode (file:// protocol), API requests must go directly to the backend
+// In dev mode, Vite proxy handles /api → localhost:3001
+const isElectronProd = typeof window !== 'undefined'
+  && (window as any).electronAPI?.isElectron
+  && window.location.protocol === 'file:';
+
+const API_BASE = isElectronProd ? 'http://localhost:3001/api' : '/api';
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {

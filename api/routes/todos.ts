@@ -47,6 +47,7 @@ router.get('/', async (_req: Request, res: Response) => {
       fileIds: fileMap.get(t.id) || [],
       noteIds: noteMap.get(t.id) || [],
       subtasks: subtaskMap.get(t.id) || [],
+      isTodayTodo: !!t.is_today_todo,
       createdAt: t.created_at,
     }));
 
@@ -60,12 +61,12 @@ router.get('/', async (_req: Request, res: Response) => {
 // 创建待办
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { id, title, description, priority, status, dueDate, tags, subtasks, fileIds } = req.body;
+    const { id, title, description, priority, status, dueDate, isTodayTodo, tags, subtasks, fileIds } = req.body;
     const now = new Date();
 
     await pool.execute(
-      'INSERT INTO todos (id, title, description, priority, status, due_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description || null, priority || 'medium', status || 'pending', dueDate || null, now]
+      'INSERT INTO todos (id, title, description, priority, status, due_date, is_today_todo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, title, description || null, priority || 'medium', status || 'pending', dueDate || null, isTodayTodo || false, now]
     );
 
     if (tags && tags.length > 0) {
@@ -96,7 +97,7 @@ router.post('/', async (req: Request, res: Response) => {
 // 更新待办
 router.patch('/:id', async (req: Request, res: Response) => {
   try {
-    const { title, description, priority, status, dueDate } = req.body;
+    const { title, description, priority, status, dueDate, isTodayTodo } = req.body;
     const fields: string[] = [];
     const values: any[] = [];
 
@@ -105,6 +106,7 @@ router.patch('/:id', async (req: Request, res: Response) => {
     if (priority !== undefined) { fields.push('priority = ?'); values.push(priority); }
     if (status !== undefined) { fields.push('status = ?'); values.push(status); }
     if (dueDate !== undefined) { fields.push('due_date = ?'); values.push(dueDate); }
+    if (isTodayTodo !== undefined) { fields.push('is_today_todo = ?'); values.push(isTodayTodo); }
 
     if (fields.length > 0) {
       values.push(req.params.id);
