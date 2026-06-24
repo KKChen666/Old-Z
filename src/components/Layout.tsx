@@ -1,4 +1,4 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import {
   LayoutDashboard,
@@ -11,6 +11,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Zap,
+  LogOut,
+  User,
 } from 'lucide-react';
 
 const navItems = [
@@ -24,7 +26,13 @@ const navItems = [
 ];
 
 export default function Layout() {
-  const { sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { sidebarCollapsed, toggleSidebar, user, logout } = useAppStore();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div className="flex h-screen overflow-hidden">
@@ -68,6 +76,34 @@ export default function Layout() {
             </NavLink>
           ))}
         </nav>
+
+        {/* User info & logout */}
+        {user && (
+          <div className="px-2 py-2 border-t border-ink-800/50">
+            <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${sidebarCollapsed ? 'justify-center' : ''}`}>
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gold-400 to-forest-500 flex items-center justify-center flex-shrink-0">
+                <User className="w-4 h-4 text-ink-950" />
+              </div>
+              {!sidebarCollapsed && (
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-parchment-100 truncate">
+                    {user.displayName || user.username}
+                  </p>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleLogout}
+              className={`w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-parchment-400 hover:bg-red-500/10 hover:text-red-400 transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
+              title="退出登录"
+            >
+              <LogOut className="w-4 h-4 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <span className="text-sm">退出登录</span>
+              )}
+            </button>
+          </div>
+        )}
 
         {/* Collapse button */}
         <div className="p-2 border-t border-ink-800/50">

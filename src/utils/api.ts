@@ -6,11 +6,39 @@ const isElectronProd = typeof window !== 'undefined'
 
 const API_BASE = isElectronProd ? 'http://localhost:3001/api' : '/api';
 
+export function getToken() {
+  return localStorage.getItem('old-z-token');
+}
+
+export function saveAuth(token: string) {
+  localStorage.setItem('old-z-token', token);
+}
+
+export function clearAuth() {
+  localStorage.removeItem('old-z-token');
+}
+
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = getToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
     ...options,
+    headers: {
+      ...headers,
+      ...options?.headers,
+    },
   });
+
+  if (res.status === 401) {
+    clearAuth();
+    window.dispatchEvent(new CustomEvent('auth-expired'));
+    throw new Error('认证已过期，请重新登录');
+  }
+
   if (!res.ok) throw new Error(`API error: ${res.status}`);
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Unknown error');
@@ -18,6 +46,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  // Auth
+  register: (username: string, password: string, displayName?: string) =>
+    request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
+  login: (username: string, password: string) =>
+    request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
+  getMe: () =>
+    request<{ id: string; username: string; displayName: string }>('/auth/me'),
+
   // Files
   getFiles: () => request<any[]>('/files'),
   createFile: (file: any) => request<any>('/files', { method: 'POST', body: JSON.stringify(file) }),

@@ -1,12 +1,14 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Response } from 'express';
 import pool from '../db.js';
+import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
+router.use(authMiddleware);
 
 // 获取所有时间轴事件
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [events] = await pool.execute('SELECT * FROM timeline_events ORDER BY timestamp DESC');
+    const [events] = await pool.execute('SELECT * FROM timeline_events WHERE user_id = ? ORDER BY timestamp DESC', [req.userId]);
 
     const result = (events as any[]).map((e) => ({
       id: e.id,
@@ -25,14 +27,14 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // 创建时间轴事件
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { id, type, title, description, relatedId } = req.body;
     const now = new Date();
 
     await pool.execute(
-      'INSERT INTO timeline_events (id, type, title, description, related_id, timestamp) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, type, title, description || null, relatedId || null, now]
+      'INSERT INTO timeline_events (id, type, title, description, related_id, timestamp, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [id, type, title, description || null, relatedId || null, now, req.userId]
     );
 
     res.json({ success: true, data: { id, type, title, description, relatedId, timestamp: now } });

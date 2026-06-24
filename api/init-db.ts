@@ -161,6 +161,34 @@ const initDB = async () => {
       )
     `);
 
+    // 用户表
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(64) PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        password_hash VARCHAR(255) NOT NULL,
+        display_name VARCHAR(200),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // 为现有表添加 user_id 列（忽略已存在的列）
+    const tablesWithUserId = ['files', 'todos', 'notes', 'chat_messages', 'timeline_events'];
+    for (const table of tablesWithUserId) {
+      try {
+        await conn.execute(`ALTER TABLE ${table} ADD COLUMN user_id VARCHAR(64)`);
+      } catch (e: any) {
+        // 错误码 1060 = Duplicate column name，说明列已存在
+        if (e.errno !== 1060) throw e;
+      }
+      try {
+        await conn.execute(`CREATE INDEX idx_${table}_user_id ON ${table} (user_id)`);
+      } catch (e: any) {
+        // 错误码 1061 = Duplicate key name，说明索引已存在
+        if (e.errno !== 1061) throw e;
+      }
+    }
+
     console.log('Database tables initialized successfully!');
   } catch (error) {
     console.error('Database init error:', error);

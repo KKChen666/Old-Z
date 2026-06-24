@@ -1,13 +1,15 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Response } from 'express';
 import pool from '../db.js';
+import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
+router.use(authMiddleware);
 
 // 获取所有文件
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [files] = await pool.execute('SELECT * FROM files ORDER BY created_at DESC');
-    const [tags] = await pool.execute('SELECT * FROM file_tags');
+    const [files] = await pool.execute('SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC', [req.userId]);
+    const [tags] = await pool.execute('SELECT ft.* FROM file_tags ft JOIN files f ON ft.file_id = f.id WHERE f.user_id = ?', [req.userId]);
 
     const tagMap = new Map<string, string[]>();
     (tags as any[]).forEach((t) => {
@@ -36,14 +38,14 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // 创建文件
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { id, name, type, size, tags, content, thumbnail, url } = req.body;
     const now = new Date();
 
     await pool.execute(
-      'INSERT INTO files (id, name, type, size, content, thumbnail, url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, name, type || 'other', size || 0, content || null, thumbnail || null, url || null, now, now]
+      'INSERT INTO files (id, name, type, size, content, thumbnail, url, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, name, type || 'other', size || 0, content || null, thumbnail || null, url || null, now, now, req.userId]
     );
 
     if (tags && tags.length > 0) {
@@ -61,9 +63,9 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // 删除文件
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    await pool.execute('DELETE FROM files WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM files WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /files error:', error);

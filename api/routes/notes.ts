@@ -1,15 +1,17 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Response } from 'express';
 import pool from '../db.js';
+import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
+router.use(authMiddleware);
 
 // 获取所有笔记
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [notes] = await pool.execute('SELECT * FROM notes ORDER BY updated_at DESC');
-    const [tags] = await pool.execute('SELECT * FROM note_tags');
-    const [noteFiles] = await pool.execute('SELECT * FROM note_files');
-    const [noteTodos] = await pool.execute('SELECT * FROM note_todos');
+    const [notes] = await pool.execute('SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC', [req.userId]);
+    const [tags] = await pool.execute('SELECT nt.* FROM note_tags nt JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?', [req.userId]);
+    const [noteFiles] = await pool.execute('SELECT nf.* FROM note_files nf JOIN notes n ON nf.note_id = n.id WHERE n.user_id = ?', [req.userId]);
+    const [noteTodos] = await pool.execute('SELECT ntd.* FROM note_todos ntd JOIN notes n ON ntd.note_id = n.id WHERE n.user_id = ?', [req.userId]);
 
     const tagMap = new Map<string, string[]>();
     (tags as any[]).forEach((t) => {
@@ -48,14 +50,14 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // 创建笔记
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { id, title, content, tags } = req.body;
     const now = new Date();
 
     await pool.execute(
-      'INSERT INTO notes (id, title, content, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
-      [id, title, content || '', now, now]
+      'INSERT INTO notes (id, title, content, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?, ?)',
+      [id, title, content || '', now, now, req.userId]
     );
 
     if (tags && tags.length > 0) {
@@ -72,7 +74,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // 更新笔记
-router.patch('/:id', async (req: Request, res: Response) => {
+router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { title, content } = req.body;
     const fields: string[] = [];
@@ -82,8 +84,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
     if (content !== undefined) { fields.push('content = ?'); values.push(content); }
 
     if (fields.length > 0) {
-      values.push(req.params.id);
-      await pool.execute(`UPDATE notes SET ${fields.join(', ')} WHERE id = ?`, values);
+      values.push(req.params.id, req.userId);
+      await pool.execute(`UPDATE notes SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, values);
     }
 
     res.json({ success: true });
@@ -94,9 +96,9 @@ router.patch('/:id', async (req: Request, res: Response) => {
 });
 
 // 删除笔记
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    await pool.execute('DELETE FROM notes WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /notes error:', error);

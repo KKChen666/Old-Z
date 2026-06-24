@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import type { FileItem, Todo, Note, ChatMessage, TimelineEvent } from '@/types';
-import { api } from '@/utils/api';
+import { api, clearAuth } from '@/utils/api';
 
 interface AppState {
+  user: { id: string; username: string; displayName: string } | null;
+  authChecked: boolean;
   files: FileItem[];
   todos: Todo[];
   notes: Note[];
@@ -11,6 +13,8 @@ interface AppState {
   sidebarCollapsed: boolean;
   loaded: boolean;
 
+  setUser: (user: { id: string; username: string; displayName: string } | null) => void;
+  logout: () => void;
   loadData: () => Promise<void>;
   toggleSidebar: () => void;
   addFile: (file: FileItem) => void;
@@ -27,6 +31,8 @@ interface AppState {
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
+  user: null,
+  authChecked: false,
   files: [],
   todos: [],
   notes: [],
@@ -35,8 +41,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   sidebarCollapsed: false,
   loaded: false,
 
+  setUser: (user) => set({ user }),
+
+  logout: () => {
+    clearAuth();
+    set({ user: null, loaded: false });
+  },
+
   loadData: async () => {
-    if (get().loaded) return;
+    if (get().loaded || !get().user) return;
     try {
       const [files, todos, notes, chatMessages, timeline] = await Promise.all([
         api.getFiles(),

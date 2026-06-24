@@ -1,16 +1,18 @@
-import { Router, type Request, type Response } from 'express';
+import { Router, type Response } from 'express';
 import pool from '../db.js';
+import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
+router.use(authMiddleware);
 
 // 获取所有待办
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [todos] = await pool.execute('SELECT * FROM todos ORDER BY created_at DESC');
-    const [tags] = await pool.execute('SELECT * FROM todo_tags');
-    const [subtasks] = await pool.execute('SELECT * FROM subtasks');
-    const [todoFiles] = await pool.execute('SELECT * FROM todo_files');
-    const [todoNotes] = await pool.execute('SELECT * FROM todo_notes');
+    const [todos] = await pool.execute('SELECT * FROM todos WHERE user_id = ? ORDER BY created_at DESC', [req.userId]);
+    const [tags] = await pool.execute('SELECT tt.* FROM todo_tags tt JOIN todos t ON tt.todo_id = t.id WHERE t.user_id = ?', [req.userId]);
+    const [subtasks] = await pool.execute('SELECT s.* FROM subtasks s JOIN todos t ON s.todo_id = t.id WHERE t.user_id = ?', [req.userId]);
+    const [todoFiles] = await pool.execute('SELECT tf.* FROM todo_files tf JOIN todos t ON tf.todo_id = t.id WHERE t.user_id = ?', [req.userId]);
+    const [todoNotes] = await pool.execute('SELECT tn.* FROM todo_notes tn JOIN todos t ON tn.todo_id = t.id WHERE t.user_id = ?', [req.userId]);
 
     const tagMap = new Map<string, string[]>();
     (tags as any[]).forEach((t) => {
@@ -59,14 +61,14 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // 创建待办
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { id, title, description, priority, status, dueDate, isTodayTodo, tags, subtasks, fileIds } = req.body;
     const now = new Date();
 
     await pool.execute(
-      'INSERT INTO todos (id, title, description, priority, status, due_date, is_today_todo, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [id, title, description || null, priority || 'medium', status || 'pending', dueDate || null, isTodayTodo || false, now]
+      'INSERT INTO todos (id, title, description, priority, status, due_date, is_today_todo, created_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [id, title, description || null, priority || 'medium', status || 'pending', dueDate || null, isTodayTodo || false, now, req.userId]
     );
 
     if (tags && tags.length > 0) {
@@ -95,7 +97,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // 更新待办
-router.patch('/:id', async (req: Request, res: Response) => {
+router.patch('/:id', async (req: AuthRequest, res: Response) => {
   try {
     const { title, description, priority, status, dueDate, isTodayTodo } = req.body;
     const fields: string[] = [];
@@ -109,8 +111,8 @@ router.patch('/:id', async (req: Request, res: Response) => {
     if (isTodayTodo !== undefined) { fields.push('is_today_todo = ?'); values.push(isTodayTodo); }
 
     if (fields.length > 0) {
-      values.push(req.params.id);
-      await pool.execute(`UPDATE todos SET ${fields.join(', ')} WHERE id = ?`, values);
+      values.push(req.params.id, req.userId);
+      await pool.execute(`UPDATE todos SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, values);
     }
 
     res.json({ success: true });
@@ -121,9 +123,12 @@ router.patch('/:id', async (req: Request, res: Response) => {
 });
 
 // 切换子任务状态
-router.patch('/:todoId/subtasks/:subtaskId', async (req: Request, res: Response) => {
+router.patch('/:todoId/subtasks/:subtaskId', async (req: AuthRequest, res: Response) => {
   try {
-    await pool.execute('UPDATE subtasks SET done = NOT done WHERE id = ? AND todo_id = ?', [req.params.subtaskId, req.params.todoId]);
+    await pool.execute(
+      'UPDATE subtasks s JOIN todos t ON s.todo_id = t.id SET s.done = NOT s.done WHERE s.id = ? AND s.todo_id = ? AND t.user_id = ?',
+      [req.params.subtaskId, req.params.todoId, req.userId]
+    );
     res.json({ success: true });
   } catch (error) {
     console.error('PATCH subtask error:', error);
@@ -132,9 +137,9 @@ router.patch('/:todoId/subtasks/:subtaskId', async (req: Request, res: Response)
 });
 
 // 删除待办
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    await pool.execute('DELETE FROM todos WHERE id = ?', [req.params.id]);
+    await pool.execute('DELETE FROM todos WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /todos error:', error);

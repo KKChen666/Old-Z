@@ -1,33 +1,131 @@
-/**
- * This is a user authentication API route demo.
- * Handle user registration, login, token management, etc.
- */
 import { Router, type Request, type Response } from 'express'
+import bcrypt from 'bcryptjs'
+import crypto from 'node:crypto'
+import pool from '../db.js'
+import { generateToken, authMiddleware, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
 
 /**
- * User Login
+ * 用户注册
  * POST /api/auth/register
  */
 router.post('/register', async (req: Request, res: Response): Promise<void> => {
-  // TODO: Implement register logic
+  try {
+    const { username, password, displayName } = req.body
+
+    if (!username || typeof username !== 'string' || username.length < 3 || username.length > 50) {
+      res.status(400).json({ success: false, error: '用户名长度需要在 3-50 个字符之间' })
+      return
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
+      res.status(400).json({ success: false, error: '密码长度至少为 6 个字符' })
+      return
+    }
+
+    // 检查用户名是否已存在
+    const [existing] = await pool.execute('SELECT id FROM users WHERE username = ?', [username])
+    if ((existing as any[]).length > 0) {
+      res.status(409).json({ success: false, error: '用户名已存在' })
+      return
+    }
+
+    const id = crypto.randomUUID()
+    const passwordHash = await bcrypt.hash(password, 10)
+
+    await pool.execute(
+      'INSERT INTO users (id, username, password_hash, display_name) VALUES (?, ?, ?, ?)',
+      [id, username, passwordHash, displayName || username]
+    )
+
+    const token = generateToken(id)
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        user: { id, username, displayName: displayName || username },
+      },
+    })
+  } catch (error) {
+    console.error('POST /auth/register error:', error)
+    res.status(500).json({ success: false, error: '注册失败' })
+  }
 })
 
 /**
- * User Login
+ * 用户登录
  * POST /api/auth/login
  */
 router.post('/login', async (req: Request, res: Response): Promise<void> => {
-  // TODO: Implement login logic
+  try {
+    const { username, password } = req.body
+
+    if (!username || !password) {
+      res.status(400).json({ success: false, error: '用户名和密码不能为空' })
+      return
+    }
+
+    const [rows] = await pool.execute('SELECT * FROM users WHERE username = ?', [username])
+    const users = rows as any[]
+
+    if (users.length === 0) {
+      res.status(401).json({ success: false, error: '用户名或密码错误' })
+      return
+    }
+
+    const user = users[0]
+    const valid = await bcrypt.compare(password, user.password_hash)
+
+    if (!valid) {
+      res.status(401).json({ success: false, error: '用户名或密码错误' })
+      return
+    }
+
+    const token = generateToken(user.id)
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        user: { id: user.id, username: user.username, displayName: user.display_name },
+      },
+    })
+  } catch (error) {
+    console.error('POST /auth/login error:', error)
+    res.status(500).json({ success: false, error: '登录失败' })
+  }
 })
 
 /**
- * User Logout
- * POST /api/auth/logout
+ * 获取当前用户信息
+ * GET /api/auth/me
  */
-router.post('/logout', async (req: Request, res: Response): Promise<void> => {
-  // TODO: Implement logout logic
+router.get('/me', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const [rows] = await pool.execute('SELECT id, username, display_name, created_at FROM users WHERE id = ?', [req.userId])
+    const users = rows as any[]
+
+    if (users.length === 0) {
+      res.status(404).json({ success: false, error: '用户不存在' })
+      return
+    }
+
+    const user = users[0]
+    res.json({
+      success: true,
+      data: {
+        id: user.id,
+        username: user.username,
+        displayName: user.display_name,
+        createdAt: user.created_at,
+      },
+    })
+  } catch (error) {
+    console.error('GET /auth/me error:', error)
+    res.status(500).json({ success: false, error: '获取用户信息失败' })
+  }
 })
 
 export default router
