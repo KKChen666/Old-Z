@@ -42,7 +42,14 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     throw new Error('认证已过期，请重新登录');
   }
 
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  if (!res.ok) {
+    let errorMsg = `API error: ${res.status}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.error) errorMsg = errorData.error;
+    } catch {}
+    throw new Error(errorMsg);
+  }
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Unknown error');
   return data.data;
