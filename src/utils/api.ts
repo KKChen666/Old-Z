@@ -63,6 +63,8 @@ export const api = {
     request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   getMe: () =>
     request<{ id: string; username: string; displayName: string }>('/auth/me'),
+  resetPassword: (username: string, newPassword: string) =>
+    request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ username, newPassword }) }),
 
   // Files
   getFiles: () => request<any[]>('/files'),

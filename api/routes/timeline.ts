@@ -8,7 +8,7 @@ router.use(authMiddleware);
 // 获取所有时间轴事件
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [events] = await pool.execute('SELECT * FROM timeline_events WHERE user_id = ? ORDER BY timestamp DESC', [req.userId]);
+    const [events] = await pool.execute('SELECT * FROM timeline_events WHERE user_id = ? ORDER BY timestamp DESC', [req.userId!]);
 
     const result = (events as any[]).map((e) => ({
       id: e.id,
@@ -46,7 +46,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     await pool.execute(
       'INSERT INTO timeline_events (id, type, title, description, related_id, timestamp, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [id, type, title, description || null, relatedId || null, now, req.userId]
+      [id, type, title, description || null, relatedId || null, now, req.userId!]
     );
 
     res.json({ success: true, data: { id, type, title, description, relatedId, timestamp: now } });

@@ -8,8 +8,8 @@ router.use(authMiddleware);
 // 获取所有文件
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [files] = await pool.execute('SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC', [req.userId]);
-    const [tags] = await pool.execute('SELECT ft.* FROM file_tags ft JOIN files f ON ft.file_id = f.id WHERE f.user_id = ?', [req.userId]);
+    const [files] = await pool.execute('SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC', [req.userId!]);
+    const [tags] = await pool.execute('SELECT ft.* FROM file_tags ft JOIN files f ON ft.file_id = f.id WHERE f.user_id = ?', [req.userId!]);
 
     const tagMap = new Map<string, string[]>();
     (tags as any[]).forEach((t) => {
@@ -77,7 +77,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 // 删除文件
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const [result] = await pool.execute('DELETE FROM files WHERE id = ? AND user_id = ?', [req.params.id, req.userId]) as any;
+    const [result] = await pool.execute('DELETE FROM files WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
     if (result.affectedRows === 0) {
       res.status(404).json({ success: false, error: '文件不存在' });
       return;

@@ -12,8 +12,33 @@ import {
   TrendingUp,
   StickyNote,
   FolderOpen,
+  CalendarDays,
+  AlertCircle,
 } from 'lucide-react';
 import type { Todo } from '@/types';
+
+function todayStr(): string {
+  return new Date().toISOString().split('T')[0];
+}
+
+function getDateLabel(dateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(dateStr + 'T00:00:00');
+  date.setHours(0, 0, 0, 0);
+  const diff = Math.floor((date.getTime() - today.getTime()) / 86400000);
+  if (diff === 0) return '今天';
+  if (diff === 1) return '明天';
+  if (diff === -1) return '昨天';
+  if (diff < -1) return `${Math.abs(diff)} 天前`;
+  if (diff <= 7) return `${diff} 天后`;
+  return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+}
+
+function isOverdue(todo: Todo): boolean {
+  if (!todo.dueDate || todo.status === 'completed') return false;
+  return todo.dueDate < todayStr();
+}
 
 export default function Dashboard() {
   const { todos, files, notes, timeline, addFile, addTimelineEvent, updateTodo, loadData } = useAppStore();
@@ -26,22 +51,47 @@ export default function Dashboard() {
     loadData();
   }, [loadData]);
 
+  const today = todayStr();
+
+  // Overdue todos
+  const overdueTodos = todos.filter((t) => isOverdue(t));
+
+  // Today's todos: dueDate=today OR isTodayTodo
+  const todayTodos = todos.filter((t) => (t.dueDate === today || t.isTodayTodo) && t.status !== 'completed');
+
+  // Upcoming: next 7 days, grouped by date
+  const upcomingDays: { dateKey: string; label: string; todos: Todo[] }[] = [];
+  for (let i = 1; i <= 7; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const dateKey = d.toISOString().split('T')[0];
+    const dayTodos = todos.filter((t) => t.dueDate === dateKey && t.status !== 'completed');
+    if (dayTodos.length > 0) {
+      upcomingDays.push({
+        dateKey,
+        label: d.toLocaleDateString('zh-CN', { weekday: 'short', month: 'short', day: 'numeric' }),
+        todos: dayTodos,
+      });
+    }
+  }
+
+  // Recent activity (files + notes + todos by createdAt, last 7 days)
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const recentFiles = files.filter((f) => new Date(f.createdAt) > weekAgo).slice(0, 5);
+  const recentNotes = notes.filter((n) => new Date(n.updatedAt || n.createdAt) > weekAgo).slice(0, 5);
+
+  // Stats
   const pendingTodos = todos.filter((t) => t.status !== 'completed');
-  const urgentTodos = todos.filter((t) => t.priority === 'urgent' || t.priority === 'high');
-  const todayTodos = todos.filter((t) => t.isTodayTodo);
-  const todayPendingTodos = todayTodos.filter((t) => t.status !== 'completed');
-  const recentFiles = files.slice(0, 4);
-  const recentNotes = notes.slice(0, 3);
-  const recentEvents = timeline.slice(0, 5);
+  const urgentTodos = todos.filter((t) => (t.priority === 'urgent' || t.priority === 'high') && t.status !== 'completed');
+  const completedToday = todos.filter((t) => t.status === 'completed' && t.dueDate === today);
 
   const cycleTodoStatus = (todo: Todo) => {
-    const next: Record<string, Todo['status']> = {
-      pending: 'completed',
-      in_progress: 'completed',
-      completed: 'pending',
-    };
+    const next: Record<string, Todo['status']> = { pending: 'completed', in_progress: 'completed', completed: 'pending' };
     updateTodo(todo.id, { status: next[todo.status] });
   };
+
+  const priorityLabels: Record<string, string> = { urgent: '紧急', high: '高', medium: '中', low: '低' };
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -61,62 +111,43 @@ export default function Dashboard() {
       e.stopPropagation();
       setIsDragging(false);
       setUploading(true);
-
       const droppedFiles = Array.from(e.dataTransfer.files);
       const droppedText = e.dataTransfer.getData('text/plain');
 
       if (droppedFiles.length > 0) {
         setDropMessage(`正在上传 ${droppedFiles.length} 个文件到云端...`);
-        
         try {
-          const uploadPromises = droppedFiles.map(async (file) => {
+          await Promise.all(droppedFiles.map(async (file) => {
             const fileType = getFileType(file.name);
-            const { url, key } = await uploadToOSS(file);
-            
+            const { url } = await uploadToOSS(file);
             const newFile = {
               id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              name: file.name,
-              type: fileType,
-              size: file.size,
-              tags: ['拖拽上传'],
-              url,
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
+              name: file.name, type: fileType, size: file.size,
+              tags: ['拖拽上传'], url,
+              createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
             };
-            
             addFile(newFile);
             addTimelineEvent({
               id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              type: 'file_upload',
-              title: `上传了 ${file.name}`,
-              relatedId: newFile.id,
-              timestamp: new Date().toISOString(),
+              type: 'file_upload', title: `上传了 ${file.name}`,
+              relatedId: newFile.id, timestamp: new Date().toISOString(),
             });
-            
-            return newFile;
-          });
-
-          await Promise.all(uploadPromises);
-          setDropMessage(`已成功上传 ${droppedFiles.length} 个文件到阿里云OSS`);
+          }));
+          setDropMessage(`已成功上传 ${droppedFiles.length} 个文件`);
         } catch (error) {
           console.error('Upload error:', error);
           setDropMessage('上传失败，请检查OSS配置');
         }
       } else if (droppedText) {
         const newFile = {
-          id: `f-${Date.now()}`,
-          name: `粘贴内容_${new Date().toLocaleTimeString('zh-CN')}.txt`,
-          type: 'document' as const,
-          size: droppedText.length,
-          tags: ['粘贴', '文本'],
-          content: droppedText,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          id: `f-${Date.now()}`, name: `粘贴内容_${new Date().toLocaleTimeString('zh-CN')}.txt`,
+          type: 'document' as const, size: droppedText.length,
+          tags: ['粘贴', '文本'], content: droppedText,
+          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         };
         addFile(newFile);
-        setDropMessage('已导入文本内容，AI 正在分析...');
+        setDropMessage('已导入文本内容');
       }
-
       setUploading(false);
       setTimeout(() => setDropMessage(''), 3000);
     },
@@ -127,48 +158,32 @@ export default function Dashboard() {
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const selectedFiles = e.target.files;
       if (!selectedFiles || selectedFiles.length === 0) return;
-
       setUploading(true);
       setDropMessage(`正在上传 ${selectedFiles.length} 个文件到云端...`);
-
       try {
-        const uploadPromises = Array.from(selectedFiles).map(async (file) => {
+        await Promise.all(Array.from(selectedFiles).map(async (file) => {
           const fileType = getFileType(file.name);
           const { url } = await uploadToOSS(file);
-
           const newFile = {
             id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            name: file.name,
-            type: fileType,
-            size: file.size,
-            tags: ['本地上传'],
-            url,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            name: file.name, type: fileType, size: file.size,
+            tags: ['本地上传'], url,
+            createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
           };
-
           addFile(newFile);
           addTimelineEvent({
             id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-            type: 'file_upload',
-            title: `上传了 ${file.name}`,
-            relatedId: newFile.id,
-            timestamp: new Date().toISOString(),
+            type: 'file_upload', title: `上传了 ${file.name}`,
+            relatedId: newFile.id, timestamp: new Date().toISOString(),
           });
-
-          return newFile;
-        });
-
-        await Promise.all(uploadPromises);
+        }));
         setDropMessage(`已成功上传 ${selectedFiles.length} 个文件`);
       } catch (error) {
         console.error('Upload error:', error);
         setDropMessage('上传失败，请检查网络或OSS配置');
       } finally {
         setUploading(false);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
+        if (fileInputRef.current) fileInputRef.current.value = '';
         setTimeout(() => setDropMessage(''), 3000);
       }
     },
@@ -185,59 +200,15 @@ export default function Dashboard() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-serif text-2xl font-bold text-parchment-100">
-            Dashboard
-          </h1>
+          <h1 className="font-serif text-2xl font-bold text-parchment-100">Dashboard</h1>
           <p className="text-sm text-parchment-400 mt-1">
-            欢迎回来，今天是 {new Date().toLocaleDateString('zh-CN', { weekday: 'long', month: 'long', day: 'numeric' })}
+            欢迎回来，今天是 {new Date().toLocaleDateString('zh-CN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
           </p>
         </div>
         <div className="flex items-center gap-2 text-sm text-parchment-400">
           <Sparkles className="w-4 h-4 text-gold-400" />
           <span>AI 已就绪</span>
         </div>
-      </div>
-
-      {/* Drop Zone */}
-      <div
-        className={`drop-zone p-8 text-center transition-all duration-300 cursor-pointer ${
-          isDragging ? 'drop-zone-active' : 'hover:border-ink-500'
-        }`}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <div className={`transition-transform duration-300 ${isDragging ? 'scale-110' : ''}`}>
-          <Upload className={`w-10 h-10 mx-auto mb-3 ${isDragging ? 'text-gold-400' : 'text-ink-500'} transition-colors`} />
-          <p className={`text-lg font-medium ${isDragging ? 'text-gold-400' : 'text-parchment-300'}`}>
-            {uploading ? '正在上传...' : isDragging ? '释放以导入内容' : '拖拽文件到这里，或点击选择文件'}
-          </p>
-          <p className="text-sm text-ink-400 mt-1">
-            支持文件、图片、PDF、网页链接、邮件等
-          </p>
-          <button
-            className="btn-primary mt-4 inline-flex items-center gap-2"
-            disabled={uploading}
-            onClick={(e) => {
-              e.stopPropagation();
-              fileInputRef.current?.click();
-            }}
-          >
-            <FolderOpen className="w-4 h-4" />
-            选择本地文件
-          </button>
-        </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          multiple
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-        {dropMessage && (
-          <div className="mt-4 px-4 py-2 bg-forest-800/40 rounded-lg text-forest-200 text-sm animate-fade-in">
-            <Sparkles className="w-4 h-4 inline mr-1" />
-            {dropMessage}
-          </div>
-        )}
       </div>
 
       {/* Stats Row */}
@@ -260,172 +231,228 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Main Content Grid */}
-      <div className="grid grid-cols-3 gap-6">
-        {/* Today's Todos */}
-        <div className="col-span-2 glass-card p-5">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="font-serif text-lg font-semibold text-parchment-100">
-              今日待办
-            </h2>
-            <span className="text-xs text-parchment-400">{todayPendingTodos.length} 项待处理</span>
+      {/* Drop Zone - compact */}
+      <div
+        className={`drop-zone p-5 text-center transition-all duration-300 cursor-pointer ${
+          isDragging ? 'drop-zone-active' : 'hover:border-ink-500'
+        }`}
+        onClick={() => fileInputRef.current?.click()}
+      >
+        <div className="flex items-center justify-center gap-3">
+          <Upload className={`w-5 h-5 ${isDragging ? 'text-gold-400' : 'text-ink-500'} transition-colors`} />
+          <p className={`text-sm ${isDragging ? 'text-gold-400' : 'text-parchment-300'}`}>
+            {uploading ? '正在上传...' : isDragging ? '释放以导入' : '拖拽文件到这里，或点击选择文件'}
+          </p>
+          <button
+            className="btn-primary !text-xs !py-1 !px-3"
+            disabled={uploading}
+            onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+          >
+            <FolderOpen className="w-3.5 h-3.5 inline mr-1" />
+            选择文件
+          </button>
+        </div>
+        <input ref={fileInputRef} type="file" multiple onChange={handleFileSelect} className="hidden" />
+        {dropMessage && (
+          <div className="mt-2 px-4 py-1.5 bg-forest-800/40 rounded-lg text-forest-200 text-xs animate-fade-in">
+            {dropMessage}
           </div>
-          <div className="space-y-3">
-            {todayTodos.length === 0 ? (
-              <div className="text-center py-8">
-                <CheckCircle2 className="w-10 h-10 text-ink-600 mx-auto mb-2" />
-                <p className="text-sm text-parchment-400">暂无今日待办</p>
-                <p className="text-xs text-ink-500 mt-1">在待办管理中点击星标添加</p>
+        )}
+      </div>
+
+      {/* Main Content: Date-based Todo View */}
+      <div className="grid grid-cols-3 gap-6">
+        <div className="col-span-2 space-y-4">
+          {/* Overdue */}
+          {overdueTodos.length > 0 && (
+            <div className="glass-card p-5 border-l-4 border-l-red-500">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertCircle className="w-4 h-4 text-red-400" />
+                <h2 className="font-serif text-base font-semibold text-red-400">已过期</h2>
+                <span className="text-xs text-red-400/70">{overdueTodos.length} 项</span>
+              </div>
+              <div className="space-y-2">
+                {overdueTodos.map((todo) => (
+                  <TodoItem key={todo.id} todo={todo} onToggle={cycleTodoStatus} priorityLabels={priorityLabels} overdue />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Today */}
+          <div className="glass-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Clock className="w-4 h-4 text-gold-400" />
+              <h2 className="font-serif text-base font-semibold text-parchment-100">今天</h2>
+              <span className="text-xs text-parchment-400">
+                {todayTodos.length} 项待处理
+                {completedToday.length > 0 && ` · ${completedToday.length} 项已完成`}
+              </span>
+            </div>
+            {todayTodos.length === 0 && completedToday.length === 0 ? (
+              <div className="text-center py-6">
+                <CheckCircle2 className="w-8 h-8 text-ink-600 mx-auto mb-2" />
+                <p className="text-sm text-parchment-400">今天暂无待办</p>
+                <p className="text-xs text-ink-500 mt-1">在待办管理中设置截止日期或标星添加</p>
               </div>
             ) : (
-              todayTodos.map((todo) => (
-                <div
-                  key={todo.id}
-                  className="flex items-start gap-3 p-3 rounded-lg bg-ink-800/40 hover:bg-ink-800/60 transition-colors group cursor-pointer"
-                  onClick={() => cycleTodoStatus(todo)}
-                >
-                  <div className="mt-0.5">
-                    {todo.status === 'completed' ? (
-                      <CheckCircle2 className="w-5 h-5 text-forest-400" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-ink-500 group-hover:text-gold-400 transition-colors" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${todo.status === 'completed' ? 'line-through text-parchment-500' : 'text-parchment-100'}`}>
-                      {todo.title}
-                    </p>
-                    {todo.description && (
-                      <p className="text-xs text-parchment-400 mt-0.5 truncate">
-                        {todo.description}
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`tag text-[10px] ${
-                        todo.priority === 'urgent' ? 'priority-high' :
-                        todo.priority === 'high' ? 'priority-high' :
-                        todo.priority === 'medium' ? 'priority-medium' : 'priority-low'
-                      }`}>
-                        {todo.priority === 'urgent' ? '紧急' : todo.priority === 'high' ? '高' : todo.priority === 'medium' ? '中' : '低'}
-                      </span>
-                      {todo.dueDate && (
-                        <span className="flex items-center gap-1 text-[10px] text-parchment-400">
-                          <Clock className="w-3 h-3" />
-                          {todo.dueDate}
-                        </span>
-                      )}
-                      {todo.subtasks.length > 0 && (
-                        <span className="text-[10px] text-parchment-400">
-                          {todo.subtasks.filter((s) => s.done).length}/{todo.subtasks.length} 子任务
-                        </span>
-                      )}
+              <div className="space-y-2">
+                {todayTodos.map((todo) => (
+                  <TodoItem key={todo.id} todo={todo} onToggle={cycleTodoStatus} priorityLabels={priorityLabels} />
+                ))}
+                {completedToday.map((todo) => (
+                  <TodoItem key={todo.id} todo={todo} onToggle={cycleTodoStatus} priorityLabels={priorityLabels} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Upcoming: next 7 days grouped by date */}
+          {upcomingDays.length > 0 && (
+            <div className="glass-card p-5">
+              <div className="flex items-center gap-2 mb-4">
+                <CalendarDays className="w-4 h-4 text-forest-300" />
+                <h2 className="font-serif text-base font-semibold text-parchment-100">未来日程</h2>
+              </div>
+              <div className="space-y-4">
+                {upcomingDays.map((day) => (
+                  <div key={day.dateKey}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-parchment-300">{day.label}</span>
+                      <span className="text-[10px] text-ink-500">{day.todos.length} 项</span>
+                      <div className="flex-1 h-px bg-ink-700/30" />
+                    </div>
+                    <div className="space-y-2">
+                      {day.todos.map((todo) => (
+                        <TodoItem key={todo.id} todo={todo} onToggle={cycleTodoStatus} priorityLabels={priorityLabels} compact />
+                      ))}
                     </div>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {todayTodos.length === 0 && overdueTodos.length === 0 && upcomingDays.length === 0 && (
+            <div className="glass-card p-8 text-center">
+              <CalendarDays className="w-12 h-12 text-ink-600 mx-auto mb-3" />
+              <p className="text-parchment-400">暂无日程安排</p>
+              <p className="text-xs text-ink-500 mt-1">创建待办并设置截止日期，即可在此查看</p>
+            </div>
+          )}
         </div>
 
-        {/* AI Reminders */}
-        <div className="glass-card p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <Sparkles className="w-4 h-4 text-gold-400" />
-            <h2 className="font-serif text-lg font-semibold text-parchment-100">
-              AI 提醒
-            </h2>
-          </div>
-          <div className="space-y-3">
-            {recentEvents.filter((e) => e.type === 'ai_reminder').length > 0 ? (
-              recentEvents
-                .filter((e) => e.type === 'ai_reminder')
-                .map((event) => (
-                  <div
-                    key={event.id}
-                    className="p-3 rounded-lg bg-gold-400/5 border border-gold-400/20 animate-pulse-glow"
-                  >
-                    <p className="text-sm text-parchment-100">{event.title}</p>
-                    {event.description && (
-                      <p className="text-xs text-parchment-400 mt-1">{event.description}</p>
-                    )}
-                  </div>
-                ))
-            ) : (
-              <div className="p-3 rounded-lg bg-forest-800/20 border border-forest-600/20">
-                <p className="text-sm text-forest-200">一切正常，继续保持！</p>
+        {/* Right Column */}
+        <div className="space-y-4">
+          {/* Progress */}
+          <div className="glass-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp className="w-4 h-4 text-forest-300" />
+              <h2 className="font-serif text-sm font-semibold text-parchment-100">本周进度</h2>
+            </div>
+            <div className="w-full bg-ink-800 rounded-full h-2.5 mb-2">
+              <div
+                className="bg-gradient-to-r from-forest-500 to-gold-400 h-2.5 rounded-full transition-all duration-500"
+                style={{ width: `${todos.length > 0 ? (todos.filter((t) => t.status === 'completed').length / todos.length) * 100 : 0}%` }}
+              />
+            </div>
+            <p className="text-xs text-parchment-400">
+              已完成 {todos.filter((t) => t.status === 'completed').length}/{todos.length} 项任务
+            </p>
+            {overdueTodos.length > 0 && (
+              <div className="mt-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/20">
+                <p className="text-xs text-red-300">{overdueTodos.length} 项任务已过期</p>
               </div>
             )}
+            {urgentTodos.length > 0 && (
+              <div className="mt-2 p-2.5 rounded-lg bg-gold-400/10 border border-gold-400/20">
+                <p className="text-xs text-gold-300">{urgentTodos.length} 项高优先级待处理</p>
+              </div>
+            )}
+            {overdueTodos.length === 0 && urgentTodos.length === 0 && (
+              <div className="mt-3 p-2.5 rounded-lg bg-forest-800/20 border border-forest-600/20">
+                <p className="text-xs text-forest-200">进度良好，继续保持！</p>
+              </div>
+            )}
+          </div>
 
-            <div className="pt-3 border-t border-ink-700/30">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-4 h-4 text-forest-300" />
-                <span className="text-xs font-medium text-parchment-300">本周进度</span>
-              </div>
-              <div className="w-full bg-ink-800 rounded-full h-2">
-                <div
-                  className="bg-gradient-to-r from-forest-500 to-gold-400 h-2 rounded-full transition-all duration-500"
-                  style={{ width: `${todos.length > 0 ? (todos.filter((t) => t.status === 'completed').length / todos.length) * 100 : 0}%` }}
-                />
-              </div>
-              <p className="text-[10px] text-parchment-400 mt-1">
-                已完成 {todos.filter((t) => t.status === 'completed').length}/{todos.length} 项任务
-              </p>
+          {/* Recent Activity: files + notes this week */}
+          <div className="glass-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-gold-400" />
+              <h2 className="font-serif text-sm font-semibold text-parchment-100">本周动态</h2>
+            </div>
+            <div className="space-y-2">
+              {recentFiles.map((file) => (
+                <div key={file.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-ink-800/40 transition-colors cursor-pointer">
+                  <FileText className="w-4 h-4 text-forest-300 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-parchment-200 truncate">{file.name}</p>
+                    <p className="text-[10px] text-ink-500">{getDateLabel(file.createdAt.split('T')[0])}</p>
+                  </div>
+                </div>
+              ))}
+              {recentNotes.map((note) => (
+                <div key={note.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-ink-800/40 transition-colors cursor-pointer">
+                  <StickyNote className="w-4 h-4 text-parchment-400 flex-shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-parchment-200 truncate">{note.title}</p>
+                    <p className="text-[10px] text-ink-500">{getDateLabel((note.updatedAt || note.createdAt).split('T')[0])}</p>
+                  </div>
+                </div>
+              ))}
+              {recentFiles.length === 0 && recentNotes.length === 0 && (
+                <p className="text-xs text-ink-500 text-center py-4">本周暂无活动</p>
+              )}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Bottom Grid */}
-      <div className="grid grid-cols-2 gap-6">
-        {/* Recent Files */}
-        <div className="glass-card p-5">
-          <h2 className="font-serif text-lg font-semibold text-parchment-100 mb-4">
-            最近文件
-          </h2>
-          <div className="space-y-2">
-            {recentFiles.map((file) => (
-              <div
-                key={file.id}
-                className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-ink-800/40 transition-colors cursor-pointer"
-              >
-                <div className="w-8 h-8 rounded-lg bg-forest-800/40 flex items-center justify-center">
-                  <FileText className="w-4 h-4 text-forest-300" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-parchment-100 truncate">{file.name}</p>
-                  <p className="text-[10px] text-parchment-400">
-                    {formatFileSize(file.size)} &middot; {file.tags.join(', ')}
-                  </p>
-                </div>
-              </div>
-            ))}
+function TodoItem({ todo, onToggle, priorityLabels, overdue, compact }: {
+  todo: Todo;
+  onToggle: (todo: Todo) => void;
+  priorityLabels: Record<string, string>;
+  overdue?: boolean;
+  compact?: boolean;
+}) {
+  return (
+    <div
+      className={`flex items-center gap-3 rounded-lg hover:bg-ink-800/40 transition-colors group cursor-pointer ${
+        overdue ? 'bg-red-500/5 border border-red-500/15' : 'bg-ink-800/20'
+      } ${compact ? 'p-2' : 'p-3'}`}
+      onClick={() => onToggle(todo)}
+    >
+      <div className={compact ? '' : 'mt-0.5'}>
+        {todo.status === 'completed' ? (
+          <CheckCircle2 className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} text-forest-400`} />
+        ) : (
+          <Circle className={`${compact ? 'w-4 h-4' : 'w-5 h-5'} text-ink-500 group-hover:text-gold-400 transition-colors`} />
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm font-medium ${todo.status === 'completed' ? 'line-through text-parchment-500' : 'text-parchment-100'} ${compact ? '!text-xs' : ''}`}>
+          {todo.title}
+        </p>
+        {!compact && (
+          <div className="flex items-center gap-2 mt-1">
+            <span className={`tag text-[10px] ${
+              todo.priority === 'urgent' ? 'priority-high' :
+              todo.priority === 'high' ? 'priority-high' :
+              todo.priority === 'medium' ? 'priority-medium' : 'priority-low'
+            }`}>
+              {priorityLabels[todo.priority]}
+            </span>
+            {todo.subtasks.length > 0 && (
+              <span className="text-[10px] text-parchment-400">
+                {todo.subtasks.filter((s) => s.done).length}/{todo.subtasks.length} 子任务
+              </span>
+            )}
           </div>
-        </div>
-
-        {/* Recent Notes */}
-        <div className="glass-card p-5">
-          <h2 className="font-serif text-lg font-semibold text-parchment-100 mb-4">
-            活跃笔记
-          </h2>
-          <div className="space-y-2">
-            {recentNotes.map((note) => (
-              <div
-                key={note.id}
-                className="p-3 rounded-lg hover:bg-ink-800/40 transition-colors cursor-pointer"
-              >
-                <p className="text-sm font-medium text-parchment-100">{note.title}</p>
-                <p className="text-xs text-parchment-400 mt-1 line-clamp-2">
-                  {note.content.replace(/[#*\n]/g, ' ').slice(0, 100)}...
-                </p>
-                <div className="flex gap-1 mt-2">
-                  {note.tags.map((tag) => (
-                    <span key={tag} className="tag text-[10px]">{tag}</span>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   );

@@ -123,12 +123,69 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 })
 
 /**
+ * 忘记密码 / 重置密码
+ * POST /api/auth/reset-password
+ */
+router.post('/reset-password', async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { username, newPassword } = req.body
+
+    if (!username || typeof username !== 'string') {
+      res.status(400).json({ success: false, error: '请输入用户名' })
+      return
+    }
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      res.status(400).json({ success: false, error: '新密码长度至少为 6 个字符' })
+      return
+    }
+
+    // 检查用户是否存在
+    const [rows] = await pool.execute('SELECT id, username FROM users WHERE username = ?', [username])
+    const users = rows as any[]
+
+    if (users.length === 0) {
+      res.status(404).json({ success: false, error: '用户不存在' })
+      return
+    }
+
+    const user = users[0]
+    const passwordHash = await bcrypt.hash(newPassword, 10)
+
+    // 更新密码
+    await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id])
+
+    // 生成新 token 并自动登录
+    const token = generateToken(user.id)
+
+    res.json({
+      success: true,
+      data: {
+        token,
+        user: { id: user.id, username: user.username, displayName: user.display_name },
+      },
+    })
+  } catch (error: any) {
+    console.error('POST /auth/reset-password error:', error)
+    let errorMsg = '密码重置失败'
+    if (error?.code === 'ECONNREFUSED' || error?.code === 'ENOTFOUND') {
+      errorMsg = '数据库连接失败，请检查数据库配置'
+    } else if (error?.code === 'ER_NO_SUCH_TABLE') {
+      errorMsg = '数据库表不存在，请重启服务初始化数据库'
+    } else if (error?.message) {
+      errorMsg = `密码重置失败：${error.message}`
+    }
+    res.status(500).json({ success: false, error: errorMsg })
+  }
+})
+
+/**
  * 获取当前用户信息
  * GET /api/auth/me
  */
 router.get('/me', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [rows] = await pool.execute('SELECT id, username, display_name, created_at FROM users WHERE id = ?', [req.userId])
+    const [rows] = await pool.execute('SELECT id, username, display_name, created_at FROM users WHERE id = ?', [req.userId!])
     const users = rows as any[]
 
     if (users.length === 0) {

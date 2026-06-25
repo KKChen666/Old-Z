@@ -9,10 +9,10 @@ router.use(authMiddleware);
 // 获取所有聊天消息
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [messages] = await pool.execute('SELECT * FROM chat_messages WHERE user_id = ? ORDER BY timestamp ASC', [req.userId]);
+    const [messages] = await pool.execute('SELECT * FROM chat_messages WHERE user_id = ? ORDER BY timestamp ASC', [req.userId!]);
     const [refs] = await pool.execute(
       'SELECT cr.* FROM chat_references cr JOIN chat_messages cm ON cr.message_id = cm.id WHERE cm.user_id = ?',
-      [req.userId]
+      [req.userId!]
     );
 
     const refMap = new Map<string, any[]>();
@@ -57,13 +57,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     // 保存用户消息
     await pool.execute(
       'INSERT INTO chat_messages (id, role, content, timestamp, user_id) VALUES (?, ?, ?, ?, ?)',
-      [userMsgId, 'user', content, now, req.userId]
+      [userMsgId, 'user', content, now, req.userId!]
     );
 
     // 获取聊天历史
     const [historyRows] = await pool.execute(
       'SELECT role, content FROM chat_messages WHERE user_id = ? ORDER BY timestamp DESC LIMIT 20',
-      [req.userId]
+      [req.userId!]
     );
     const history = (historyRows as any[]).reverse().map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
@@ -73,9 +73,9 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       FROM files f LEFT JOIN file_tags ft ON f.id = ft.file_id
       WHERE f.user_id = ?
       GROUP BY f.id
-    `, [req.userId]);
-    const [todos] = await pool.execute('SELECT title, status, priority, due_date FROM todos WHERE user_id = ?', [req.userId]);
-    const [notes] = await pool.execute('SELECT title, content FROM notes WHERE user_id = ?', [req.userId]);
+    `, [req.userId!]);
+    const [todos] = await pool.execute('SELECT title, status, priority, due_date FROM todos WHERE user_id = ?', [req.userId!]);
+    const [notes] = await pool.execute('SELECT title, content FROM notes WHERE user_id = ?', [req.userId!]);
 
     const context: ChatContext = {
       files: (files as any[]).map(f => ({ name: f.name, type: f.type, tags: f.tags ? f.tags.split(',') : [] })),
@@ -89,13 +89,13 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     // 保存AI回复
     await pool.execute(
       'INSERT INTO chat_messages (id, role, content, timestamp, user_id) VALUES (?, ?, ?, ?, ?)',
-      [aiMsgId, 'assistant', aiContent, new Date(), req.userId]
+      [aiMsgId, 'assistant', aiContent, new Date(), req.userId!]
     );
 
     // 保存时间轴
     await pool.execute(
       'INSERT INTO timeline_events (id, type, title, timestamp, user_id) VALUES (?, ?, ?, ?, ?)',
-      [`te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, 'chat', '与 AI 助手进行了对话', now, req.userId]
+      [`te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, 'chat', '与 AI 助手进行了对话', now, req.userId!]
     );
 
     res.json({

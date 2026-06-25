@@ -8,10 +8,10 @@ router.use(authMiddleware);
 // 获取所有笔记
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [notes] = await pool.execute('SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC', [req.userId]);
-    const [tags] = await pool.execute('SELECT nt.* FROM note_tags nt JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?', [req.userId]);
-    const [noteFiles] = await pool.execute('SELECT nf.* FROM note_files nf JOIN notes n ON nf.note_id = n.id WHERE n.user_id = ?', [req.userId]);
-    const [noteTodos] = await pool.execute('SELECT ntd.* FROM note_todos ntd JOIN notes n ON ntd.note_id = n.id WHERE n.user_id = ?', [req.userId]);
+    const [notes] = await pool.execute('SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC', [req.userId!]);
+    const [tags] = await pool.execute('SELECT nt.* FROM note_tags nt JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
+    const [noteFiles] = await pool.execute('SELECT nf.* FROM note_files nf JOIN notes n ON nf.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
+    const [noteTodos] = await pool.execute('SELECT ntd.* FROM note_todos ntd JOIN notes n ON ntd.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
 
     const tagMap = new Map<string, string[]>();
     (tags as any[]).forEach((t) => {
@@ -63,7 +63,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     await pool.execute(
       'INSERT INTO notes (id, title, content, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?, ?)',
-      [id, title, content || '', now, now, req.userId]
+      [id, title, content || '', now, now, req.userId!]
     );
 
     if (tags && tags.length > 0) {
@@ -90,7 +90,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
     if (content !== undefined) { fields.push('content = ?'); values.push(content); }
 
     if (fields.length > 0) {
-      values.push(req.params.id, req.userId);
+      values.push(req.params.id, req.userId!);
       await pool.execute(`UPDATE notes SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, values);
     }
 
@@ -104,7 +104,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 // 删除笔记
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const [result] = await pool.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]) as any;
+    const [result] = await pool.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
     if (result.affectedRows === 0) {
       res.status(404).json({ success: false, error: '笔记不存在' });
       return;

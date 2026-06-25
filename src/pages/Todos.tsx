@@ -13,8 +13,52 @@ import {
   FileText,
   X,
   Star,
+  Pencil,
+  CalendarDays,
+  AlertCircle,
 } from 'lucide-react';
 import type { TodoFilter, PriorityFilter, Todo } from '@/types';
+
+function getDateLabel(dateStr: string): string {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(dateStr + 'T00:00:00');
+  date.setHours(0, 0, 0, 0);
+  const diff = Math.floor((date.getTime() - today.getTime()) / 86400000);
+  if (diff === 0) return '今天';
+  if (diff === 1) return '明天';
+  if (diff === -1) return '昨天';
+  if (diff < -1) return `已过期 ${Math.abs(diff)} 天`;
+  if (diff <= 7) return `${diff} 天后`;
+  return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
+}
+
+function getDateGroup(dateStr: string | undefined): string {
+  if (!dateStr) return 'no-date';
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const date = new Date(dateStr + 'T00:00:00');
+  date.setHours(0, 0, 0, 0);
+  const diff = Math.floor((date.getTime() - today.getTime()) / 86400000);
+  if (diff < 0) return 'overdue';
+  if (diff === 0) return 'today';
+  if (diff === 1) return 'tomorrow';
+  if (diff <= 7) return 'this-week';
+  return 'later';
+}
+
+function formatQuickDate(offset: number): string {
+  const d = new Date();
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().split('T')[0];
+}
+
+const quickDateOptions = [
+  { label: '今天', value: formatQuickDate(0) },
+  { label: '明天', value: formatQuickDate(1) },
+  { label: '后天', value: formatQuickDate(2) },
+  { label: '下周一', value: (() => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d.toISOString().split('T')[0]; })() },
+];
 
 export default function Todos() {
   const { todos, files, addTodo, updateTodo, toggleSubtask, deleteTodo } = useAppStore();
@@ -27,12 +71,42 @@ export default function Todos() {
   const [newFileIds, setNewFileIds] = useState<string[]>([]);
   const [showFilePicker, setShowFilePicker] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editPriority, setEditPriority] = useState<Todo['priority']>('medium');
+  const [editDueDate, setEditDueDate] = useState('');
 
   const filteredTodos = todos.filter((t) => {
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
     if (priorityFilter !== 'all' && t.priority !== priorityFilter) return false;
     return true;
   });
+
+  // Group by date
+  const groupOrder = ['overdue', 'today', 'tomorrow', 'this-week', 'later', 'no-date'] as const;
+  const groupLabels: Record<string, string> = {
+    overdue: '已过期',
+    today: '今天',
+    tomorrow: '明天',
+    'this-week': '本周',
+    later: '更晚',
+    'no-date': '无日期',
+  };
+  const groupIcons: Record<string, typeof Clock> = {
+    overdue: AlertCircle,
+    today: Clock,
+    tomorrow: CalendarDays,
+    'this-week': CalendarDays,
+    later: CalendarDays,
+    'no-date': Clock,
+  };
+
+  const grouped = new Map<string, Todo[]>();
+  for (const todo of filteredTodos) {
+    const group = getDateGroup(todo.dueDate);
+    if (!grouped.has(group)) grouped.set(group, []);
+    grouped.get(group)!.push(todo);
+  }
 
   const handleAddTodo = () => {
     if (!newTitle.trim()) return;
@@ -62,6 +136,27 @@ export default function Todos() {
     setShowNewTodo(false);
   };
 
+  const startEdit = (todo: Todo) => {
+    setEditingId(todo.id);
+    setEditTitle(todo.title);
+    setEditPriority(todo.priority);
+    setEditDueDate(todo.dueDate || '');
+  };
+
+  const saveEdit = () => {
+    if (!editingId || !editTitle.trim()) return;
+    updateTodo(editingId, {
+      title: editTitle,
+      priority: editPriority,
+      dueDate: editDueDate || undefined,
+    });
+    setEditingId(null);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+  };
+
   const cycleStatus = (todo: Todo) => {
     const next: Record<string, Todo['status']> = {
       pending: 'completed',
@@ -83,6 +178,12 @@ export default function Todos() {
 
   const getFileNamesByIds = (ids: string[]) => {
     return ids.map((id) => files.find((f) => f.id === id)).filter(Boolean);
+  };
+
+  const isOverdue = (todo: Todo) => {
+    if (!todo.dueDate || todo.status === 'completed') return false;
+    const today = new Date().toISOString().split('T')[0];
+    return todo.dueDate < today;
   };
 
   const priorityColors: Record<string, string> = {
@@ -114,6 +215,11 @@ export default function Todos() {
             <h1 className="font-serif text-2xl font-bold text-parchment-100">待办管理</h1>
             <p className="text-sm text-parchment-400 mt-1">
               {todos.filter((t) => t.status !== 'completed').length} 项待处理
+              {todos.filter(isOverdue).length > 0 && (
+                <span className="text-red-400 ml-2">
+                  · {todos.filter(isOverdue).length} 项已过期
+                </span>
+              )}
             </p>
           </div>
           <button onClick={() => setShowNewTodo(true)} className="btn-primary flex items-center gap-2">
@@ -140,7 +246,7 @@ export default function Todos() {
               <button onClick={resetNewTodo} className="btn-ghost">取消</button>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-4 flex-wrap">
               {/* Priority */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-parchment-400">优先级:</span>
@@ -165,15 +271,33 @@ export default function Todos() {
                 </div>
               </div>
 
-              {/* Due Date */}
-              <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-parchment-400" />
+              {/* Quick Date */}
+              <div className="flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-parchment-400" />
+                {quickDateOptions.map((opt) => (
+                  <button
+                    key={opt.label}
+                    onClick={() => setNewDueDate(opt.value)}
+                    className={`px-2 py-1 rounded text-[10px] font-medium transition-all ${
+                      newDueDate === opt.value
+                        ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
+                        : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30 hover:text-parchment-200'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
                 <input
                   type="date"
                   value={newDueDate}
                   onChange={(e) => setNewDueDate(e.target.value)}
                   className="input-field !w-auto !py-1 !text-xs"
                 />
+                {newDueDate && (
+                  <button onClick={() => setNewDueDate('')} className="text-ink-500 hover:text-parchment-400">
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
               {/* Attach File */}
@@ -275,126 +399,219 @@ export default function Todos() {
           ))}
         </div>
 
-        {/* Todo List */}
-        <div className="space-y-2">
-          {filteredTodos.map((todo, index) => {
-            const attachedFiles = getFileNamesByIds(todo.fileIds || []);
+        {/* Todo List - grouped by date */}
+        <div className="space-y-4">
+          {groupOrder.map((groupKey) => {
+            const items = grouped.get(groupKey);
+            if (!items || items.length === 0) return null;
+            const Icon = groupIcons[groupKey];
             return (
-              <div
-                key={todo.id}
-                className={`glass-card border-l-4 ${priorityColors[todo.priority]} animate-fade-in relative`}
-                style={{ animationDelay: `${index * 30}ms` }}
-              >
-                {todo.status === 'completed' && (
-                  <div className="absolute left-4 right-4 top-1/2 h-[2px] bg-parchment-500/60 rounded-full z-10 pointer-events-none" />
-                )}
-                <div className="flex items-start gap-3 p-4">
-                  <button onClick={() => cycleStatus(todo)} className="mt-0.5 flex-shrink-0">
-                    {todo.status === 'completed' ? (
-                      <CheckCircle2 className="w-5 h-5 text-forest-400" />
-                    ) : (
-                      <Circle className="w-5 h-5 text-ink-500 hover:text-gold-400 transition-colors" />
-                    )}
-                  </button>
-
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium ${
-                      todo.status === 'completed' ? 'line-through text-parchment-500' : 'text-parchment-100'
-                    }`}>
-                      {todo.title}
-                    </p>
-
-                    {todo.description && (
-                      <p className="text-xs text-parchment-400 mt-1">{todo.description}</p>
-                    )}
-
-                    <div className="flex items-center gap-2 mt-2 flex-wrap">
-                      <span className={`tag text-[10px] ${
-                        todo.priority === 'urgent' || todo.priority === 'high' ? 'priority-high' :
-                        todo.priority === 'medium' ? 'priority-medium' : 'priority-low'
-                      }`}>
-                        {priorityLabels[todo.priority]}
-                      </span>
-                      {todo.dueDate && (
-                        <span className="flex items-center gap-1 text-[10px] text-parchment-400">
-                          <Clock className="w-3 h-3" />
-                          {todo.dueDate}
-                        </span>
-                      )}
-                      {todo.tags.map((tag) => (
-                        <span key={tag} className="tag text-[10px]">{tag}</span>
-                      ))}
-                    </div>
-
-                    {/* Attached Files */}
-                    {attachedFiles.length > 0 && (
-                      <div className="flex gap-1.5 mt-2 flex-wrap">
-                        {attachedFiles.map((file) => file && (
-                          <span
-                            key={file.id}
-                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-ink-800/50 text-[10px] text-parchment-400 border border-ink-700/30"
-                          >
-                            <FileText className="w-3 h-3" />
-                            {file.name}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-
-                    {/* Subtasks */}
-                    {todo.subtasks.length > 0 && (
-                      <div className="mt-3">
-                        <button
-                          onClick={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
-                          className="flex items-center gap-1 text-xs text-parchment-400 hover:text-parchment-200"
-                        >
-                          {expandedId === todo.id ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-                          {todo.subtasks.filter((s) => s.done).length}/{todo.subtasks.length} 子任务
-                        </button>
-                        {expandedId === todo.id && (
-                          <div className="mt-2 space-y-1.5 pl-4">
-                            {todo.subtasks.map((sub) => (
-                              <label key={sub.id} className="flex items-center gap-2 cursor-pointer group">
-                                <input
-                                  type="checkbox"
-                                  checked={sub.done}
-                                  onChange={() => toggleSubtask(todo.id, sub.id)}
-                                  className="w-3.5 h-3.5 rounded border-ink-600 bg-ink-800 text-gold-400 focus:ring-gold-400/20"
-                                />
-                                <span className={`text-xs ${sub.done ? 'line-through text-parchment-500' : 'text-parchment-300'}`}>
-                                  {sub.title}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
+              <div key={groupKey}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon className={`w-4 h-4 ${groupKey === 'overdue' ? 'text-red-400' : 'text-parchment-400'}`} />
+                  <h3 className={`text-sm font-semibold ${groupKey === 'overdue' ? 'text-red-400' : 'text-parchment-200'}`}>
+                    {groupLabels[groupKey]}
+                  </h3>
+                  <span className="text-xs text-ink-500">({items.length})</span>
+                </div>
+                <div className="space-y-2">
+                  {items.map((todo, index) => {
+                    const attachedFiles = getFileNamesByIds(todo.fileIds || []);
+                    const editing = editingId === todo.id;
+                    const overdue = isOverdue(todo);
+                    return (
+                      <div
+                        key={todo.id}
+                        className={`glass-card border-l-4 ${priorityColors[todo.priority]} animate-fade-in relative ${
+                          overdue ? 'ring-1 ring-red-500/30' : ''
+                        }`}
+                        style={{ animationDelay: `${index * 30}ms` }}
+                      >
+                        {todo.status === 'completed' && (
+                          <div className="absolute left-4 right-4 top-1/2 h-[2px] bg-parchment-500/60 rounded-full z-10 pointer-events-none" />
                         )}
-                      </div>
-                    )}
-                  </div>
+                        <div className="flex items-start gap-3 p-4">
+                          <button onClick={() => cycleStatus(todo)} className="mt-0.5 flex-shrink-0">
+                            {todo.status === 'completed' ? (
+                              <CheckCircle2 className="w-5 h-5 text-forest-400" />
+                            ) : (
+                              <Circle className="w-5 h-5 text-ink-500 hover:text-gold-400 transition-colors" />
+                            )}
+                          </button>
 
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => toggleTodayTodo(todo)}
-                      className={`p-1.5 rounded-md transition-colors ${
-                        todo.isTodayTodo
-                          ? 'text-gold-400 hover:text-gold-300'
-                          : 'text-parchment-400 hover:text-gold-400 hover:bg-ink-700/50'
-                      }`}
-                      title={todo.isTodayTodo ? '取消今日待办' : '设为今日待办'}
-                    >
-                      <Star className={`w-4 h-4 ${todo.isTodayTodo ? 'fill-gold-400' : ''}`} />
-                    </button>
-                    <button
-                      onClick={() => {
-                        if (window.confirm(`确定删除待办"${todo.title}"吗？`)) {
-                          deleteTodo(todo.id);
-                        }
-                      }}
-                      className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                          <div className="flex-1 min-w-0">
+                            {editing ? (
+                              <div className="space-y-2">
+                                <input
+                                  type="text"
+                                  value={editTitle}
+                                  onChange={(e) => setEditTitle(e.target.value)}
+                                  onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                                  className="input-field w-full"
+                                  autoFocus
+                                />
+                                <div className="flex items-center gap-3">
+                                  <div className="flex gap-1">
+                                    {(['low', 'medium', 'high', 'urgent'] as const).map((p) => (
+                                      <button
+                                        key={p}
+                                        onClick={() => setEditPriority(p)}
+                                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                          editPriority === p
+                                            ? p === 'urgent' || p === 'high'
+                                              ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                              : p === 'medium'
+                                              ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
+                                              : 'bg-forest-400/20 text-forest-200 border border-forest-400/30'
+                                            : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30'
+                                        }`}
+                                      >
+                                        {priorityLabels[p]}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  {quickDateOptions.map((opt) => (
+                                    <button
+                                      key={opt.label}
+                                      onClick={() => setEditDueDate(opt.value)}
+                                      className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                        editDueDate === opt.value
+                                          ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
+                                          : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30'
+                                      }`}
+                                    >
+                                      {opt.label}
+                                    </button>
+                                  ))}
+                                  <input
+                                    type="date"
+                                    value={editDueDate}
+                                    onChange={(e) => setEditDueDate(e.target.value)}
+                                    className="input-field !w-auto !py-0.5 !text-xs"
+                                  />
+                                </div>
+                                <div className="flex gap-2">
+                                  <button onClick={saveEdit} className="btn-primary !py-1 !text-xs">保存</button>
+                                  <button onClick={cancelEdit} className="btn-ghost !py-1 !text-xs">取消</button>
+                                </div>
+                              </div>
+                            ) : (
+                              <>
+                                <p className={`text-sm font-medium ${
+                                  todo.status === 'completed' ? 'line-through text-parchment-500' : 'text-parchment-100'
+                                }`}>
+                                  {todo.title}
+                                </p>
+
+                                {todo.description && (
+                                  <p className="text-xs text-parchment-400 mt-1">{todo.description}</p>
+                                )}
+
+                                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                  <span className={`tag text-[10px] ${
+                                    todo.priority === 'urgent' || todo.priority === 'high' ? 'priority-high' :
+                                    todo.priority === 'medium' ? 'priority-medium' : 'priority-low'
+                                  }`}>
+                                    {priorityLabels[todo.priority]}
+                                  </span>
+                                  {todo.dueDate && (
+                                    <span className={`flex items-center gap-1 text-[10px] ${
+                                      overdue ? 'text-red-400 font-medium' : 'text-parchment-400'
+                                    }`}>
+                                      <Clock className="w-3 h-3" />
+                                      {getDateLabel(todo.dueDate)}
+                                      {overdue && <span className="text-red-400">(过期)</span>}
+                                    </span>
+                                  )}
+                                  {todo.tags.map((tag) => (
+                                    <span key={tag} className="tag text-[10px]">{tag}</span>
+                                  ))}
+                                </div>
+
+                                {/* Attached Files */}
+                                {attachedFiles.length > 0 && (
+                                  <div className="flex gap-1.5 mt-2 flex-wrap">
+                                    {attachedFiles.map((file) => file && (
+                                      <span
+                                        key={file.id}
+                                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-ink-800/50 text-[10px] text-parchment-400 border border-ink-700/30"
+                                      >
+                                        <FileText className="w-3 h-3" />
+                                        {file.name}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+
+                                {/* Subtasks */}
+                                {todo.subtasks.length > 0 && (
+                                  <div className="mt-3">
+                                    <button
+                                      onClick={() => setExpandedId(expandedId === todo.id ? null : todo.id)}
+                                      className="flex items-center gap-1 text-xs text-parchment-400 hover:text-parchment-200"
+                                    >
+                                      {expandedId === todo.id ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+                                      {todo.subtasks.filter((s) => s.done).length}/{todo.subtasks.length} 子任务
+                                    </button>
+                                    {expandedId === todo.id && (
+                                      <div className="mt-2 space-y-1.5 pl-4">
+                                        {todo.subtasks.map((sub) => (
+                                          <label key={sub.id} className="flex items-center gap-2 cursor-pointer group">
+                                            <input
+                                              type="checkbox"
+                                              checked={sub.done}
+                                              onChange={() => toggleSubtask(todo.id, sub.id)}
+                                              className="w-3.5 h-3.5 rounded border-ink-600 bg-ink-800 text-gold-400 focus:ring-gold-400/20"
+                                            />
+                                            <span className={`text-xs ${sub.done ? 'line-through text-parchment-500' : 'text-parchment-300'}`}>
+                                              {sub.title}
+                                            </span>
+                                          </label>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          {!editing && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <button
+                                onClick={() => startEdit(todo)}
+                                className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                                title="编辑"
+                              >
+                                <Pencil className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => toggleTodayTodo(todo)}
+                                className={`p-1.5 rounded-md transition-colors ${
+                                  todo.isTodayTodo
+                                    ? 'text-gold-400 hover:text-gold-300'
+                                    : 'text-parchment-400 hover:text-gold-400 hover:bg-ink-700/50'
+                                }`}
+                                title={todo.isTodayTodo ? '取消今日待办' : '设为今日待办'}
+                              >
+                                <Star className={`w-4 h-4 ${todo.isTodayTodo ? 'fill-gold-400' : ''}`} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`确定删除待办"${todo.title}"吗？`)) {
+                                    deleteTodo(todo.id);
+                                  }
+                                }}
+                                className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             );

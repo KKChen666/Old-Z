@@ -1,3 +1,4 @@
+// @ts-ignore
 import OSS from 'ali-oss';
 
 // 阿里云OSS配置

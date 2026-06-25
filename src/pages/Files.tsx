@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
 import { uploadToOSS } from '@/utils/oss';
 import {
@@ -16,11 +16,6 @@ import {
   Upload,
   Loader2,
   Download,
-  Eye,
-  ZoomIn,
-  ZoomOut,
-  RotateCw,
-  Maximize2,
   CheckSquare,
 } from 'lucide-react';
 import type { FileFilter, ViewMode, FileItem, Todo } from '@/types';
@@ -57,182 +52,11 @@ function getFileType(name: string): 'document' | 'image' | 'pdf' | 'link' | 'ema
   return 'other';
 }
 
-function FilePreviewModal({ file, onClose }: { file: FileItem; onClose: () => void }) {
-  const [zoom, setZoom] = useState(1);
-  const [rotation, setRotation] = useState(0);
-  const [textContent, setTextContent] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [imageError, setImageError] = useState(false);
-  const [textError, setTextError] = useState(false);
-
-  const isImage = file.type === 'image';
-  const isPdf = file.name.split('.').pop()?.toLowerCase() === 'pdf';
-  const isText = ['txt', 'md', 'json', 'js', 'ts', 'tsx', 'jsx', 'css', 'html', 'xml', 'csv', 'log', 'yaml', 'yml'].includes(
-    file.name.split('.').pop()?.toLowerCase() || ''
-  );
-  const isDoc = ['doc', 'docx', 'xlsx', 'xls', 'ppt', 'pptx'].includes(
-    file.name.split('.').pop()?.toLowerCase() || ''
-  );
-  const isVideo = ['mp4', 'webm', 'ogg', 'mov'].includes(file.name.split('.').pop()?.toLowerCase() || '');
-  const isAudio = ['mp3', 'wav', 'ogg', 'aac', 'flac'].includes(file.name.split('.').pop()?.toLowerCase() || '');
-
-  useEffect(() => {
-    if (isText && file.url) {
-      setLoading(true);
-      setTextError(false);
-      fetch(file.url)
-        .then((res) => {
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          return res.text();
-        })
-        .then((text) => setTextContent(text))
-        .catch(() => setTextError(true))
-        .finally(() => setLoading(false));
-    }
-  }, [file.url, isText]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
-  const handleDownload = () => {
-    if (!file.url) return;
-    const a = document.createElement('a');
-    a.href = file.url;
-    a.download = file.name;
-    a.target = '_blank';
-    a.rel = 'noopener noreferrer';
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-  };
-
-  const renderFallback = (message: string) => (
-    <div className="flex flex-col items-center justify-center h-full text-parchment-400">
-      <FileIcon className="w-16 h-16 mb-4 text-ink-600" />
-      <p className="text-lg font-medium">{message}</p>
-      <div className="flex items-center gap-3 mt-4">
-        <button onClick={handleDownload} className="btn-primary flex items-center gap-2">
-          <Download className="w-4 h-4" /> 下载文件
-        </button>
-        {file.url && (
-          <a href={file.url} target="_blank" rel="noopener noreferrer" className="btn-ghost flex items-center gap-2">
-            <Maximize2 className="w-4 h-4" /> 新窗口打开
-          </a>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderPreview = () => {
-    if (!file.url) return renderFallback('该文件没有可用的链接');
-
-    if (isImage) {
-      if (imageError) return renderFallback('图片加载失败');
-      return (
-        <div className="flex items-center justify-center h-full overflow-auto p-8">
-          <img
-            src={file.url}
-            alt={file.name}
-            className="max-w-full max-h-full object-contain transition-transform duration-200"
-            style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}
-            onError={() => setImageError(true)}
-          />
-        </div>
-      );
-    }
-
-    if (isPdf) {
-      return (
-        <div className="w-full h-full relative">
-          <iframe src={file.url} className="w-full h-full border-0" title={file.name} />
-          <div className="absolute bottom-4 right-4">
-            <button onClick={handleDownload} className="px-3 py-1.5 bg-ink-800/80 text-parchment-400 text-xs rounded-lg hover:bg-ink-700/80 transition-colors">
-              加载异常？点击下载
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    if (isVideo) {
-      return (
-        <div className="flex items-center justify-center h-full p-8">
-          <video src={file.url} controls className="max-w-full max-h-full rounded-lg">您的浏览器不支持视频播放</video>
-        </div>
-      );
-    }
-
-    if (isAudio) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full gap-6">
-          <FileText className="w-20 h-20 text-gold-400" />
-          <p className="text-parchment-200 font-medium">{file.name}</p>
-          <audio src={file.url} controls className="w-80">您的浏览器不支持音频播放</audio>
-        </div>
-      );
-    }
-
-    if (isText) {
-      if (loading) return <div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-gold-400" /></div>;
-      if (textError) return renderFallback('无法加载文件内容（可能是跨域限制）');
-      return (
-        <div className="h-full overflow-auto p-6">
-          <pre className="text-parchment-200 text-sm font-mono whitespace-pre-wrap break-words leading-relaxed">{textContent}</pre>
-        </div>
-      );
-    }
-
-    if (isDoc) {
-      const officeUrl = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(file.url)}`;
-      return (
-        <div className="w-full h-full relative">
-          <iframe src={officeUrl} className="w-full h-full border-0" title={file.name} />
-          <div className="absolute bottom-4 right-4">
-            <button onClick={handleDownload} className="px-3 py-1.5 bg-ink-800/80 text-parchment-400 text-xs rounded-lg hover:bg-ink-700/80 transition-colors">
-              无法预览？点击下载
-            </button>
-          </div>
-        </div>
-      );
-    }
-
-    return renderFallback('不支持预览此文件类型');
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-      <div className="relative w-[90vw] h-[85vh] max-w-5xl glass-card flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-3 border-b border-ink-700/50">
-          <div className="flex items-center gap-3 min-w-0">
-            {(() => { const Icon = fileIcons[file.type] || FileIcon; return <Icon className="w-5 h-5 text-parchment-400 flex-shrink-0" />; })()}
-            <span className="text-parchment-100 font-medium truncate">{file.name}</span>
-            <span className="text-xs text-parchment-400 flex-shrink-0">{formatFileSize(file.size)}</span>
-          </div>
-          <div className="flex items-center gap-1">
-            {isImage && !imageError && (
-              <>
-                <button onClick={() => setZoom((z) => Math.max(0.25, z - 0.25))} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="缩小"><ZoomOut className="w-4 h-4" /></button>
-                <span className="text-xs text-parchment-400 w-12 text-center">{Math.round(zoom * 100)}%</span>
-                <button onClick={() => setZoom((z) => Math.min(4, z + 0.25))} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="放大"><ZoomIn className="w-4 h-4" /></button>
-                <button onClick={() => setRotation((r) => (r + 90) % 360)} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="旋转"><RotateCw className="w-4 h-4" /></button>
-                <button onClick={() => { setZoom(1); setRotation(0); }} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="重置"><Maximize2 className="w-4 h-4" /></button>
-              </>
-            )}
-            {file.url && <a href={file.url} target="_blank" rel="noopener noreferrer" className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="新窗口打开"><Maximize2 className="w-4 h-4" /></a>}
-            <button onClick={handleDownload} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors" title="下载"><Download className="w-4 h-4" /></button>
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-parchment-100 transition-colors"><X className="w-4 h-4" /></button>
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden bg-ink-950/50">{renderPreview()}</div>
-      </div>
-    </div>
-  );
+function handleOpenFile(file: { name: string; url?: string }) {
+  if (!file.url) return;
+  // 先尝试在新窗口打开（浏览器会根据文件类型决定是直接显示还是下载）
+  // 对于图片/PDF/视频等，浏览器会直接显示；对于 doc/xlsx 等会触发下载，用户可用本地应用打开
+  window.open(file.url, '_blank');
 }
 
 export default function Files() {
@@ -242,7 +66,6 @@ export default function Files() {
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showTodoForm, setShowTodoForm] = useState(false);
   const [selectedFileForTodo, setSelectedFileForTodo] = useState<FileItem | null>(null);
@@ -262,6 +85,44 @@ export default function Files() {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
+
+    setUploading(true);
+    try {
+      for (const file of Array.from(selectedFiles)) {
+        const { url } = await uploadToOSS(file);
+        const fileType = getFileType(file.name);
+
+        addFile({
+          id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          name: file.name,
+          type: fileType,
+          size: file.size,
+          tags: ['手动上传'],
+          url,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        });
+
+        addTimelineEvent({
+          id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+          type: 'file_upload',
+          title: `上传了 ${file.name}`,
+          timestamp: new Date().toISOString(),
+        });
+      }
+    } catch (error) {
+      console.error('Upload failed:', error);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const handleCreateTodoFromFile = (file: FileItem) => {
@@ -295,57 +156,6 @@ export default function Files() {
     setSelectedFileForTodo(null);
     setTodoTitle('');
     setTodoPriority('medium');
-  };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = e.target.files;
-    if (!selectedFiles || selectedFiles.length === 0) return;
-
-    setUploading(true);
-    try {
-      for (const file of Array.from(selectedFiles)) {
-        const { url } = await uploadToOSS(file);
-        const fileType = getFileType(file.name);
-        
-        addFile({
-          id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          name: file.name,
-          type: fileType,
-          size: file.size,
-          tags: ['手动上传'],
-          url,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        });
-
-        addTimelineEvent({
-          id: `e-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-          type: 'file_upload',
-          title: `上传了 ${file.name}`,
-          timestamp: new Date().toISOString(),
-        });
-      }
-    } catch (error) {
-      console.error('Upload failed:', error);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-    }
-  };
-
-  const handleDownload = (file: { name: string; url?: string }) => {
-    if (file.url) {
-      const a = document.createElement('a');
-      a.href = file.url;
-      a.download = file.name;
-      a.target = '_blank';
-      a.rel = 'noopener noreferrer';
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    }
   };
 
   return (
@@ -462,18 +272,9 @@ export default function Files() {
                       </button>
                       {file.url && (
                         <button
-                          onClick={() => setPreviewFile(file)}
+                          onClick={() => handleOpenFile(file)}
                           className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
-                          title="预览"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      )}
-                      {file.url && (
-                        <button
-                          onClick={() => handleDownload(file)}
-                          className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
-                          title="下载"
+                          title="打开文件"
                         >
                           <Download className="w-4 h-4" />
                         </button>
@@ -491,7 +292,13 @@ export default function Files() {
                       </button>
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-parchment-100 truncate">{file.name}</p>
+                  <p
+                    className="text-sm font-medium text-parchment-100 truncate cursor-pointer hover:text-gold-400 transition-colors"
+                    onClick={() => file.url && handleOpenFile(file)}
+                    title="点击打开文件"
+                  >
+                    {file.name}
+                  </p>
                   <p className="text-xs text-parchment-400 mt-1">
                     {formatFileSize(file.size)} &middot; {new Date(file.createdAt).toLocaleDateString('zh-CN')}
                   </p>
@@ -523,9 +330,12 @@ export default function Files() {
                   return (
                     <tr key={file.id} className="border-b border-ink-800/30 hover:bg-ink-800/30 transition-colors">
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
+                        <div
+                          className="flex items-center gap-3 cursor-pointer"
+                          onClick={() => file.url && handleOpenFile(file)}
+                        >
                           <Icon className="w-4 h-4 text-parchment-400" />
-                          <span className="text-sm text-parchment-100 truncate max-w-[200px]">{file.name}</span>
+                          <span className="text-sm text-parchment-100 truncate max-w-[200px] hover:text-gold-400 transition-colors">{file.name}</span>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-parchment-400">{file.type}</td>
@@ -551,18 +361,9 @@ export default function Files() {
                           </button>
                           {file.url && (
                             <button
-                              onClick={() => setPreviewFile(file)}
+                              onClick={() => handleOpenFile(file)}
                               className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
-                              title="预览"
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                          {file.url && (
-                            <button
-                              onClick={() => handleDownload(file)}
-                              className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
-                              title="下载"
+                              title="打开文件"
                             >
                               <Download className="w-3.5 h-3.5" />
                             </button>
@@ -658,10 +459,6 @@ export default function Files() {
             </div>
           </div>
         </div>
-      )}
-
-      {previewFile && (
-        <FilePreviewModal file={previewFile} onClose={() => setPreviewFile(null)} />
       )}
     </div>
   );
