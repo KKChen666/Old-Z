@@ -111,20 +111,32 @@ export default function Chat() {
             >
               <div className="text-sm text-parchment-200 whitespace-pre-wrap leading-relaxed">
                 {msg.content.split('\n').map((line, i) => {
-                  if (line.startsWith('**') && line.endsWith('**')) {
-                    return <p key={i} className="font-semibold text-parchment-100 my-1">{line.replace(/\*\*/g, '')}</p>;
-                  }
-                  if (line.startsWith('- ')) {
-                    return <p key={i} className="ml-2 my-0.5">{line}</p>;
+                  if (line.startsWith('## ')) {
+                    return <h3 key={i} className="font-serif text-base font-semibold text-parchment-200 mt-3 mb-1">{line.slice(3)}</h3>;
                   }
                   if (line.startsWith('# ')) {
                     return <h2 key={i} className="font-serif text-lg font-bold text-parchment-100 my-2">{line.slice(2)}</h2>;
                   }
-                  if (line.startsWith('## ')) {
-                    return <h3 key={i} className="font-serif text-base font-semibold text-parchment-200 mt-3 mb-1">{line.slice(3)}</h3>;
-                  }
                   if (line.startsWith('```')) {
                     return null;
+                  }
+                  if (line.startsWith('- ')) {
+                    return <p key={i} className="ml-2 my-0.5">{line}</p>;
+                  }
+                  // Parse inline bold: **text** -> <strong>text</strong>
+                  const parts = line.split(/(\*\*[^*]+\*\*)/g);
+                  const hasBold = parts.length > 1;
+                  if (hasBold) {
+                    return (
+                      <p key={i} className="my-0.5">
+                        {parts.map((part, j) => {
+                          if (part.startsWith('**') && part.endsWith('**')) {
+                            return <strong key={j} className="font-semibold text-parchment-100">{part.slice(2, -2)}</strong>;
+                          }
+                          return <span key={j}>{part}</span>;
+                        })}
+                      </p>
+                    );
                   }
                   return <p key={i} className="my-0.5">{line}</p>;
                 })}

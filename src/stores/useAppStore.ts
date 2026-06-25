@@ -61,7 +61,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ files, todos, notes, chatMessages, timeline, loaded: true });
     } catch (error) {
       console.error('Failed to load data:', error);
-      set({ loaded: true });
+      set({ loaded: false });
     }
   },
 

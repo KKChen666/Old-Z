@@ -38,9 +38,21 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 });
 
 // 创建文件
+const VALID_FILE_TYPES = ['document', 'image', 'pdf', 'link', 'email', 'other'];
+
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { id, name, type, size, tags, content, thumbnail, url } = req.body;
+
+    if (!name || typeof name !== 'string' || name.length > 500) {
+      res.status(400).json({ success: false, error: '文件名无效或过长' });
+      return;
+    }
+    if (type && !VALID_FILE_TYPES.includes(type)) {
+      res.status(400).json({ success: false, error: '无效的文件类型' });
+      return;
+    }
+
     const now = new Date();
 
     await pool.execute(
@@ -65,7 +77,11 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 // 删除文件
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    await pool.execute('DELETE FROM files WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    const [result] = await pool.execute('DELETE FROM files WHERE id = ? AND user_id = ?', [req.params.id, req.userId]) as any;
+    if (result.affectedRows === 0) {
+      res.status(404).json({ success: false, error: '文件不存在' });
+      return;
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /files error:', error);

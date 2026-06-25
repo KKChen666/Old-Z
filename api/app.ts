@@ -17,7 +17,6 @@ import todosRoutes from './routes/todos.js'
 import notesRoutes from './routes/notes.js'
 import chatRoutes from './routes/chat.js'
 import timelineRoutes from './routes/timeline.js'
-import initDB from './init-db.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -56,16 +55,10 @@ app.use(
 )
 
 /**
- * Initialize database tables
- */
-initDB().catch((err) => {
-  console.error('Failed to initialize database:', err)
-})
-
-/**
  * error handler middleware
  */
 app.use((error: Error, req: Request, res: Response, next: NextFunction) => {
+  console.error('Unhandled error:', error)
   res.status(500).json({
     success: false,
     error: 'Server internal error',

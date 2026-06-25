@@ -273,7 +273,7 @@ export default function Files() {
   const confirmCreateTodo = () => {
     if (!todoTitle.trim() || !selectedFileForTodo) return;
     const todo: Todo = {
-      id: `t-${Date.now()}`,
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: todoTitle,
       description: '',
       priority: todoPriority,
@@ -479,7 +479,11 @@ export default function Files() {
                         </button>
                       )}
                       <button
-                        onClick={() => removeFile(file.id)}
+                        onClick={() => {
+                          if (window.confirm(`确定删除文件"${file.name}"吗？`)) {
+                            removeFile(file.id);
+                          }
+                        }}
                         className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
                         title="删除"
                       >
@@ -564,7 +568,11 @@ export default function Files() {
                             </button>
                           )}
                           <button
-                            onClick={() => removeFile(file.id)}
+                            onClick={() => {
+                              if (window.confirm(`确定删除文件"${file.name}"吗？`)) {
+                                removeFile(file.id);
+                              }
+                            }}
                             className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
                             title="删除"
                           >

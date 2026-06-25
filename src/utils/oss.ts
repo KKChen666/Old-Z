@@ -20,6 +20,16 @@ function generateOSSKey(fileName: string, folder: string = 'uploads'): string {
   return `${folder}/${timestamp}_${random}_${nameWithoutExt}.${ext}`;
 }
 
+// 跟踪本地 blob URL 以便清理
+const localBlobUrls: string[] = [];
+
+// 页面卸载时清理所有本地 blob URL
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    localBlobUrls.forEach(url => URL.revokeObjectURL(url));
+  });
+}
+
 // 上传文件到OSS
 export async function uploadToOSS(
   file: File,
@@ -30,8 +40,10 @@ export async function uploadToOSS(
   // 未配置凭证时回退到本地预览
   if (!ossConfig.accessKeyId || !ossConfig.accessKeySecret) {
     console.warn('OSS credentials not configured, using local preview');
+    const blobUrl = URL.createObjectURL(file);
+    localBlobUrls.push(blobUrl);
     return {
-      url: URL.createObjectURL(file),
+      url: blobUrl,
       key: `local/${file.name}`,
     };
   }
@@ -52,8 +64,10 @@ export async function uploadToOSS(
   } catch (error) {
     console.error('OSS upload error:', error);
     // 上传失败时回退到本地预览
+    const blobUrl = URL.createObjectURL(file);
+    localBlobUrls.push(blobUrl);
     return {
-      url: URL.createObjectURL(file),
+      url: blobUrl,
       key: `local/${file.name}`,
     };
   }

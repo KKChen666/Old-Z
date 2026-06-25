@@ -37,7 +37,7 @@ export default function Todos() {
   const handleAddTodo = () => {
     if (!newTitle.trim()) return;
     const todo: Todo = {
-      id: `t-${Date.now()}`,
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: newTitle,
       description: '',
       priority: newPriority,
@@ -385,7 +385,11 @@ export default function Todos() {
                       <Star className={`w-4 h-4 ${todo.isTodayTodo ? 'fill-gold-400' : ''}`} />
                     </button>
                     <button
-                      onClick={() => deleteTodo(todo.id)}
+                      onClick={() => {
+                        if (window.confirm(`确定删除待办"${todo.title}"吗？`)) {
+                          deleteTodo(todo.id);
+                        }
+                      }}
                       className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />

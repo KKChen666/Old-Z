@@ -61,9 +61,26 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 });
 
 // 创建待办
+const VALID_PRIORITIES = ['low', 'medium', 'high', 'urgent'];
+const VALID_STATUSES = ['pending', 'in_progress', 'completed'];
+
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { id, title, description, priority, status, dueDate, isTodayTodo, tags, subtasks, fileIds } = req.body;
+
+    if (!title || typeof title !== 'string' || title.length > 500) {
+      res.status(400).json({ success: false, error: '标题无效或过长' });
+      return;
+    }
+    if (priority && !VALID_PRIORITIES.includes(priority)) {
+      res.status(400).json({ success: false, error: '无效的优先级' });
+      return;
+    }
+    if (status && !VALID_STATUSES.includes(status)) {
+      res.status(400).json({ success: false, error: '无效的状态' });
+      return;
+    }
+
     const now = new Date();
 
     await pool.execute(
@@ -105,8 +122,14 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
     if (title !== undefined) { fields.push('title = ?'); values.push(title); }
     if (description !== undefined) { fields.push('description = ?'); values.push(description); }
-    if (priority !== undefined) { fields.push('priority = ?'); values.push(priority); }
-    if (status !== undefined) { fields.push('status = ?'); values.push(status); }
+    if (priority !== undefined) {
+      if (!VALID_PRIORITIES.includes(priority)) { res.status(400).json({ success: false, error: '无效的优先级' }); return; }
+      fields.push('priority = ?'); values.push(priority);
+    }
+    if (status !== undefined) {
+      if (!VALID_STATUSES.includes(status)) { res.status(400).json({ success: false, error: '无效的状态' }); return; }
+      fields.push('status = ?'); values.push(status);
+    }
     if (dueDate !== undefined) { fields.push('due_date = ?'); values.push(dueDate); }
     if (isTodayTodo !== undefined) { fields.push('is_today_todo = ?'); values.push(isTodayTodo); }
 
@@ -139,7 +162,11 @@ router.patch('/:todoId/subtasks/:subtaskId', async (req: AuthRequest, res: Respo
 // 删除待办
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    await pool.execute('DELETE FROM todos WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    const [result] = await pool.execute('DELETE FROM todos WHERE id = ? AND user_id = ?', [req.params.id, req.userId]) as any;
+    if (result.affectedRows === 0) {
+      res.status(404).json({ success: false, error: '待办不存在' });
+      return;
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /todos error:', error);

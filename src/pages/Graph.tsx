@@ -20,6 +20,7 @@ interface GraphEdge {
 export default function Graph() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { files, notes, todos } = useAppStore();
+  const hoveredNodeRef = useRef<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const animRef = useRef<number>(0);
@@ -33,6 +34,7 @@ export default function Graph() {
     const resize = () => {
       canvas.width = canvas.offsetWidth * window.devicePixelRatio;
       canvas.height = canvas.offsetHeight * window.devicePixelRatio;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
     };
     resize();
@@ -237,7 +239,7 @@ export default function Graph() {
 
       // Draw nodes
       nodes.forEach((n) => {
-        const isHovered = hoveredNode === n.id;
+        const isHovered = hoveredNodeRef.current === n.id;
         const radius = n.type === 'tag' ? 6 : 10;
 
         // Glow
@@ -286,6 +288,7 @@ export default function Graph() {
           break;
         }
       }
+      hoveredNodeRef.current = found;
       setHoveredNode(found);
       canvas.style.cursor = found ? 'pointer' : 'default';
     };
@@ -297,7 +300,7 @@ export default function Graph() {
       cancelAnimationFrame(animRef.current);
       canvas.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [files, notes, todos, hoveredNode]);
+  }, [files, notes, todos]);
 
   return (
     <div className="h-full flex flex-col">

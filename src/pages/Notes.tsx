@@ -94,15 +94,51 @@ function ColorPicker({ colors, currentColor, onSelect }: { colors: { label: stri
   );
 }
 
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function sanitizeHtml(html: string): string {
+  // Remove script tags and event handlers
+  return html
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/\son\w+\s*=/gi, ' data-removed=')
+    .replace(/javascript:/gi, 'void:');
+}
+
 function convertMarkdownToHtml(md: string): string {
-  return md.split('\n').map((line) => {
-    if (line.startsWith('# ')) return `<h1>${line.slice(2)}</h1>`;
-    if (line.startsWith('## ')) return `<h2>${line.slice(3)}</h2>`;
-    if (line.startsWith('### ')) return `<h3>${line.slice(4)}</h3>`;
-    if (line.startsWith('- ')) return `<li>${line.slice(2)}</li>`;
-    if (line.trim() === '') return '<br>';
-    return `<p>${line}</p>`;
-  }).join('');
+  const lines = md.split('\n');
+  let inList = false;
+  const result: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith('# ')) {
+      if (inList) { result.push('</ul>'); inList = false; }
+      result.push(`<h1>${escapeHtml(line.slice(2))}</h1>`);
+    } else if (line.startsWith('## ')) {
+      if (inList) { result.push('</ul>'); inList = false; }
+      result.push(`<h2>${escapeHtml(line.slice(3))}</h2>`);
+    } else if (line.startsWith('### ')) {
+      if (inList) { result.push('</ul>'); inList = false; }
+      result.push(`<h3>${escapeHtml(line.slice(4))}</h3>`);
+    } else if (line.startsWith('- ')) {
+      if (!inList) { result.push('<ul>'); inList = true; }
+      result.push(`<li>${escapeHtml(line.slice(2))}</li>`);
+    } else if (line.trim() === '') {
+      if (inList) { result.push('</ul>'); inList = false; }
+      result.push('<br>');
+    } else {
+      if (inList) { result.push('</ul>'); inList = false; }
+      result.push(`<p>${escapeHtml(line)}</p>`);
+    }
+  }
+  if (inList) result.push('</ul>');
+  return result.join('');
 }
 
 function isHtmlContent(content: string): boolean {
@@ -146,7 +182,7 @@ export default function Notes() {
   const handleCreate = () => {
     if (!newTitle.trim()) return;
     addNote({
-      id: `n-${Date.now()}`,
+      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       title: newTitle,
       content: newContent,
       tags: [],
@@ -308,7 +344,7 @@ export default function Notes() {
               ) : (
                 <div className="p-6">
                   <div className="prose-notes"
-                    dangerouslySetInnerHTML={{ __html: isHtmlContent(currentNote.content) ? currentNote.content : convertMarkdownToHtml(currentNote.content) }} />
+                    dangerouslySetInnerHTML={{ __html: isHtmlContent(currentNote.content) ? sanitizeHtml(currentNote.content) : convertMarkdownToHtml(currentNote.content) }} />
                 </div>
               )}
             </div>

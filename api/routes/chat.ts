@@ -40,6 +40,16 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { content } = req.body;
+
+    if (!content || typeof content !== 'string') {
+      res.status(400).json({ success: false, error: '消息内容不能为空' });
+      return;
+    }
+    if (content.length > 10000) {
+      res.status(400).json({ success: false, error: '消息内容过长' });
+      return;
+    }
+
     const now = new Date();
     const userMsgId = `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     const aiMsgId = `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
@@ -52,10 +62,10 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     // 获取聊天历史
     const [historyRows] = await pool.execute(
-      'SELECT role, content FROM chat_messages WHERE user_id = ? ORDER BY timestamp ASC LIMIT 20',
+      'SELECT role, content FROM chat_messages WHERE user_id = ? ORDER BY timestamp DESC LIMIT 20',
       [req.userId]
     );
-    const history = (historyRows as any[]).map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+    const history = (historyRows as any[]).reverse().map(m => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 
     // 获取用户数据上下文
     const [files] = await pool.execute(`
@@ -85,7 +95,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     // 保存时间轴
     await pool.execute(
       'INSERT INTO timeline_events (id, type, title, timestamp, user_id) VALUES (?, ?, ?, ?, ?)',
-      [`te-${Date.now()}`, 'chat', '与 AI 助手进行了对话', now, req.userId]
+      [`te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, 'chat', '与 AI 助手进行了对话', now, req.userId]
     );
 
     res.json({

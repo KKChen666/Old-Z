@@ -53,6 +53,12 @@ router.get('/', async (req: AuthRequest, res: Response) => {
 router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const { id, title, content, tags } = req.body;
+
+    if (!title || typeof title !== 'string' || title.length > 500) {
+      res.status(400).json({ success: false, error: '标题无效或过长' });
+      return;
+    }
+
     const now = new Date();
 
     await pool.execute(
@@ -98,7 +104,11 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 // 删除笔记
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    await pool.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+    const [result] = await pool.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId]) as any;
+    if (result.affectedRows === 0) {
+      res.status(404).json({ success: false, error: '笔记不存在' });
+      return;
+    }
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /notes error:', error);

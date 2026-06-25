@@ -57,10 +57,15 @@ export default function App() {
       setAuthChecked(true);
       return;
     }
-    api.getMe()
-      .then(u => { setUser(u); })
-      .catch(() => { clearAuth(); })
-      .finally(() => { setAuthChecked(true); });
+    // Only check auth if ProtectedRoute hasn't already resolved the user
+    if (!user) {
+      api.getMe()
+        .then(u => { setUser(u); })
+        .catch(() => { clearAuth(); })
+        .finally(() => { setAuthChecked(true); });
+    } else {
+      setAuthChecked(true);
+    }
   }, []);
 
   useEffect(() => {

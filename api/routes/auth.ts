@@ -24,6 +24,28 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
+    if (displayName && (typeof displayName !== 'string' || displayName.length > 200)) {
+      res.status(400).json({ success: false, error: '显示名称过长' })
+      return
+    }
+
+    // 确保 users 表存在
+    try {
+      await pool.execute(`
+        CREATE TABLE IF NOT EXISTS users (
+          id VARCHAR(64) PRIMARY KEY,
+          username VARCHAR(100) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          display_name VARCHAR(200),
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        )
+      `)
+    } catch (tableErr: any) {
+      console.error('Failed to ensure users table:', tableErr)
+      res.status(500).json({ success: false, error: '数据库初始化失败，请检查数据库连接' })
+      return
+    }
+
     // 检查用户名是否已存在
     const [existing] = await pool.execute('SELECT id FROM users WHERE username = ?', [username])
     if ((existing as any[]).length > 0) {
@@ -41,16 +63,27 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
 
     const token = generateToken(id)
 
-    res.json({
+    res.status(201).json({
       success: true,
       data: {
         token,
         user: { id, username, displayName: displayName || username },
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /auth/register error:', error)
-    res.status(500).json({ success: false, error: '注册失败' })
+    // 提供更具体的错误信息
+    let errorMsg = '注册失败'
+    if (error?.code === 'ECONNREFUSED' || error?.code === 'ENOTFOUND') {
+      errorMsg = '数据库连接失败，请检查数据库配置'
+    } else if (error?.code === 'ER_NO_SUCH_TABLE') {
+      errorMsg = '数据库表不存在，请重启服务初始化数据库'
+    } else if (error?.code === 'ER_DUP_ENTRY') {
+      errorMsg = '用户名已存在'
+    } else if (error?.message) {
+      errorMsg = `注册失败：${error.message}`
+    }
+    res.status(500).json({ success: false, error: errorMsg })
   }
 })
 
@@ -92,9 +125,17 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
         user: { id: user.id, username: user.username, displayName: user.display_name },
       },
     })
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /auth/login error:', error)
-    res.status(500).json({ success: false, error: '登录失败' })
+    let errorMsg = '登录失败'
+    if (error?.code === 'ECONNREFUSED' || error?.code === 'ENOTFOUND') {
+      errorMsg = '数据库连接失败，请检查数据库配置'
+    } else if (error?.code === 'ER_NO_SUCH_TABLE') {
+      errorMsg = '数据库表不存在，请重启服务初始化数据库'
+    } else if (error?.message) {
+      errorMsg = `登录失败：${error.message}`
+    }
+    res.status(500).json({ success: false, error: errorMsg })
   }
 })
 

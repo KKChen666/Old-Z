@@ -52,10 +52,13 @@ function startApiServer(): Promise<void> {
       cwd: appRoot,
     })
 
+    let resolved = false
+
     apiProcess.stdout?.on('data', (data: Buffer) => {
       const msg = data.toString()
       console.log(`[API] ${msg}`)
-      if (msg.includes('Server ready')) {
+      if (msg.includes('Server ready') && !resolved) {
+        resolved = true
         resolve()
       }
     })
@@ -66,10 +69,19 @@ function startApiServer(): Promise<void> {
 
     apiProcess.on('error', (err) => {
       console.error('Failed to start API server:', err)
-      reject(err)
+      if (!resolved) {
+        resolved = true
+        reject(err)
+      }
     })
 
-    setTimeout(resolve, 8000)
+    setTimeout(() => {
+      if (!resolved) {
+        resolved = true
+        console.warn('[Electron] API server startup timed out after 8s')
+        resolve() // Still proceed, but warn
+      }
+    }, 8000)
   })
 }
 
@@ -84,11 +96,20 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
   })
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url)
+    // Only allow http/https URLs to be opened externally
+    try {
+      const parsed = new URL(url)
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        shell.openExternal(url)
+      }
+    } catch {
+      // Invalid URL, ignore
+    }
     return { action: 'deny' }
   })
 
@@ -128,6 +149,15 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   if (apiProcess) {
     apiProcess.kill()
-    apiProcess = null
+    // Wait briefly for process to exit, then force cleanup
+    setTimeout(() => {
+      if (apiProcess) {
+        apiProcess.kill('SIGKILL')
+        apiProcess = null
+      }
+    }, 2000)
+    apiProcess.on('exit', () => {
+      apiProcess = null
+    })
   }
 })

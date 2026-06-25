@@ -50,7 +50,7 @@ export async function chatWithAI(
     return response.choices[0]?.message?.content || '抱歉，我暂时无法回答这个问题。';
   } catch (error: any) {
     console.error('AI chat error:', error?.message || error);
-    return `AI 调用失败：${error?.message || '未知错误'}`;
+    return 'AI 调用失败，请稍后重试。';
   }
 }
 
