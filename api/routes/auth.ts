@@ -29,23 +29,6 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    // 确保 users 表存在
-    try {
-      await pool.execute(`
-        CREATE TABLE IF NOT EXISTS users (
-          id VARCHAR(64) PRIMARY KEY,
-          username VARCHAR(100) UNIQUE NOT NULL,
-          password_hash VARCHAR(255) NOT NULL,
-          display_name VARCHAR(200),
-          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-        )
-      `)
-    } catch (tableErr: any) {
-      console.error('Failed to ensure users table:', tableErr)
-      res.status(500).json({ success: false, error: '数据库初始化失败，请检查数据库连接' })
-      return
-    }
-
     // 检查用户名是否已存在
     const [existing] = await pool.execute('SELECT id FROM users WHERE username = ?', [username])
     if ((existing as any[]).length > 0) {
