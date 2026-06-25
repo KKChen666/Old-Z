@@ -189,6 +189,13 @@ const initDB = async () => {
       }
     }
 
+    // 为 todos 表添加 is_today_todo 列（兼容旧数据库）
+    try {
+      await conn.execute('ALTER TABLE todos ADD COLUMN is_today_todo BOOLEAN NOT NULL DEFAULT FALSE');
+    } catch (e: any) {
+      if (e.errno !== 1060) throw e;
+    }
+
     console.log('Database tables initialized successfully!');
   } catch (error) {
     console.error('Database init error:', error);

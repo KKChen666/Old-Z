@@ -106,6 +106,14 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const { noteIds } = req.body;
+    if (noteIds && noteIds.length > 0) {
+      for (const noteId of noteIds) {
+        await pool.execute('INSERT IGNORE INTO note_todos (note_id, todo_id) VALUES (?, ?)', [noteId, id]);
+        await pool.execute('INSERT IGNORE INTO todo_notes (todo_id, note_id) VALUES (?, ?)', [id, noteId]);
+      }
+    }
+
     res.json({ success: true, data: { id } });
   } catch (error) {
     console.error('POST /todos error:', error);

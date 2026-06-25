@@ -6,6 +6,7 @@ import {
   Heading1, Heading2, Heading3,
   List, ListOrdered, AlignLeft, AlignCenter, AlignRight,
   Quote, Code, Palette, Type, ChevronDown, Undo2, Redo2, Minus,
+  CheckSquare, Clock,
 } from 'lucide-react';
 
 const FONT_FAMILIES = [
@@ -146,7 +147,7 @@ function isHtmlContent(content: string): boolean {
 }
 
 export default function Notes() {
-  const { notes, addNote, updateNote, deleteNote } = useAppStore();
+  const { notes, addNote, updateNote, deleteNote, addTodo } = useAppStore();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [showNew, setShowNew] = useState(false);
@@ -159,6 +160,10 @@ export default function Notes() {
   const [currentColor, setCurrentColor] = useState('');
   const [currentHighlight, setCurrentHighlight] = useState('');
   const [activeFormats, setActiveFormats] = useState<Record<string, boolean>>({});
+
+  // 选中文字创建待办的状态
+  const [selectionPopup, setSelectionPopup] = useState<{ show: boolean; x: number; y: number; text: string }>({ show: false, x: 0, y: 0, text: '' });
+  const [todoForm, setTodoForm] = useState<{ show: boolean; priority: 'low' | 'medium' | 'high' | 'urgent'; dueDate: string }>({ show: false, priority: 'medium', dueDate: '' });
 
   const exec = useCallback((command: string, value?: string) => {
     document.execCommand(command, false, value);
@@ -216,6 +221,45 @@ export default function Notes() {
   };
 
   const currentNote = notes.find((n) => n.id === selectedNote);
+
+  // 检测选中文字，显示浮动按钮
+  const handleEditorMouseUp = useCallback(() => {
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim().length > 0 && editorRef.current?.contains(sel.anchorNode)) {
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      setSelectionPopup({
+        show: true,
+        x: rect.left + rect.width / 2,
+        y: rect.top - 8,
+        text: sel.toString().trim(),
+      });
+    } else {
+      setSelectionPopup({ show: false, x: 0, y: 0, text: '' });
+      setTodoForm({ show: false, priority: 'medium', dueDate: '' });
+    }
+  }, []);
+
+  // 创建待办
+  const handleCreateTodoFromSelection = useCallback(() => {
+    if (!selectionPopup.text || !currentNote) return;
+    const todo = {
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: selectionPopup.text.slice(0, 500),
+      description: '',
+      priority: todoForm.priority,
+      status: 'pending' as const,
+      dueDate: todoForm.dueDate || undefined,
+      tags: [],
+      fileIds: [],
+      noteIds: [currentNote.id],
+      subtasks: [],
+      createdAt: new Date().toISOString(),
+    };
+    addTodo(todo);
+    setSelectionPopup({ show: false, x: 0, y: 0, text: '' });
+    setTodoForm({ show: false, priority: 'medium', dueDate: '' });
+  }, [selectionPopup.text, todoForm, currentNote, addTodo]);
 
   const renderToolbar = () => (
     <div className="flex items-center gap-0.5 flex-wrap px-1 py-1.5 border-b border-ink-700/50 bg-ink-900/40">
@@ -335,12 +379,81 @@ export default function Notes() {
 
             {editingId === currentNote.id && renderToolbar()}
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto relative">
               {editingId === currentNote.id ? (
-                <div ref={editorRef} contentEditable suppressContentEditableWarning
-                  onInput={updateActiveFormats} onMouseUp={updateActiveFormats} onKeyUp={updateActiveFormats}
-                  className="min-h-full p-6 focus:outline-none prose-notes" style={{ lineHeight: '1.8' }}
-                  data-placeholder="开始写作..." />
+                <>
+                  <div ref={editorRef} contentEditable suppressContentEditableWarning
+                    onInput={updateActiveFormats} onMouseUp={(e) => { updateActiveFormats(); handleEditorMouseUp(); }} onKeyUp={updateActiveFormats}
+                    className="min-h-full p-6 focus:outline-none prose-notes" style={{ lineHeight: '1.8' }}
+                    data-placeholder="开始写作..." />
+
+                  {/* 选中文字浮动创建待办按钮 */}
+                  {selectionPopup.show && (
+                    <div
+                      className="fixed z-50 animate-fade-in"
+                      style={{ left: selectionPopup.x, top: selectionPopup.y, transform: 'translate(-50%, -100%)' }}
+                    >
+                      {!todoForm.show ? (
+                        <button
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => setTodoForm({ ...todoForm, show: true })}
+                          className="flex items-center gap-1.5 px-3 py-2 bg-gold-500 hover:bg-gold-400 text-ink-950 text-xs font-medium rounded-lg shadow-lg shadow-black/30 transition-colors"
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" />
+                          创建待办
+                        </button>
+                      ) : (
+                        <div
+                          className="bg-ink-900 border border-ink-700/50 rounded-xl shadow-xl shadow-black/40 p-4 w-64 animate-fade-in"
+                          onMouseDown={(e) => e.preventDefault()}
+                        >
+                          <p className="text-xs text-parchment-400 mb-3 truncate" title={selectionPopup.text}>
+                            "{selectionPopup.text.slice(0, 40)}{selectionPopup.text.length > 40 ? '...' : ''}"
+                          </p>
+
+                          <div className="flex items-center gap-2 mb-3">
+                            <span className="text-xs text-parchment-400">优先级:</span>
+                            <div className="flex gap-1">
+                              {(['low', 'medium', 'high', 'urgent'] as const).map((p) => (
+                                <button
+                                  key={p}
+                                  onClick={() => setTodoForm({ ...todoForm, priority: p })}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                    todoForm.priority === p
+                                      ? p === 'urgent' || p === 'high'
+                                        ? 'bg-red-500/20 text-red-300 border border-red-500/30'
+                                        : p === 'medium'
+                                        ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
+                                        : 'bg-forest-400/20 text-forest-200 border border-forest-400/30'
+                                      : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30 hover:text-parchment-200'
+                                  }`}
+                                >
+                                  {p === 'urgent' ? '紧急' : p === 'high' ? '高' : p === 'medium' ? '中' : '低'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-2 mb-3">
+                            <Clock className="w-3.5 h-3.5 text-parchment-400" />
+                            <input
+                              type="date"
+                              value={todoForm.dueDate}
+                              onChange={(e) => setTodoForm({ ...todoForm, dueDate: e.target.value })}
+                              className="input-field !w-auto !py-1 !text-xs flex-1"
+                            />
+                          </div>
+
+                          <div className="flex gap-2">
+                            <button onClick={handleCreateTodoFromSelection} className="btn-primary text-xs px-3 py-1.5 flex-1">确认</button>
+                            <button onClick={() => { setTodoForm({ show: false, priority: 'medium', dueDate: '' }); setSelectionPopup({ show: false, x: 0, y: 0, text: '' }); }} className="btn-ghost text-xs px-3 py-1.5">取消</button>
+                          </div>
+                        </div>
+                      )}
+                      <div className="w-2 h-2 bg-gold-500 rotate-45 mx-auto -mt-1" />
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="p-6">
                   <div className="prose-notes"
