@@ -2,13 +2,22 @@
 import OSS from 'ali-oss';
 
 // 阿里云OSS配置
+// 注意：不要同时设置 region 和 endpoint，否则会导致签名不匹配
 const ossConfig = {
   region: import.meta.env.VITE_OSS_REGION || 'oss-cn-beijing',
   accessKeyId: import.meta.env.VITE_OSS_ACCESS_KEY_ID || '',
   accessKeySecret: import.meta.env.VITE_OSS_ACCESS_KEY_SECRET || '',
   bucket: import.meta.env.VITE_OSS_BUCKET || 'oldzz',
-  endpoint: import.meta.env.VITE_OSS_ENDPOINT || 'https://oss-cn-beijing.aliyuncs.com',
 };
+
+// 调试日志
+console.log('OSS Config:', {
+  region: ossConfig.region,
+  accessKeyId: ossConfig.accessKeyId ? `${ossConfig.accessKeyId.substring(0, 6)}...` : 'NOT SET',
+  accessKeySecret: ossConfig.accessKeySecret ? '***' : 'NOT SET',
+  bucket: ossConfig.bucket,
+  isConfigured: !!(ossConfig.accessKeyId && ossConfig.accessKeySecret),
+});
 
 // 生成OSS文件路径
 function generateOSSKey(fileName: string, folder: string = 'uploads'): string {

@@ -17,7 +17,9 @@ import {
   Loader2,
   Download,
   CheckSquare,
+  Eye,
 } from 'lucide-react';
+import FilePreview from '@/components/FilePreview';
 import type { FileFilter, ViewMode, FileItem, Todo } from '@/types';
 
 const fileIcons: Record<string, typeof FileText> = {
@@ -52,13 +54,6 @@ function getFileType(name: string): 'document' | 'image' | 'pdf' | 'link' | 'ema
   return 'other';
 }
 
-function handleOpenFile(file: { name: string; url?: string }) {
-  if (!file.url) return;
-  // 先尝试在新窗口打开（浏览器会根据文件类型决定是直接显示还是下载）
-  // 对于图片/PDF/视频等，浏览器会直接显示；对于 doc/xlsx 等会触发下载，用户可用本地应用打开
-  window.open(file.url, '_blank');
-}
-
 export default function Files() {
   const { files, removeFile, addFile, addTimelineEvent, addTodo } = useAppStore();
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
@@ -71,6 +66,12 @@ export default function Files() {
   const [selectedFileForTodo, setSelectedFileForTodo] = useState<FileItem | null>(null);
   const [todoTitle, setTodoTitle] = useState('');
   const [todoPriority, setTodoPriority] = useState<Todo['priority']>('medium');
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+
+  const handleOpenFile = (file: FileItem) => {
+    if (!file.url) return;
+    setPreviewFile(file);
+  };
 
   const allTags = [...new Set(files.flatMap((f) => f.tags))];
 
@@ -257,6 +258,7 @@ export default function Files() {
                   key={file.id}
                   className="glass-card-hover p-4 animate-fade-in group"
                   style={{ animationDelay: `${index * 50}ms` }}
+                  onDoubleClick={() => file.url && handleOpenFile(file)}
                 >
                   <div className="flex items-start justify-between mb-3">
                     <div className={`p-2.5 rounded-lg ${fileColors[file.type]}`}>
@@ -271,13 +273,22 @@ export default function Files() {
                         <CheckSquare className="w-4 h-4" />
                       </button>
                       {file.url && (
-                        <button
-                          onClick={() => handleOpenFile(file)}
-                          className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
-                          title="打开文件"
-                        >
-                          <Download className="w-4 h-4" />
-                        </button>
+                        <>
+                          <button
+                            onClick={() => handleOpenFile(file)}
+                            className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                            title="预览"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => window.open(file.url, '_blank')}
+                            className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                            title="下载"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                        </>
                       )}
                       <button
                         onClick={() => {
@@ -294,8 +305,8 @@ export default function Files() {
                   </div>
                   <p
                     className="text-sm font-medium text-parchment-100 truncate cursor-pointer hover:text-gold-400 transition-colors"
-                    onClick={() => file.url && handleOpenFile(file)}
-                    title="点击打开文件"
+                    onDoubleClick={() => file.url && handleOpenFile(file)}
+                    title="双击预览文件"
                   >
                     {file.name}
                   </p>
@@ -328,11 +339,10 @@ export default function Files() {
                 {filteredFiles.map((file) => {
                   const Icon = fileIcons[file.type] || FileIcon;
                   return (
-                    <tr key={file.id} className="border-b border-ink-800/30 hover:bg-ink-800/30 transition-colors">
+                    <tr key={file.id} className="border-b border-ink-800/30 hover:bg-ink-800/30 transition-colors" onDoubleClick={() => file.url && handleOpenFile(file)}>
                       <td className="px-4 py-3">
                         <div
                           className="flex items-center gap-3 cursor-pointer"
-                          onClick={() => file.url && handleOpenFile(file)}
                         >
                           <Icon className="w-4 h-4 text-parchment-400" />
                           <span className="text-sm text-parchment-100 truncate max-w-[200px] hover:text-gold-400 transition-colors">{file.name}</span>
@@ -360,13 +370,22 @@ export default function Files() {
                             <CheckSquare className="w-3.5 h-3.5" />
                           </button>
                           {file.url && (
-                            <button
-                              onClick={() => handleOpenFile(file)}
-                              className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
-                              title="打开文件"
-                            >
-                              <Download className="w-3.5 h-3.5" />
-                            </button>
+                            <>
+                              <button
+                                onClick={() => handleOpenFile(file)}
+                                className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                                title="预览"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => window.open(file.url, '_blank')}
+                                className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                                title="下载"
+                              >
+                                <Download className="w-3.5 h-3.5" />
+                              </button>
+                            </>
                           )}
                           <button
                             onClick={() => {
@@ -397,6 +416,15 @@ export default function Files() {
           </div>
         )}
       </div>
+
+      {/* File Preview Modal */}
+      {previewFile && previewFile.url && (
+        <FilePreview
+          url={previewFile.url}
+          name={previewFile.name}
+          onClose={() => setPreviewFile(null)}
+        />
+      )}
 
       {/* Todo Creation Modal */}
       {showTodoForm && selectedFileForTodo && (
