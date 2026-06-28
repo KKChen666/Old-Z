@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="250dp"
+    android:height="180dp"
+    android:viewportWidth="250"
+    android:viewportHeight="180">
+
+    <!-- 背景 -->
+    <path
+        android:pathData="M0,0 L250,0 L250,180 L0,180 Z"
+        android:fillColor="#0A0A0F" />
+
+    <!-- 圆角矩形边框 -->
+    <path
+        android:pathData="M16,16 L234,16 Q250,16 250,32 L250,148 Q250,164 234,164 L16,164 Q0,164 0,148 L0,32 Q0,16 16,16 Z"
+        android:fillColor="#E60A0A0F"
+        android:strokeColor="#22FFFFFF"
+        android:strokeWidth="1" />
+
+    <!-- 标题 "今日待办" -->
+    <path
+        android:pathData="M28,44 L88,44"
+        android:strokeColor="#E8E0D0"
+        android:strokeWidth="2"
+        android:strokeLineCap="round" />
+
+    <!-- 待办项 1 -->
+    <path
+        android:pathData="M28,66 A4,4 0,1,1 36,66 A4,4 0,1,1 28,66 Z"
+        android:fillColor="#22C55E" />
+    <path
+        android:pathData="M46,62 L160,62"
+        android:strokeColor="#888888"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- 待办项 2 -->
+    <path
+        android:pathData="M28,86 A4,4 0,1,1 36,86 A4,4 0,1,1 28,86 Z"
+        android:fillColor="#EAB308" />
+    <path
+        android:pathData="M46,82 L180,82"
+        android:strokeColor="#E8E0D0"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- 待办项 3 -->
+    <path
+        android:pathData="M28,106 A4,4 0,1,1 36,106 A4,4 0,1,1 28,106 Z"
+        android:fillColor="#EF4444" />
+    <path
+        android:pathData="M46,102 L140,102"
+        android:strokeColor="#E8E0D0"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- 待办项 4 -->
+    <path
+        android:pathData="M28,126 A4,4 0,1,1 36,126 A4,4 0,1,1 28,126 Z"
+        android:fillColor="#F97316" />
+    <path
+        android:pathData="M46,122 L170,122"
+        android:strokeColor="#E8E0D0"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round" />
+
+    <!-- 底部文字 "点击打开 Old Z" -->
+    <path
+        android:pathData="M94,154 L156,154"
+        android:strokeColor="#555555"
+        android:strokeWidth="1"
+        android:strokeLineCap="round" />
+
+</vector>

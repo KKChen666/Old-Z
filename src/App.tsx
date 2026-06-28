@@ -10,7 +10,7 @@ import Graph from "@/pages/Graph";
 import Chat from "@/pages/Chat";
 import Timeline from "@/pages/Timeline";
 import { useAppStore } from "@/stores/useAppStore";
-import { api, getToken, clearAuth } from "@/utils/api";
+import { api, getToken, clearAuth, syncTokenToNative, clearNativeToken } from "@/utils/api";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, setUser } = useAppStore();
@@ -57,11 +57,13 @@ export default function App() {
       setAuthChecked(true);
       return;
     }
+    // 应用启动时同步 Token 到原生层（供桌面小部件使用）
+    syncTokenToNative(token);
     // Only check auth if ProtectedRoute hasn't already resolved the user
     if (!user) {
       api.getMe()
         .then(u => { setUser(u); })
-        .catch(() => { clearAuth(); })
+        .catch(() => { clearAuth(); clearNativeToken(); })
         .finally(() => { setAuthChecked(true); });
     } else {
       setAuthChecked(true);
@@ -71,6 +73,7 @@ export default function App() {
   useEffect(() => {
     const handler = () => {
       clearAuth();
+      clearNativeToken();
       setUser(null);
     };
     window.addEventListener('auth-expired', handler);

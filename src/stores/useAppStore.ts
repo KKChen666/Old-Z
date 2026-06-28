@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { FileItem, Todo, Note, ChatMessage, TimelineEvent } from '@/types';
-import { api, clearAuth } from '@/utils/api';
+import { api, clearAuth, clearNativeToken } from '@/utils/api';
 
 interface AppState {
   user: { id: string; username: string; displayName: string } | null;
@@ -45,6 +45,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   logout: () => {
     clearAuth();
+    clearNativeToken();
     set({ user: null, loaded: false });
   },
 

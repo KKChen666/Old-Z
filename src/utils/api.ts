@@ -1,6 +1,30 @@
+import { registerPlugin } from '@capacitor/core';
+
 // Capacitor: detect running inside native shell
 const isCapacitor = typeof window !== 'undefined'
   && !!(window as any).Capacitor?.isNativePlatform;
+
+// Capacitor 原生插件（用于桌面小部件 Token 同步）
+const TokenShare = isCapacitor ? registerPlugin('TokenShare') : null;
+
+/**
+ * 将 JWT Token 同步到 Android SharedPreferences，供桌面小部件读取。
+ * 仅在 Capacitor 原生环境下生效。
+ */
+export async function syncTokenToNative(token: string) {
+  if (TokenShare) {
+    try { await (TokenShare as any).saveToken({ token }); } catch {}
+  }
+}
+
+/**
+ * 清除 Android SharedPreferences 中的 Token。
+ */
+export async function clearNativeToken() {
+  if (TokenShare) {
+    try { await (TokenShare as any).clearToken(); } catch {}
+  }
+}
 
 // In Electron production mode (file:// protocol), API requests must go directly to the backend
 // In dev mode, Vite proxy handles /api → localhost:3001
@@ -45,13 +69,29 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers['Content-Type'] = 'application/json';
   }
 
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...options?.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers: {
+        ...headers,
+        ...options?.headers,
+      },
+    });
+  } catch (fetchErr: any) {
+    // 网络层错误（DNS 失败、连接超时、CORS、混合内容等）
+    const msg = String(fetchErr?.message || fetchErr);
+    if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_NAME_NOT_RESOLVED')) {
+      throw new Error('无法连接到服务器，请检查网络连接后重试');
+    }
+    if (msg.includes('ERR_CONNECTION_REFUSED')) {
+      throw new Error('服务器连接被拒绝，请稍后重试');
+    }
+    if (msg.includes('ERR_TIMED_OUT') || msg.includes('Timeout')) {
+      throw new Error('连接超时，请检查网络状况');
+    }
+    throw new Error('网络请求失败，请检查网络连接');
+  }
 
   if (res.status === 401) {
     clearAuth();

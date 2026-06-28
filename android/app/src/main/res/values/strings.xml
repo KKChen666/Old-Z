@@ -4,4 +4,6 @@
     <string name="title_activity_main">Old Z</string>
     <string name="package_name">com.oldz.app</string>
     <string name="custom_url_scheme">com.oldz.app</string>
+    <string name="widget_today_todos_label">今日待办</string>
+    <string name="widget_today_todos_description">在桌面快速查看今日待办事项</string>
 </resources>

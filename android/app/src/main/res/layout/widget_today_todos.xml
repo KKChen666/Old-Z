@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@drawable/widget_background"
+    android:padding="12dp">
+
+    <!-- 标题栏 -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+
+        <TextView
+            android:id="@+id/widget_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="今日待办"
+            android:textSize="16sp"
+            android:textColor="#E8E0D0"
+            android:textStyle="bold"
+            android:fontFamily="serif" />
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:src="@mipmap/ic_launcher"
+            android:alpha="0.6" />
+    </LinearLayout>
+
+    <!-- 待办列表 -->
+    <ListView
+        android:id="@+id/widget_todo_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="@null"
+        android:dividerHeight="4dp"
+        android:clipToPadding="false"
+        android:scrollbarStyle="outsideOverlay"
+        android:fadeScrollbars="true"
+        android:scrollbarThumbVertical="@android:color/transparent" />
+
+    <!-- 空状态 -->
+    <TextView
+        android:id="@+id/widget_empty_text"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="暂无今日待办"
+        android:textSize="13sp"
+        android:textColor="#888888"
+        android:visibility="gone" />
+
+    <!-- 底部分割线 -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#22FFFFFF"
+        android:layout_marginTop="4dp" />
+
+    <!-- 底部提示 -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="点击打开 Old Z"
+        android:textSize="10sp"
+        android:textColor="#555555"
+        android:layout_marginTop="4dp" />
+
+</LinearLayout>

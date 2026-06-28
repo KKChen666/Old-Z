@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, UserPlus, Eye, EyeOff, Zap, KeyRound } from 'lucide-react';
-import { api, saveAuth } from '@/utils/api';
+import { api, saveAuth, syncTokenToNative } from '@/utils/api';
 import { useAppStore } from '@/stores/useAppStore';
 
 export default function Login() {
@@ -44,16 +44,19 @@ export default function Login() {
       if (tab === 'login') {
         const res = await api.login(username, password);
         saveAuth(res.token);
+        syncTokenToNative(res.token);
         setUser(res.user);
         navigate('/');
       } else if (tab === 'register') {
         const res = await api.register(username, password, displayName || undefined);
         saveAuth(res.token);
+        syncTokenToNative(res.token);
         setUser(res.user);
         navigate('/');
       } else {
         const res = await api.resetPassword(username, password);
         saveAuth(res.token);
+        syncTokenToNative(res.token);
         setUser(res.user);
         navigate('/');
       }
