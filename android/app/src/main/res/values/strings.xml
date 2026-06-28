@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Old Z</string>
+    <string name="title_activity_main">Old Z</string>
+    <string name="package_name">com.oldz.app</string>
+    <string name="custom_url_scheme">com.oldz.app</string>
+</resources>

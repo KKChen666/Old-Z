@@ -15,6 +15,8 @@
     color: #f5f0e8;
     min-height: 100vh;
     overflow-x: hidden;
+    /* Capacitor safe-area */
+    padding-top: env(safe-area-inset-top, 0);
   }
 
   ::-webkit-scrollbar {
@@ -218,4 +220,26 @@
   content: attr(data-placeholder);
   color: #6b6040;
   pointer-events: none;
+}
+
+/* ========== Capacitor / Mobile safe-area ========== */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* 隐藏 Capacitor WebView 中不想要的滚动条 */
+@media (max-width: 768px) {
+  ::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+  }
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

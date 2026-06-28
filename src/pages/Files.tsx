@@ -161,16 +161,16 @@ export default function Files() {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="p-6 pb-4 border-b border-ink-800/50">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-ink-800/50">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="font-serif text-2xl font-bold text-parchment-100">文件中心</h1>
-            <p className="text-sm text-parchment-400 mt-1">统一管理所有文件，支持全文搜索</p>
+            <h1 className="font-serif text-xl sm:text-2xl font-bold text-parchment-100">文件中心</h1>
+            <p className="text-xs sm:text-sm text-parchment-400 mt-1">统一管理所有文件，支持全文搜索</p>
           </div>
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center gap-2 whitespace-nowrap"
           >
             {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
             {uploading ? '上传中...' : '上传文件'}
@@ -179,9 +179,9 @@ export default function Files() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {/* Search & Controls */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-ink-400" />
             <input
@@ -250,13 +250,13 @@ export default function Files() {
 
         {/* File Grid/List */}
         {viewMode === 'grid' ? (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
             {filteredFiles.map((file, index) => {
               const Icon = fileIcons[file.type] || FileIcon;
               return (
                 <div
                   key={file.id}
-                  className="glass-card-hover p-4 animate-fade-in group"
+                  className="glass-card-hover p-3 sm:p-4 animate-fade-in group"
                   style={{ animationDelay: `${index * 50}ms` }}
                   onDoubleClick={() => file.url && handleOpenFile(file)}
                 >
@@ -323,15 +323,15 @@ export default function Files() {
             })}
           </div>
         ) : (
-          <div className="glass-card overflow-hidden">
-            <table className="w-full">
+          <div className="glass-card overflow-x-auto">
+            <table className="w-full min-w-[600px]">
               <thead>
                 <tr className="border-b border-ink-700/50">
-                  <th className="text-left px-4 py-3 text-xs font-medium text-parchment-400">名称</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-parchment-400">类型</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-parchment-400">大小</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-parchment-400">标签</th>
-                  <th className="text-left px-4 py-3 text-xs font-medium text-parchment-400">日期</th>
+                  <th className="text-left px-3 sm:px-4 py-2 sm:py-3 text-xs font-medium text-parchment-400">名称</th>
+                  <th className="text-left px-3 sm:px-4 py-2 sm:py-3 text-xs font-medium text-parchment-400">类型</th>
+                  <th className="text-left px-3 sm:px-4 py-2 sm:py-3 text-xs font-medium text-parchment-400">大小</th>
+                  <th className="text-left px-3 sm:px-4 py-2 sm:py-3 text-xs font-medium text-parchment-400">标签</th>
+                  <th className="text-left px-3 sm:px-4 py-2 sm:py-3 text-xs font-medium text-parchment-400">日期</th>
                   <th className="w-24"></th>
                 </tr>
               </thead>

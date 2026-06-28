@@ -262,7 +262,7 @@ export default function Notes() {
   }, [selectionPopup.text, todoForm, currentNote, addTodo]);
 
   const renderToolbar = () => (
-    <div className="flex items-center gap-0.5 flex-wrap px-1 py-1.5 border-b border-ink-700/50 bg-ink-900/40">
+    <div className="flex items-center gap-0.5 overflow-x-auto px-1 py-1.5 border-b border-ink-700/50 bg-ink-900/40 scrollbar-none">
       <ToolbarButton onClick={() => exec('undo')} title="撤销"><Undo2 className="w-3.5 h-3.5" /></ToolbarButton>
       <ToolbarButton onClick={() => exec('redo')} title="重做"><Redo2 className="w-3.5 h-3.5" /></ToolbarButton>
       <div className="w-px h-5 bg-ink-700/50 mx-1" />
@@ -312,10 +312,14 @@ export default function Notes() {
     </div>
   );
 
+  // 移动端：是否显示编辑器（而非列表）
+  const showEditorOnMobile = !!selectedNote || editingId;
+  const handleBackToList = () => { setSelectedNote(null); setEditingId(null); };
+
   return (
     <div className="flex h-full">
-      {/* Note List */}
-      <div className="w-72 border-r border-ink-800/50 flex flex-col flex-shrink-0">
+      {/* Note List - 移动端可隐藏 */}
+      <div className={`${showEditorOnMobile ? 'hidden md:flex' : 'flex'} w-full md:w-72 border-r border-ink-800/50 flex-col flex-shrink-0`}>
         <div className="p-4 border-b border-ink-800/50">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-serif text-lg font-semibold text-parchment-100">笔记</h2>
@@ -352,17 +356,23 @@ export default function Notes() {
         </div>
       </div>
 
-      {/* Note Content */}
-      <div className="flex-1 flex flex-col">
+      {/* Note Content - 移动端可隐藏 */}
+      <div className={`${showEditorOnMobile ? 'flex' : 'hidden md:flex'} flex-1 flex-col`}>
         {currentNote ? (
           <>
-            <div className="p-4 border-b border-ink-800/50 flex items-center justify-between">
-              {editingId === currentNote.id ? (
-                <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="input-field text-lg font-serif font-bold flex-1 mr-4" />
-              ) : (
-                <h1 className="font-serif text-xl font-bold text-parchment-100">{currentNote.title}</h1>
-              )}
-              <div className="flex items-center gap-2">
+            <div className="p-3 sm:p-4 border-b border-ink-800/50 flex items-center justify-between">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                {/* 移动端返回按钮 */}
+                <button onClick={handleBackToList} className="md:hidden p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                {editingId === currentNote.id ? (
+                  <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="input-field text-lg font-serif font-bold flex-1 mr-4" />
+                ) : (
+                  <h1 className="font-serif text-lg sm:text-xl font-bold text-parchment-100 truncate">{currentNote.title}</h1>
+                )}
+              </div>
+              <div className="flex items-center gap-1 sm:gap-2">
                 {editingId === currentNote.id ? (
                   <>
                     <button onClick={saveEdit} className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1"><Save className="w-3 h-3" /> 保存</button>
@@ -384,7 +394,7 @@ export default function Notes() {
                 <>
                   <div ref={editorRef} contentEditable suppressContentEditableWarning
                     onInput={updateActiveFormats} onMouseUp={(e) => { updateActiveFormats(); handleEditorMouseUp(); }} onKeyUp={updateActiveFormats}
-                    className="min-h-full p-6 focus:outline-none prose-notes" style={{ lineHeight: '1.8' }}
+                    className="min-h-full p-4 sm:p-6 focus:outline-none prose-notes" style={{ lineHeight: '1.8' }}
                     data-placeholder="开始写作..." />
 
                   {/* 选中文字浮动创建待办按钮 */}
@@ -455,15 +465,15 @@ export default function Notes() {
                   )}
                 </>
               ) : (
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   <div className="prose-notes"
                     dangerouslySetInnerHTML={{ __html: isHtmlContent(currentNote.content) ? sanitizeHtml(currentNote.content) : convertMarkdownToHtml(currentNote.content) }} />
                 </div>
               )}
             </div>
 
-            <div className="p-4 border-t border-ink-800/50">
-              <div className="flex items-center gap-4 text-xs text-parchment-400">
+            <div className="p-3 sm:p-4 border-t border-ink-800/50">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-parchment-400">
                 <span>创建于 {new Date(currentNote.createdAt).toLocaleString('zh-CN')}</span>
                 <span>更新于 {new Date(currentNote.updatedAt).toLocaleString('zh-CN')}</span>
                 <div className="flex items-center gap-1">
@@ -475,8 +485,8 @@ export default function Notes() {
           </>
         ) : (
           <div className="flex-1 flex items-center justify-center">
-            <div className="text-center">
-              <StickyNote className="w-16 h-16 text-ink-700 mx-auto mb-4" />
+            <div className="text-center px-4">
+              <StickyNote className="w-12 h-12 sm:w-16 sm:h-16 text-ink-700 mx-auto mb-4" />
               <p className="text-parchment-400">选择一篇笔记开始阅读</p>
               <p className="text-xs text-ink-500 mt-1">或创建新笔记开始写作</p>
             </div>

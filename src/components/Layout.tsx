@@ -25,6 +25,15 @@ const navItems = [
   { to: '/timeline', icon: Clock, label: '时间轴' },
 ];
 
+/** 手机端底部导航栏只展示核心页面 */
+const mobileNavItems = [
+  { to: '/', icon: LayoutDashboard, label: '首页' },
+  { to: '/todos', icon: CheckSquare, label: '待办' },
+  { to: '/notes', icon: StickyNote, label: '笔记' },
+  { to: '/chat', icon: MessageCircle, label: 'AI' },
+  { to: '/files', icon: Files, label: '文件' },
+];
+
 export default function Layout() {
   const { sidebarCollapsed, toggleSidebar, user, logout } = useAppStore();
   const navigate = useNavigate();
@@ -36,11 +45,11 @@ export default function Layout() {
 
   return (
     <div className="flex h-screen overflow-hidden">
-      {/* Sidebar */}
+      {/* Sidebar - 仅桌面端显示 */}
       <aside
-        className={`${
+        className={`hidden md:flex ${
           sidebarCollapsed ? 'w-16' : 'w-60'
-        } flex flex-col bg-ink-950 border-r border-ink-800/50 transition-all duration-300 flex-shrink-0`}
+        } flex-col bg-ink-950 border-r border-ink-800/50 transition-all duration-300 flex-shrink-0`}
       >
         {/* Logo */}
         <div className="flex items-center gap-3 px-4 h-16 border-b border-ink-800/50">
@@ -121,11 +130,34 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto bg-ink-950">
+      <main className="flex-1 overflow-y-auto bg-ink-950 pb-16 md:pb-0">
         <div className="h-full">
           <Outlet />
         </div>
       </main>
+
+      {/* Mobile bottom tab bar */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-ink-950 border-t border-ink-800/50 safe-area-pb">
+        <div className="flex items-center justify-around h-14">
+          {mobileNavItems.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={item.to === '/'}
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
+                  isActive
+                    ? 'text-gold-400'
+                    : 'text-parchment-500 active:text-parchment-300'
+                }`
+              }
+            >
+              <item.icon className="w-5 h-5" />
+              <span className="text-[10px] font-medium leading-none">{item.label}</span>
+            </NavLink>
+          ))}
+        </div>
+      </nav>
     </div>
   );
 }

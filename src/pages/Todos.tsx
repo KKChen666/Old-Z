@@ -209,11 +209,11 @@ export default function Todos() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-6 pb-4 border-b border-ink-800/50">
-        <div className="flex items-center justify-between">
+      <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-ink-800/50">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h1 className="font-serif text-2xl font-bold text-parchment-100">待办管理</h1>
-            <p className="text-sm text-parchment-400 mt-1">
+            <h1 className="font-serif text-xl sm:text-2xl font-bold text-parchment-100">待办管理</h1>
+            <p className="text-xs sm:text-sm text-parchment-400 mt-1">
               {todos.filter((t) => t.status !== 'completed').length} 项待处理
               {todos.filter(isOverdue).length > 0 && (
                 <span className="text-red-400 ml-2">
@@ -228,11 +228,11 @@ export default function Todos() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
         {/* New Todo Form */}
         {showNewTodo && (
-          <div className="glass-card p-5 space-y-4 animate-slide-in-up">
-            <div className="flex gap-3">
+          <div className="glass-card p-4 sm:p-5 space-y-3 sm:space-y-4 animate-slide-in-up">
+            <div className="flex gap-2 sm:gap-3">
               <input
                 type="text"
                 value={newTitle}
@@ -242,11 +242,11 @@ export default function Todos() {
                 className="input-field flex-1"
                 autoFocus
               />
-              <button onClick={handleAddTodo} className="btn-primary">添加</button>
-              <button onClick={resetNewTodo} className="btn-ghost">取消</button>
+              <button onClick={handleAddTodo} className="btn-primary whitespace-nowrap">添加</button>
+              <button onClick={resetNewTodo} className="btn-ghost hidden sm:block">取消</button>
             </div>
 
-            <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
               {/* Priority */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-parchment-400">优先级:</span>
@@ -362,41 +362,42 @@ export default function Todos() {
         )}
 
         {/* Filters */}
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="flex items-center gap-1">
-            <Filter className="w-3.5 h-3.5 text-parchment-400" />
-            <span className="text-xs text-parchment-400">状态:</span>
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="flex items-center gap-1">
+              <Filter className="w-3.5 h-3.5 text-parchment-400" />
+              <span className="text-xs text-parchment-400">状态:</span>
+            </div>
+            {(['all', 'pending', 'in_progress', 'completed'] as TodoFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={`px-2.5 sm:px-3 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
+                  statusFilter === f
+                    ? 'bg-gold-400/20 text-gold-400 border border-gold-400/30'
+                    : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30 hover:text-parchment-200'
+                }`}
+              >
+                {f === 'all' ? '全部' : statusLabels[f]}
+              </button>
+            ))}
           </div>
-          {(['all', 'pending', 'in_progress', 'completed'] as TodoFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                statusFilter === f
-                  ? 'bg-gold-400/20 text-gold-400 border border-gold-400/30'
-                  : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30 hover:text-parchment-200'
-              }`}
-            >
-              {f === 'all' ? '全部' : statusLabels[f]}
-            </button>
-          ))}
-
-          <div className="w-px h-5 bg-ink-700/50" />
-
-          <span className="text-xs text-parchment-400">优先级:</span>
-          {(['all', 'urgent', 'high', 'medium', 'low'] as PriorityFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setPriorityFilter(f)}
-              className={`px-3 py-1 rounded-lg text-xs font-medium transition-all ${
-                priorityFilter === f
-                  ? 'bg-gold-400/20 text-gold-400 border border-gold-400/30'
-                  : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30 hover:text-parchment-200'
-              }`}
-            >
-              {f === 'all' ? '全部' : priorityLabels[f]}
-            </button>
-          ))}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs text-parchment-400 ml-6">优先级:</span>
+            {(['all', 'urgent', 'high', 'medium', 'low'] as PriorityFilter[]).map((f) => (
+              <button
+                key={f}
+                onClick={() => setPriorityFilter(f)}
+                className={`px-2.5 sm:px-3 py-1 rounded-lg text-[10px] sm:text-xs font-medium transition-all ${
+                  priorityFilter === f
+                    ? 'bg-gold-400/20 text-gold-400 border border-gold-400/30'
+                    : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30 hover:text-parchment-200'
+                }`}
+              >
+                {f === 'all' ? '全部' : priorityLabels[f]}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Todo List - grouped by date */}
@@ -430,7 +431,7 @@ export default function Todos() {
                         {todo.status === 'completed' && (
                           <div className="absolute left-4 right-4 top-1/2 h-[2px] bg-parchment-500/60 rounded-full z-10 pointer-events-none" />
                         )}
-                        <div className="flex items-start gap-3 p-4">
+                        <div className="flex items-start gap-2 sm:gap-3 p-3 sm:p-4">
                           <button onClick={() => cycleStatus(todo)} className="mt-0.5 flex-shrink-0">
                             {todo.status === 'completed' ? (
                               <CheckCircle2 className="w-5 h-5 text-forest-400" />
@@ -450,13 +451,13 @@ export default function Todos() {
                                   className="input-field w-full"
                                   autoFocus
                                 />
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-1.5 sm:gap-3">
                                   <div className="flex gap-1">
                                     {(['low', 'medium', 'high', 'urgent'] as const).map((p) => (
                                       <button
                                         key={p}
                                         onClick={() => setEditPriority(p)}
-                                        className={`px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
+                                        className={`px-1.5 sm:px-2 py-0.5 rounded text-[10px] font-medium transition-all ${
                                           editPriority === p
                                             ? p === 'urgent' || p === 'high'
                                               ? 'bg-red-500/20 text-red-300 border border-red-500/30'
@@ -470,25 +471,27 @@ export default function Todos() {
                                       </button>
                                     ))}
                                   </div>
-                                  {quickDateOptions.map((opt) => (
-                                    <button
-                                      key={opt.label}
-                                      onClick={() => setEditDueDate(opt.value)}
-                                      className={`px-1.5 py-0.5 rounded text-[10px] ${
-                                        editDueDate === opt.value
-                                          ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
-                                          : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30'
-                                      }`}
-                                    >
-                                      {opt.label}
-                                    </button>
-                                  ))}
-                                  <input
-                                    type="date"
-                                    value={editDueDate}
-                                    onChange={(e) => setEditDueDate(e.target.value)}
-                                    className="input-field !w-auto !py-0.5 !text-xs"
-                                  />
+                                  <div className="flex gap-1">
+                                    {quickDateOptions.map((opt) => (
+                                      <button
+                                        key={opt.label}
+                                        onClick={() => setEditDueDate(opt.value)}
+                                        className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                          editDueDate === opt.value
+                                            ? 'bg-gold-400/20 text-gold-300 border border-gold-400/30'
+                                            : 'bg-ink-800/60 text-parchment-400 border border-ink-700/30'
+                                        }`}
+                                      >
+                                        {opt.label}
+                                      </button>
+                                    ))}
+                                    <input
+                                      type="date"
+                                      value={editDueDate}
+                                      onChange={(e) => setEditDueDate(e.target.value)}
+                                      className="input-field !w-auto !py-0.5 !text-xs"
+                                    />
+                                  </div>
                                 </div>
                                 <div className="flex gap-2">
                                   <button onClick={saveEdit} className="btn-primary !py-1 !text-xs">保存</button>
@@ -577,24 +580,24 @@ export default function Todos() {
                           </div>
 
                           {!editing && (
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-0.5 sm:gap-1 flex-shrink-0">
                               <button
                                 onClick={() => startEdit(todo)}
-                                className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
+                                className="p-1 sm:p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
                                 title="编辑"
                               >
-                                <Pencil className="w-4 h-4" />
+                                <Pencil className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               </button>
                               <button
                                 onClick={() => toggleTodayTodo(todo)}
-                                className={`p-1.5 rounded-md transition-colors ${
+                                className={`p-1 sm:p-1.5 rounded-md transition-colors ${
                                   todo.isTodayTodo
                                     ? 'text-gold-400 hover:text-gold-300'
                                     : 'text-parchment-400 hover:text-gold-400 hover:bg-ink-700/50'
                                 }`}
                                 title={todo.isTodayTodo ? '取消今日待办' : '设为今日待办'}
                               >
-                                <Star className={`w-4 h-4 ${todo.isTodayTodo ? 'fill-gold-400' : ''}`} />
+                                <Star className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${todo.isTodayTodo ? 'fill-gold-400' : ''}`} />
                               </button>
                               <button
                                 onClick={() => {
@@ -602,9 +605,9 @@ export default function Todos() {
                                     deleteTodo(todo.id);
                                   }
                                 }}
-                                className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
+                                className="p-1 sm:p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-red-400 transition-colors"
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Trash2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                               </button>
                             </div>
                           )}

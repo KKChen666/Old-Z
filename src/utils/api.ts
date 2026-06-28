@@ -1,10 +1,27 @@
+// Capacitor: detect running inside native shell
+const isCapacitor = typeof window !== 'undefined'
+  && !!(window as any).Capacitor?.isNativePlatform;
+
 // In Electron production mode (file:// protocol), API requests must go directly to the backend
 // In dev mode, Vite proxy handles /api → localhost:3001
 const isElectronProd = typeof window !== 'undefined'
   && (window as any).electronAPI?.isElectron
   && window.location.protocol === 'file:';
 
-const API_BASE = isElectronProd ? 'http://localhost:3001/api' : '/api';
+function resolveApiBase(): string {
+  // Capacitor native app → 直接请求后端服务器
+  if (isCapacitor) {
+    return 'http://119.45.182.166:3001/api';
+  }
+  // Electron 生产模式
+  if (isElectronProd) {
+    return 'http://localhost:3001/api';
+  }
+  // 浏览器开发/生产模式，使用 Vite 代理
+  return '/api';
+}
+
+const API_BASE = resolveApiBase();
 
 export function getToken() {
   return localStorage.getItem('old-z-token');

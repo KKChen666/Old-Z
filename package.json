@@ -20,9 +20,20 @@
     "preview": "vite preview",
     "check": "tsc --noEmit",
     "electron:package": "npm run build && npm run build:electron && node scripts/package.cjs",
-    "electron:installer": "npm run build && npm run build:electron && set ELECTRON_BUILDER_CACHE=.electron-cache&& electron-builder --win --x64 --publish never"
+    "electron:installer": "npm run build && npm run build:electron && set ELECTRON_BUILDER_CACHE=.electron-cache&& electron-builder --win --x64 --publish never",
+    "cap:sync": "npx cap sync",
+    "cap:android": "npx cap open android",
+    "cap:build": "npm run build && npx cap sync"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.1",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.1",
+    "@capacitor/core": "^8.4.1",
+    "@capacitor/haptics": "^8.0.2",
+    "@capacitor/keyboard": "^8.0.5",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/status-bar": "^8.0.2",
     "ali-oss": "^6.23.0",
     "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
