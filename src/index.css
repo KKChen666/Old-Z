@@ -237,6 +237,13 @@
     width: 0;
     height: 0;
   }
+
+  /* Android WebView 中 backdrop-blur 会导致元素无法点击，降级为纯色背景 */
+  .glass-card {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background-color: rgba(30, 30, 30, 0.95);
+  }
 }
 
 .scrollbar-none::-webkit-scrollbar {
@@ -276,9 +283,22 @@
     font-size: 16px !important; /* 防止 iOS 自动缩放 */
   }
 
-  /* 移动端禁用动画以提高性能 */
+  /* 移动端优化动画 - 保留显示但简化动画 */
   .animate-fade-in {
-    animation: none;
+    animation: fadeIn 0.15s ease-out;
+  }
+}
+
+/* 移动端表单聚焦优化 - 键盘弹出时确保表单可见 */
+@media (max-width: 768px) {
+  /* 支持动态视口高度（排除键盘和地址栏） */
+  .login-min-h-mobile {
+    min-height: 100dvh;
+  }
+
+  input:focus, textarea:focus, select:focus {
+    /* 确保聚焦的输入框不被键盘遮挡 */
+    scroll-margin-top: 80px;
   }
 }
 

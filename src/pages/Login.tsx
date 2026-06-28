@@ -77,15 +77,15 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-ink-950 relative overflow-hidden">
+    <div className="flex items-center justify-center bg-ink-950 relative min-h-screen login-min-h-mobile">
       {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-forest-800/20 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-gold-400/5 blur-3xl" />
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-forest-900/10 blur-3xl" />
       </div>
 
-      <div className="relative z-10 w-full max-w-md mx-4">
+      <div className="relative z-10 w-full max-w-md mx-4 safe-area-pb">
         {/* Logo */}
         <div className="text-center mb-8">
           <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-gold-400 to-forest-500 flex items-center justify-center mb-4 shadow-lg shadow-gold-400/20">
@@ -99,8 +99,8 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Card */}
-        <div className="glass-card p-6 rounded-2xl border border-ink-700/30">
+        {/* Card - 去掉 backdrop-blur 以修复 Android WebView 中的点击穿透问题 */}
+        <div className="p-6 rounded-2xl border border-ink-700/30 bg-ink-900/95">
           {/* Tabs */}
           {tab !== 'reset' && (
             <div className="flex mb-6 bg-ink-900/60 rounded-xl p-1">
@@ -200,12 +200,12 @@ export default function Login() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={tab === 'reset' ? '请输入新密码' : '请输入密码'}
                   autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-                  className="w-full px-4 py-2.5 pr-10 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
+                  className="w-full px-4 py-2.5 pr-12 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-500 hover:text-parchment-300 transition-colors"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-ink-500 hover:text-parchment-300 transition-colors"
                 >
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
