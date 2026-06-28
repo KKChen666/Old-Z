@@ -227,6 +227,10 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+.safe-area-pt {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
 /* 隐藏 Capacitor WebView 中不想要的滚动条 */
 @media (max-width: 768px) {
   ::-webkit-scrollbar {
@@ -242,4 +246,84 @@
 .scrollbar-none {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* ========== Mobile Touch Optimizations ========== */
+@media (max-width: 768px) {
+  /* 禁用移动端长按菜单 */
+  * {
+    -webkit-touch-callout: none;
+  }
+
+  /* 优化触摸高亮 */
+  a, button, [role="button"], input[type="submit"], input[type="button"] {
+    -webkit-tap-highlight-color: rgba(212, 168, 83, 0.15);
+  }
+
+  /* 禁用按钮和链接的双击缩放 */
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
+
+  /* 优化输入框在移动端的体验 */
+  input[type="text"],
+  input[type="password"],
+  input[type="email"],
+  input[type="number"],
+  input[type="date"],
+  textarea,
+  select {
+    font-size: 16px !important; /* 防止 iOS 自动缩放 */
+  }
+
+  /* 移动端禁用动画以提高性能 */
+  .animate-fade-in {
+    animation: none;
+  }
+}
+
+/* 底部导航栏触摸优化 */
+.bottom-tab-item {
+  position: relative;
+  min-height: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 8px;
+  transition: color 0.15s ease;
+}
+
+.bottom-tab-item::after {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%) scaleX(0);
+  width: 24px;
+  height: 2px;
+  background: #d4a853;
+  border-radius: 1px;
+  transition: transform 0.2s ease;
+}
+
+.bottom-tab-item.active::after {
+  transform: translateX(-50%) scaleX(1);
+}
+
+/* 滑动手势优化 */
+.swipe-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+
+.swipe-container::-webkit-scrollbar {
+  display: none;
+}
+
+.swipe-item {
+  scroll-snap-align: start;
 }

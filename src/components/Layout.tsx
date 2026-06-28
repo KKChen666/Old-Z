@@ -137,7 +137,7 @@ export default function Layout() {
       </main>
 
       {/* Mobile bottom tab bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-ink-950 border-t border-ink-800/50 safe-area-pb">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-ink-950/95 backdrop-blur-lg border-t border-ink-800/50 safe-area-pb">
         <div className="flex items-center justify-around h-14">
           {mobileNavItems.map((item) => (
             <NavLink
@@ -145,11 +145,7 @@ export default function Layout() {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-0.5 px-2 py-1 transition-colors ${
-                  isActive
-                    ? 'text-gold-400'
-                    : 'text-parchment-500 active:text-parchment-300'
-                }`
+                `bottom-tab-item flex-1 ${isActive ? 'active text-gold-400' : 'text-parchment-500 active:text-parchment-300'}`
               }
             >
               <item.icon className="w-5 h-5" />

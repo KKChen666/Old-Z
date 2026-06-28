@@ -15,20 +15,31 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'DARK',
       backgroundColor: '#0a0a0f',
+      overlaysWebView: false,
     },
     SplashScreen: {
-      launchShowDuration: 1500,
+      launchShowDuration: 2000,
       backgroundColor: '#0a0a0f',
       showSpinner: false,
       androidScaleType: 'CENTER_CROP',
+      splashFullScreen: true,
+      splashImmersive: true,
     },
     Keyboard: {
       resize: 'body',
       style: 'DARK',
+      resizeOnFullScreen: true,
     },
   },
   android: {
     allowMixedContent: true,
+    backgroundColor: '#0a0a0f',
+    webContentsDebuggingEnabled: false,
+    buildOptions: {
+      keystorePath: undefined,
+      keystoreAlias: undefined,
+      releaseType: 'APK',
+    },
   },
 };
 
