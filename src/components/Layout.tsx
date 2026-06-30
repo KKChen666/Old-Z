@@ -13,10 +13,12 @@ import {
   Zap,
   LogOut,
   User,
+  TrendingUp,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard' },
+  { to: '/quantlife', icon: TrendingUp, label: '成长' },
   { to: '/files', icon: Files, label: '文件中心' },
   { to: '/todos', icon: CheckSquare, label: '待办管理' },
   { to: '/notes', icon: StickyNote, label: '笔记' },
@@ -28,6 +30,7 @@ const navItems = [
 /** 手机端底部导航栏只展示核心页面 */
 const mobileNavItems = [
   { to: '/', icon: LayoutDashboard, label: '首页' },
+  { to: '/quantlife', icon: TrendingUp, label: '成长' },
   { to: '/todos', icon: CheckSquare, label: '待办' },
   { to: '/notes', icon: StickyNote, label: '笔记' },
   { to: '/chat', icon: MessageCircle, label: 'AI' },

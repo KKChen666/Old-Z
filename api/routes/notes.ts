@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express';
-import pool from '../db.js';
+import pool from '../config/database.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();

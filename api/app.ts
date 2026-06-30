@@ -17,6 +17,7 @@ import todosRoutes from './routes/todos.js'
 import notesRoutes from './routes/notes.js'
 import chatRoutes from './routes/chat.js'
 import timelineRoutes from './routes/timeline.js'
+import quantlifeRoutes from './routes/quantlife.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -40,6 +41,7 @@ app.use('/api/todos', todosRoutes)
 app.use('/api/notes', notesRoutes)
 app.use('/api/chat', chatRoutes)
 app.use('/api/timeline', timelineRoutes)
+app.use('/api/quantlife', quantlifeRoutes)
 
 /**
  * health

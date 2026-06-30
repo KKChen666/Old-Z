@@ -156,4 +156,17 @@ export const api = {
   // Timeline
   getTimeline: () => request<any[]>('/timeline'),
   createTimelineEvent: (event: any) => request<any>('/timeline', { method: 'POST', body: JSON.stringify(event) }),
+
+  // QuantLife
+  quantlife: {
+    getProgress: () => request<any>('/quantlife/progress'),
+    saveProgress: (data: any) => request<any>('/quantlife/progress', { method: 'POST', body: JSON.stringify(data) }),
+    getLlmConfig: () => request<any>('/quantlife/llm-config'),
+    saveLlmConfig: (config: any) => request<any>('/quantlife/llm-config', { method: 'POST', body: JSON.stringify(config) }),
+    ingestText: (date: string, text: string, hintDimensionKey?: string) =>
+      request<any>('/quantlife/ingest/text', { method: 'POST', body: JSON.stringify({ date, text, hint_dimension_key: hintDimensionKey }) }),
+    planDirection: (goal: string, context: string, stages: any[]) =>
+      request<any>('/quantlife/plan/direction', { method: 'POST', body: JSON.stringify({ goal, context, stages }) }),
+    health: () => request<any>('/quantlife/health'),
+  },
 };

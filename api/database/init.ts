@@ -1,4 +1,4 @@
-import pool from './db.js';
+import pool from '../config/database.js';
 
 const initDB = async () => {
   const conn = await pool.getConnection();
@@ -172,19 +172,44 @@ const initDB = async () => {
       )
     `);
 
+    // QuantLife 核心进度数据表
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS quantlife_progress (
+        id INT PRIMARY KEY AUTO_INCREMENT,
+        user_id VARCHAR(64) NOT NULL,
+        payload JSON NOT NULL,
+        saved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_ql_user (user_id),
+        INDEX idx_ql_saved_at (saved_at)
+      )
+    `);
+
+    // QuantLife LLM 配置表
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS quantlife_llm_config (
+        user_id VARCHAR(64) PRIMARY KEY,
+        provider VARCHAR(16) NOT NULL DEFAULT 'openai',
+        openai_base_url VARCHAR(512),
+        openai_api_key VARCHAR(512),
+        openai_model VARCHAR(128),
+        anthropic_base_url VARCHAR(512),
+        anthropic_auth_token VARCHAR(512),
+        anthropic_model VARCHAR(128),
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      )
+    `);
+
     // 为现有表添加 user_id 列（忽略已存在的列）
     const tablesWithUserId = ['files', 'todos', 'notes', 'chat_messages', 'timeline_events'];
     for (const table of tablesWithUserId) {
       try {
         await conn.execute(`ALTER TABLE ${table} ADD COLUMN user_id VARCHAR(64)`);
       } catch (e: any) {
-        // 错误码 1060 = Duplicate column name，说明列已存在
         if (e.errno !== 1060) throw e;
       }
       try {
         await conn.execute(`CREATE INDEX idx_${table}_user_id ON ${table} (user_id)`);
       } catch (e: any) {
-        // 错误码 1061 = Duplicate key name，说明索引已存在
         if (e.errno !== 1061) throw e;
       }
     }

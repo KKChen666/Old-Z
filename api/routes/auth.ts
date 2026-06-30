@@ -1,7 +1,7 @@
 import { Router, type Request, type Response } from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'node:crypto'
-import pool from '../db.js'
+import pool from '../config/database.js'
 import { generateToken, authMiddleware, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
