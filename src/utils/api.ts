@@ -1,8 +1,11 @@
 import { registerPlugin } from '@capacitor/core';
 
 // Capacitor: detect running inside native shell
+// isNativePlatform is a FUNCTION, must call it — checking truthiness of the function
+// reference itself would always be true whenever @capacitor/core is loaded.
 const isCapacitor = typeof window !== 'undefined'
-  && !!(window as any).Capacitor?.isNativePlatform;
+  && typeof (window as any).Capacitor?.isNativePlatform === 'function'
+  && !!(window as any).Capacitor.isNativePlatform();
 
 // Capacitor 原生插件（用于桌面小部件 Token 同步）
 const TokenShare = isCapacitor ? registerPlugin('TokenShare') : null;
@@ -32,16 +35,21 @@ const isElectronProd = typeof window !== 'undefined'
   && (window as any).electronAPI?.isElectron
   && window.location.protocol === 'file:';
 
+// Capacitor / 原生 App 的远程 API 地址
+// 在 .env 中配置 VITE_API_BASE_URL=http://你的服务器IP:3001/api
+// 浏览器 dev 模式不需要配置，Vite 代理自动转发 /api → localhost:3001
+const REMOTE_API_BASE = import.meta.env.VITE_API_BASE_URL || '';
+
 function resolveApiBase(): string {
   // Capacitor native app → 直接请求后端服务器
   if (isCapacitor) {
-    return 'http://119.45.182.166:3001/api';
+    return REMOTE_API_BASE || 'http://localhost:3001/api';
   }
   // Electron 生产模式
   if (isElectronProd) {
     return 'http://localhost:3001/api';
   }
-  // 浏览器开发/生产模式，使用 Vite 代理
+  // 浏览器开发/生产模式，使用 Vite 代理（dev）或 nginx 代理（prod）
   return '/api';
 }
 
