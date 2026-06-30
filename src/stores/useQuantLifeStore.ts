@@ -104,6 +104,57 @@ export function recomputeLevels(data: QLProgressData): void {
   data.exp_to_next = EXP_PER_LEVEL;
 }
 
+/** 从外部（如 Todos）调用，为完成的任务发放 EXP */
+export function grantExpFromTodo(params: {
+  dimension_key: string;
+  title: string;
+  minutes?: number;
+  quality?: 'low' | 'normal' | 'high';
+}): number {
+  const { progressData, updateProgress, saveProgress } = useQuantLifeStore.getState();
+  if (!progressData) return 0;
+
+  const def = progressData.meta.dimensions.defs[params.dimension_key];
+  if (!def) return 0;
+
+  const baseRate = def.exp_config.base_rate_per_hour;
+  const coeff = def.exp_config.coefficient;
+  const qualityMult = QUALITY_MULT[params.quality || 'normal'] || 1.0;
+  const minutes = params.minutes || 30;
+  const exp = calcExp(minutes, baseRate, DIFFICULTY_MULT.normal, qualityMult);
+
+  const now = new Date();
+  const dateStr = formatYMDLocal(now);
+
+  updateProgress((draft) => {
+    const entry = {
+      date: dateStr,
+      dimension_key: params.dimension_key,
+      task_type: def.name,
+      difficulty: `待办·${params.quality || 'normal'}·${minutes}min`,
+      description: `✅ ${params.title}`,
+      exp_gained: exp,
+      completed: true,
+    };
+    draft.history.push(entry);
+    if (!draft.dimensions[params.dimension_key]) {
+      draft.dimensions[params.dimension_key] = { total_exp: 0 };
+    }
+    draft.dimensions[params.dimension_key].total_exp += exp;
+    draft.total_exp += exp;
+    if (!draft.daily_log[dateStr]) {
+      draft.daily_log[dateStr] = { date: dateStr, entries: [], total_exp: 0, all_done: false, insights: [] };
+    }
+    draft.daily_log[dateStr].entries.push(entry);
+    draft.daily_log[dateStr].total_exp += exp;
+    recomputeLevels(draft);
+    draft.meta.last_synced_at = new Date().toISOString();
+  });
+
+  saveProgress();
+  return exp;
+}
+
 export function getEnabledDimensionKeys(data: QLProgressData): string[] {
   const ui = data?.meta?.ui?.dimensionConfig;
   if (ui?.enabledByKey) {

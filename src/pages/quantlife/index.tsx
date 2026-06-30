@@ -6,7 +6,6 @@ import {
   CalendarDays,
   Clock,
   PiggyBank,
-  Flame,
   Lightbulb,
   Trophy,
   Settings,
@@ -16,7 +15,6 @@ import Overview from './Overview';
 import TodayStats from './TodayStats';
 import History from './History';
 import Wealth from './Wealth';
-import TaskCamp from './TaskCamp';
 import AIPlan from './AIPlan';
 import Achievements from './Achievements';
 import SettingsPage from './Settings';
@@ -26,7 +24,6 @@ const sections = [
   { key: 'today', icon: CalendarDays, label: '今日战绩' },
   { key: 'history', icon: Clock, label: '历史记录' },
   { key: 'wealth', icon: PiggyBank, label: '财富目标' },
-  { key: 'taskcamp', icon: Flame, label: '任务营地' },
   { key: 'aiplan', icon: Lightbulb, label: 'AI 规划' },
   { key: 'achievements', icon: Trophy, label: '成就勋章' },
   { key: 'settings', icon: Settings, label: '设置' },
@@ -53,7 +50,6 @@ export default function QuantLife() {
       case 'today': return <TodayStats />;
       case 'history': return <History />;
       case 'wealth': return <Wealth />;
-      case 'taskcamp': return <TaskCamp />;
       case 'aiplan': return <AIPlan />;
       case 'achievements': return <Achievements />;
       case 'settings': return <SettingsPage />;

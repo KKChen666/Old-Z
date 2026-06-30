@@ -22,8 +22,6 @@ export default function Overview() {
   const today = formatYMDLocal(new Date());
   const todayLog = progressData.daily_log[today];
   const todayExp = todayLog?.total_exp || 0;
-  const totalEntries = progressData.history.length;
-  const totalInsights = progressData.insights.length;
 
   const handleAiIngested = (result: any) => {
     if (result.progress) {
@@ -56,8 +54,8 @@ export default function Overview() {
         </div>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      {/* 成长统计 */}
+      <div className="grid grid-cols-3 gap-3">
         <div className="glass-card p-3 text-center">
           <div className="text-2xl font-bold text-gold-400">{progressData.total_exp.toLocaleString()}</div>
           <div className="text-xs text-parchment-400 mt-1">总经验</div>
@@ -67,12 +65,8 @@ export default function Overview() {
           <div className="text-xs text-parchment-400 mt-1">今日 EXP</div>
         </div>
         <div className="glass-card p-3 text-center">
-          <div className="text-2xl font-bold text-blue-400">{totalEntries}</div>
-          <div className="text-xs text-parchment-400 mt-1">总记录</div>
-        </div>
-        <div className="glass-card p-3 text-center">
-          <div className="text-2xl font-bold text-purple-400">{totalInsights}</div>
-          <div className="text-xs text-parchment-400 mt-1">心得感悟</div>
+          <div className="text-2xl font-bold text-blue-400">Lv.{progressData.level}</div>
+          <div className="text-xs text-parchment-400 mt-1">当前等级</div>
         </div>
       </div>
 

@@ -23,6 +23,10 @@ export interface Todo {
   noteIds: string[];
   subtasks: SubTask[];
   isTodayTodo?: boolean;
+  /** 关联的成长维度，完成后自动获得 EXP */
+  dimension_key?: string;
+  /** 是否已发放 EXP */
+  exp_granted?: boolean;
   createdAt: string;
 }
 
