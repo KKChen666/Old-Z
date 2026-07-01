@@ -27,13 +27,16 @@ const navItems = [
   { to: '/settings', icon: Settings, label: '设置' },
 ];
 
-/** 手机端底部导航栏只展示核心页面 */
+/** 手机端底部导航栏 */
 const mobileNavItems = [
   { to: '/', icon: LayoutDashboard, label: '首页' },
   { to: '/todos', icon: CheckSquare, label: '待办' },
   { to: '/notes', icon: StickyNote, label: '笔记' },
   { to: '/chat', icon: MessageCircle, label: 'AI' },
   { to: '/files', icon: Files, label: '文件' },
+  { to: '/graph', icon: Network, label: '图谱' },
+  { to: '/timeline', icon: Clock, label: '时间轴' },
+  { to: '/settings', icon: Settings, label: '设置' },
 ];
 
 export default function Layout() {
@@ -132,25 +135,23 @@ export default function Layout() {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto bg-ink-950 pb-16 md:pb-0">
-        <div className="h-full">
-          <Outlet />
-        </div>
+      <main className="flex-1 overflow-y-auto bg-ink-950 md:pb-0" style={{ paddingBottom: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))' }}>
+        <Outlet />
       </main>
 
       {/* Mobile bottom tab bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-ink-950/95 backdrop-blur-lg border-t border-ink-800/50 safe-area-pb">
-        <div className="flex items-center justify-around h-14">
+        <div className="flex items-center justify-around h-14 overflow-x-auto">
           {mobileNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `bottom-tab-item flex-1 ${isActive ? 'active text-gold-400' : 'text-parchment-500 active:text-parchment-300'}`
+                `bottom-tab-item flex-shrink-0 px-1 ${isActive ? 'active text-gold-400' : 'text-parchment-500 active:text-parchment-300'}`
               }
             >
-              <item.icon className="w-5 h-5" />
+              <item.icon className="w-[18px] h-[18px]" />
               <span className="text-[10px] font-medium leading-none">{item.label}</span>
             </NavLink>
           ))}

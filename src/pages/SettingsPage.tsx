@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import { api } from '@/utils/api';
-import { Settings, Zap, Check, Loader2, User, Lock } from 'lucide-react';
+import { Settings, Zap, Check, Loader2, User, Lock, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type SettingsTab = 'user' | 'llm';
@@ -68,7 +69,8 @@ export default function SettingsPage() {
 
 // ============ 用户设置 ============
 function UserSettings({ flashSaved }: { flashSaved: () => void }) {
-  const { user, setUser } = useAppStore();
+  const { user, setUser, logout } = useAppStore();
+  const navigate = useNavigate();
   const [username, setUsername] = useState(user?.username || '');
   const [nickname, setNickname] = useState(user?.displayName || '');
   const [oldPassword, setOldPassword] = useState('');
@@ -248,6 +250,27 @@ function UserSettings({ flashSaved }: { flashSaved: () => void }) {
             修改密码
           </button>
         </div>
+      </div>
+
+      {/* 退出登录 */}
+      <div className="glass-card p-5 space-y-4 border-red-500/10">
+        <h3 className="text-sm font-semibold text-red-400 flex items-center gap-2">
+          <LogOut className="w-4 h-4" />
+          退出登录
+        </h3>
+        <p className="text-xs text-parchment-400">
+          退出后需要重新输入用户名和密码才能登录
+        </p>
+        <button
+          onClick={() => {
+            logout();
+            navigate('/login');
+          }}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-red-500/20 text-red-400 hover:bg-red-500/10 hover:border-red-500/40 transition-colors text-sm font-medium"
+        >
+          <LogOut className="w-4 h-4" />
+          退出登录
+        </button>
       </div>
     </div>
   );

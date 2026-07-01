@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, UserPlus, Eye, EyeOff, Zap, KeyRound } from 'lucide-react';
-import { api, saveAuth, syncTokenToNative } from '@/utils/api';
+import { LogIn, UserPlus, Eye, EyeOff, Zap, KeyRound, Server, X, Check, RotateCcw } from 'lucide-react';
+import { api, saveAuth, syncTokenToNative, getEffectiveApiBase, getDefaultApiBase } from '@/utils/api';
 import { useAppStore } from '@/stores/useAppStore';
 
 export default function Login() {
@@ -16,6 +16,93 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // 长按 Logo 10 秒设置后端地址（调试入口，对普通用户隐藏）
+  const [showBackendSettings, setShowBackendSettings] = useState(false);
+  const [longPressProgress, setLongPressProgress] = useState(0);
+  const [customApiBase, setCustomApiBase] = useState('');
+  const [backendSaved, setBackendSaved] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const progressRef = useRef(0);
+
+  // 加载已保存的后端地址
+  useEffect(() => {
+    const saved = localStorage.getItem('old-z-api-base');
+    if (saved) setCustomApiBase(saved);
+  }, []);
+
+  // 组件卸载时清除计时器
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, []);
+
+  const startLongPress = (e: React.PointerEvent) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    progressRef.current = 0;
+    setLongPressProgress(0);
+    timerRef.current = setInterval(() => {
+      progressRef.current += 1;
+      // 前 50 步（5 秒）静默，之后 50 步（5 秒）显示进度环
+      if (progressRef.current >= 100) {
+        clearInterval(timerRef.current!);
+        timerRef.current = null;
+        setLongPressProgress(0);
+        setShowBackendSettings(true);
+        setBackendSaved(false);
+        setCustomApiBase(localStorage.getItem('old-z-api-base') || '');
+        return;
+      }
+      // 第 5 秒后才开始显示进度（50-100 映射到 0-100）
+      if (progressRef.current >= 50) {
+        setLongPressProgress((progressRef.current - 50) * 2);
+      }
+    }, 100); // 100 × 100ms = 10 秒总长按
+  };
+
+  const cancelLongPress = (e: React.PointerEvent) => {
+    e.preventDefault();
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setLongPressProgress(0);
+  };
+
+  // 进度环参数
+  const ringR = 30;
+  const ringCirc = 2 * Math.PI * ringR;
+  const ringOffset = ringCirc * (1 - longPressProgress / 100);
+
+  const saveBackendUrl = () => {
+    const trimmed = customApiBase.trim();
+    if (trimmed) {
+      localStorage.setItem('old-z-api-base', trimmed);
+    } else {
+      localStorage.removeItem('old-z-api-base');
+    }
+    setBackendSaved(true);
+    // 延迟刷新，让用户看到"已保存"的反馈
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+  };
+
+  const resetBackendUrl = () => {
+    localStorage.removeItem('old-z-api-base');
+    setCustomApiBase('');
+    setBackendSaved(true);
+    setTimeout(() => {
+      window.location.reload();
+    }, 800);
+  };
+
+  const closeBackendSettings = () => {
+    setShowBackendSettings(false);
+    setLongPressProgress(0);
+  };
 
   const validate = (): string | null => {
     if (tab === 'reset') {
@@ -86,10 +173,30 @@ export default function Login() {
       </div>
 
       <div className="relative z-10 w-full max-w-md mx-4 safe-area-pb">
-        {/* Logo */}
+        {/* Logo — 长按 10 秒设置后端地址（调试入口） */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-gold-400 to-forest-500 flex items-center justify-center mb-4 shadow-lg shadow-gold-400/20">
-            <Zap className="w-8 h-8 text-ink-950" />
+          <div
+            className="relative w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-gold-400 to-forest-500 flex items-center justify-center mb-4 shadow-lg shadow-gold-400/20 select-none transition-shadow duration-300"
+            onPointerDown={startLongPress}
+            onPointerUp={cancelLongPress}
+            onPointerLeave={cancelLongPress}
+            onPointerCancel={cancelLongPress}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {/* 长按进度环 */}
+            {longPressProgress > 0 && (
+              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
+                <circle
+                  cx="32" cy="32" r={ringR}
+                  fill="none" stroke="currentColor"
+                  strokeWidth="2.5" strokeLinecap="round"
+                  strokeDasharray={ringCirc}
+                  strokeDashoffset={ringOffset}
+                  className="text-gold-400/80"
+                />
+              </svg>
+            )}
+            <Zap className="w-8 h-8 text-ink-950 pointer-events-none" />
           </div>
           <h1 className="font-serif text-3xl font-bold text-parchment-100 tracking-wide">
             Old Z
@@ -99,8 +206,94 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Card - 去掉 backdrop-blur 以修复 Android WebView 中的点击穿透问题 */}
-        <div className="p-6 rounded-2xl border border-ink-700/30 bg-ink-900/95">
+        {/* Backend settings panel — 长按 Logo 10 秒后显示 */}
+        {showBackendSettings ? (
+          <div className="p-6 rounded-2xl border border-gold-400/20 bg-ink-900/95 animate-fade-in">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-10 h-10 rounded-xl bg-forest-800/30 flex items-center justify-center">
+                <Server className="w-5 h-5 text-gold-400" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold text-parchment-100">后端服务器设置</h2>
+                <p className="text-xs text-parchment-400">自定义 API 服务器地址</p>
+              </div>
+              <button
+                onClick={closeBackendSettings}
+                className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg text-ink-500 hover:text-parchment-200 hover:bg-ink-800/50 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 当前生效地址 */}
+            <div className="mb-4 px-3 py-2 rounded-lg bg-ink-950/50 border border-ink-700/30">
+              <p className="text-[10px] uppercase tracking-wider text-ink-500 mb-0.5">当前后端地址</p>
+              <p className="text-xs text-parchment-300 font-mono break-all">
+                {getEffectiveApiBase()}
+              </p>
+            </div>
+
+            {/* 默认地址 */}
+            <div className="mb-4 px-3 py-2 rounded-lg bg-ink-950/50 border border-ink-700/30">
+              <p className="text-[10px] uppercase tracking-wider text-ink-500 mb-0.5">默认地址</p>
+              <p className="text-xs text-parchment-400 font-mono break-all">
+                {getDefaultApiBase()}
+              </p>
+            </div>
+
+            {/* 自定义地址输入 */}
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-parchment-400 mb-1.5">
+                自定义后端地址
+              </label>
+              <input
+                type="text"
+                value={customApiBase}
+                onChange={(e) => {
+                  setCustomApiBase(e.target.value);
+                  setBackendSaved(false);
+                }}
+                placeholder="例如: http://192.168.1.100:3001/api"
+                className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm font-mono outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
+              />
+              <p className="text-[10px] text-ink-500 mt-1.5">
+                留空则使用默认地址。修改后页面将自动刷新。
+              </p>
+            </div>
+
+            {/* 操作按钮 */}
+            <div className="flex gap-3">
+              <button
+                onClick={saveBackendUrl}
+                disabled={backendSaved}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-gold-500 to-gold-400 hover:from-gold-400 hover:to-gold-300 text-ink-950 font-semibold rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-gold-400/10 text-sm"
+              >
+                {backendSaved ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    已保存
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    保存并刷新
+                  </>
+                )}
+              </button>
+              <button
+                onClick={resetBackendUrl}
+                disabled={backendSaved}
+                className="flex items-center justify-center gap-2 px-4 py-2.5 border border-ink-700/50 text-parchment-400 hover:text-parchment-200 hover:border-ink-600/50 rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed text-sm"
+              >
+                <RotateCcw className="w-4 h-4" />
+                恢复默认
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Card - 去掉 backdrop-blur 以修复 Android WebView 中的点击穿透问题 */}
+            <div className="p-6 rounded-2xl border border-ink-700/30 bg-ink-900/95">
           {/* Tabs */}
           {tab !== 'reset' && (
             <div className="flex mb-6 bg-ink-900/60 rounded-xl p-1">
@@ -272,6 +465,8 @@ export default function Login() {
             </>
           )}
         </p>
+          </>
+        )}
       </div>
     </div>
   );

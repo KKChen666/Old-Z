@@ -41,6 +41,10 @@ const isElectronProd = typeof window !== 'undefined'
 const REMOTE_API_BASE = import.meta.env.VITE_API_BASE_URL || '';
 
 function resolveApiBase(): string {
+  // 用户自定义后端地址（通过登录页长按 Logo 设置）
+  const customBase = localStorage.getItem('old-z-api-base');
+  if (customBase) return customBase;
+
   // Capacitor native app → 直接请求后端服务器
   if (isCapacitor) {
     return REMOTE_API_BASE || 'http://localhost:3001/api';
@@ -51,6 +55,22 @@ function resolveApiBase(): string {
   }
   // 浏览器开发/生产模式，使用 Vite 代理（dev）或 nginx 代理（prod）
   return '/api';
+}
+
+/** 获取当前生效的 API 基础地址（不含自定义覆盖时返回默认值） */
+export function getDefaultApiBase(): string {
+  if (isCapacitor) {
+    return REMOTE_API_BASE || 'http://localhost:3001/api';
+  }
+  if (isElectronProd) {
+    return 'http://localhost:3001/api';
+  }
+  return '/api';
+}
+
+/** 获取当前生效的 API 基础地址 */
+export function getEffectiveApiBase(): string {
+  return localStorage.getItem('old-z-api-base') || getDefaultApiBase();
 }
 
 const API_BASE = resolveApiBase();
