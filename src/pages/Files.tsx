@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import FilePreview from '@/components/FilePreview';
 import type { FileFilter, ViewMode, FileItem, Todo } from '@/types';
+import { getFileType, formatFileSize } from '@/lib/utils';
 
 const fileIcons: Record<string, typeof FileText> = {
   document: FileText,
@@ -39,20 +40,6 @@ const fileColors: Record<string, string> = {
   email: 'text-yellow-400 bg-yellow-400/10',
   other: 'text-parchment-400 bg-parchment-400/10',
 };
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}
-
-function getFileType(name: string): 'document' | 'image' | 'pdf' | 'link' | 'email' | 'other' {
-  const ext = name.split('.').pop()?.toLowerCase() || '';
-  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) return 'image';
-  if (ext === 'pdf') return 'pdf';
-  if (['doc', 'docx', 'txt', 'md', 'xlsx', 'xls', 'ppt', 'pptx'].includes(ext)) return 'document';
-  return 'other';
-}
 
 export default function Files() {
   const { files, removeFile, addFile, addTimelineEvent, addTodo } = useAppStore();

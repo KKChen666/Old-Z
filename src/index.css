@@ -257,8 +257,8 @@
 
 /* ========== Mobile Touch Optimizations ========== */
 @media (max-width: 768px) {
-  /* 禁用移动端长按菜单 */
-  * {
+  /* 仅在 Capacitor 原生环境下禁用长按菜单，浏览器端保留文本选择功能 */
+  .capacitor-native * {
     -webkit-touch-callout: none;
   }
 

@@ -3,6 +3,7 @@ apply plugin: 'com.android.application'
 android {
     namespace = "com.oldz.app"
     compileSdk = rootProject.ext.compileSdkVersion
+    buildToolsVersion rootProject.ext.buildToolsVersion
     defaultConfig {
         applicationId "com.oldz.app"
         minSdkVersion rootProject.ext.minSdkVersion

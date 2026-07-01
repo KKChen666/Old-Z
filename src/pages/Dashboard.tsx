@@ -16,6 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { Todo } from '@/types';
+import { getFileType } from '@/lib/utils';
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
@@ -458,16 +459,4 @@ function TodoItem({ todo, onToggle, priorityLabels, overdue, compact }: {
   );
 }
 
-function getFileType(name: string): 'document' | 'image' | 'pdf' | 'link' | 'email' | 'other' {
-  const ext = name.split('.').pop()?.toLowerCase() || '';
-  if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(ext)) return 'image';
-  if (ext === 'pdf') return 'pdf';
-  if (['doc', 'docx', 'txt', 'md', 'xlsx', 'xls', 'ppt', 'pptx'].includes(ext)) return 'document';
-  return 'other';
-}
 
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-}

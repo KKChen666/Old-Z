@@ -35,3 +35,4 @@ tmp
 
 # Android SDK
 .android-sdk/
+.android-sdk-local/

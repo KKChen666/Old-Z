@@ -5,7 +5,6 @@ import {
   Files,
   CheckSquare,
   StickyNote,
-  Network,
   MessageCircle,
   Clock,
   ChevronLeft,
@@ -21,22 +20,18 @@ const navItems = [
   { to: '/files', icon: Files, label: '文件中心' },
   { to: '/todos', icon: CheckSquare, label: '待办管理' },
   { to: '/notes', icon: StickyNote, label: '笔记' },
-  { to: '/graph', icon: Network, label: '知识图谱' },
   { to: '/chat', icon: MessageCircle, label: 'AI 助手' },
   { to: '/timeline', icon: Clock, label: '时间轴' },
   { to: '/settings', icon: Settings, label: '设置' },
 ];
 
-/** 手机端底部导航栏 */
+/** 手机端底部导航栏 - 浏览器端精简为5个核心项 */
 const mobileNavItems = [
   { to: '/', icon: LayoutDashboard, label: '首页' },
   { to: '/todos', icon: CheckSquare, label: '待办' },
-  { to: '/notes', icon: StickyNote, label: '笔记' },
   { to: '/chat', icon: MessageCircle, label: 'AI' },
+  { to: '/notes', icon: StickyNote, label: '笔记' },
   { to: '/files', icon: Files, label: '文件' },
-  { to: '/graph', icon: Network, label: '图谱' },
-  { to: '/timeline', icon: Clock, label: '时间轴' },
-  { to: '/settings', icon: Settings, label: '设置' },
 ];
 
 export default function Layout() {
