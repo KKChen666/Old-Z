@@ -10,6 +10,7 @@ import Graph from "@/pages/Graph";
 import Chat from "@/pages/Chat";
 import Timeline from "@/pages/Timeline";
 import SettingsPage from "@/pages/SettingsPage";
+import Discover from "@/pages/Discover";
 import { useAppStore } from "@/stores/useAppStore";
 import { api, getToken, clearAuth, syncTokenToNative, clearNativeToken } from "@/utils/api";
 
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/notes" element={<Notes />} />
           <Route path="/graph" element={<Graph />} />
           <Route path="/chat" element={<Chat />} />
+          <Route path="/discover" element={<Discover />} />
           <Route path="/timeline" element={<Timeline />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
