@@ -1,12 +1,14 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import {
+  ArrowLeft,
   LayoutDashboard,
   Files,
   CheckSquare,
   StickyNote,
   MessageCircle,
   Clock,
+  CircleEllipsis,
   ChevronLeft,
   ChevronRight,
   Zap,
@@ -31,12 +33,20 @@ const mobileNavItems = [
   { to: '/todos', icon: CheckSquare, label: '待办' },
   { to: '/chat', icon: MessageCircle, label: 'AI' },
   { to: '/notes', icon: StickyNote, label: '笔记' },
-  { to: '/files', icon: Files, label: '文件' },
+  { to: '/discover', icon: CircleEllipsis, label: '更多' },
 ];
+
+const discoverRoutes: Record<string, string> = {
+  '/files': '文件中心',
+  '/timeline': '时间轴',
+  '/settings': '设置',
+};
 
 export default function Layout() {
   const { sidebarCollapsed, toggleSidebar, user, logout } = useAppStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const mobileBackTitle = discoverRoutes[location.pathname];
 
   const handleLogout = () => {
     logout();
@@ -131,19 +141,34 @@ export default function Layout() {
 
       {/* Main content */}
       <main className="flex-1 overflow-y-auto bg-ink-950 md:pb-0" style={{ paddingBottom: 'calc(3.5rem + env(safe-area-inset-bottom, 0px))' }}>
+        {mobileBackTitle && (
+          <div className="sticky top-0 z-40 flex h-12 items-center border-b border-ink-800/50 bg-ink-950/95 px-2 backdrop-blur md:hidden">
+            <button
+              type="button"
+              onClick={() => navigate('/discover')}
+              className="flex h-10 w-10 items-center justify-center rounded-lg text-parchment-200 active:bg-ink-800/80"
+              aria-label="返回更多"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <h1 className="pointer-events-none absolute left-14 right-14 truncate text-center text-base font-medium text-parchment-100">
+              {mobileBackTitle}
+            </h1>
+          </div>
+        )}
         <Outlet />
       </main>
 
       {/* Mobile bottom tab bar */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-ink-950/95 backdrop-blur-lg border-t border-ink-800/50 safe-area-pb">
-        <div className="flex items-center justify-around h-14 overflow-x-auto">
+        <div className="flex items-center h-14">
           {mobileNavItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `bottom-tab-item flex-shrink-0 px-1 ${isActive ? 'active text-gold-400' : 'text-parchment-500 active:text-parchment-300'}`
+                `bottom-tab-item flex-1 min-w-0 ${isActive ? 'active text-gold-400' : 'text-parchment-500 active:text-parchment-300'}`
               }
             >
               <item.icon className="w-[18px] h-[18px]" />
