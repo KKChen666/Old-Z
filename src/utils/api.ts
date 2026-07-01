@@ -130,6 +130,10 @@ export const api = {
     request<{ id: string; username: string; displayName: string }>('/auth/me'),
   resetPassword: (username: string, newPassword: string) =>
     request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ username, newPassword }) }),
+  updateProfile: (updates: { displayName?: string; username?: string }) =>
+    request<{ id: string; username: string; displayName: string }>('/auth/profile', { method: 'PATCH', body: JSON.stringify(updates) }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    request<{ message: string }>('/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) }),
 
   // Files
   getFiles: () => request<any[]>('/files'),
@@ -151,22 +155,19 @@ export const api = {
 
   // Chat
   getChatMessages: () => request<any[]>('/chat'),
-  chat: (content: string) => request<{ userMessage: any; aiMessage: any }>('/chat', { method: 'POST', body: JSON.stringify({ content }) }),
+  chat: {
+    send: (content: string) => request<{ userMessage: any; aiMessage: any }>('/chat', { method: 'POST', body: JSON.stringify({ content }) }),
+    plan: (goal: string, context: string, stages: any[]) =>
+      request<{ main_line: string; today_actions: string[] }>('/chat/plan', { method: 'POST', body: JSON.stringify({ goal, context, stages }) }),
+  },
 
   // Timeline
   getTimeline: () => request<any[]>('/timeline'),
   createTimelineEvent: (event: any) => request<any>('/timeline', { method: 'POST', body: JSON.stringify(event) }),
 
-  // QuantLife
-  quantlife: {
-    getProgress: () => request<any>('/quantlife/progress'),
-    saveProgress: (data: any) => request<any>('/quantlife/progress', { method: 'POST', body: JSON.stringify(data) }),
-    getLlmConfig: () => request<any>('/quantlife/llm-config'),
-    saveLlmConfig: (config: any) => request<any>('/quantlife/llm-config', { method: 'POST', body: JSON.stringify(config) }),
-    ingestText: (date: string, text: string, hintDimensionKey?: string) =>
-      request<any>('/quantlife/ingest/text', { method: 'POST', body: JSON.stringify({ date, text, hint_dimension_key: hintDimensionKey }) }),
-    planDirection: (goal: string, context: string, stages: any[]) =>
-      request<any>('/quantlife/plan/direction', { method: 'POST', body: JSON.stringify({ goal, context, stages }) }),
-    health: () => request<any>('/quantlife/health'),
+  // Settings
+  settings: {
+    getLlmConfig: () => request<any>('/settings/llm'),
+    saveLlmConfig: (config: any) => request<any>('/settings/llm', { method: 'POST', body: JSON.stringify(config) }),
   },
 };

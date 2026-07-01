@@ -1,6 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
-import { useQuantLifeStore, grantExpFromTodo, getEnabledDimensionKeys } from '@/stores/useQuantLifeStore';
 import {
   Plus,
   Circle,
@@ -17,7 +16,6 @@ import {
   Pencil,
   CalendarDays,
   AlertCircle,
-  TrendingUp,
 } from 'lucide-react';
 import type { TodoFilter, PriorityFilter, Todo } from '@/types';
 
@@ -64,7 +62,6 @@ const quickDateOptions = [
 
 export default function Todos() {
   const { todos, files, addTodo, updateTodo, toggleSubtask, deleteTodo } = useAppStore();
-  const { progressData, loadProgress } = useQuantLifeStore();
   const [statusFilter, setStatusFilter] = useState<TodoFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [showNewTodo, setShowNewTodo] = useState(false);
@@ -78,19 +75,6 @@ export default function Todos() {
   const [editTitle, setEditTitle] = useState('');
   const [editPriority, setEditPriority] = useState<Todo['priority']>('medium');
   const [editDueDate, setEditDueDate] = useState('');
-  const [editDimension, setEditDimension] = useState<string>('');
-  const [newDimension, setNewDimension] = useState<string>('');
-  const [newMinutes, setNewMinutes] = useState<number>(30);
-  const [newQuality, setNewQuality] = useState<'low' | 'normal' | 'high'>('normal');
-
-  const defs = progressData?.meta?.dimensions?.defs || {};
-  const enabledKeys = progressData ? getEnabledDimensionKeys(progressData) : [];
-
-  useEffect(() => {
-    if (!progressData) {
-      loadProgress();
-    }
-  }, [progressData, loadProgress]);
 
   const filteredTodos = todos.filter((t) => {
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;
@@ -138,12 +122,7 @@ export default function Todos() {
       noteIds: [],
       subtasks: [],
       createdAt: new Date().toISOString(),
-      dimension_key: newDimension || undefined,
-      exp_granted: false,
     };
-    // 附加成长参数（用于计算 EXP）
-    (todo as any).minutes = newMinutes;
-    (todo as any).quality = newQuality;
     addTodo(todo);
     resetNewTodo();
   };
@@ -155,9 +134,6 @@ export default function Todos() {
     setNewFileIds([]);
     setShowFilePicker(false);
     setShowNewTodo(false);
-    setNewDimension('');
-    setNewMinutes(30);
-    setNewQuality('normal');
   };
 
   const startEdit = (todo: Todo) => {
@@ -165,7 +141,6 @@ export default function Todos() {
     setEditTitle(todo.title);
     setEditPriority(todo.priority);
     setEditDueDate(todo.dueDate || '');
-    setEditDimension(todo.dimension_key || '');
   };
 
   const saveEdit = () => {
@@ -174,7 +149,6 @@ export default function Todos() {
       title: editTitle,
       priority: editPriority,
       dueDate: editDueDate || undefined,
-      dimension_key: editDimension || undefined,
     });
     setEditingId(null);
   };
@@ -191,19 +165,6 @@ export default function Todos() {
     };
     const newStatus = next[todo.status];
     updateTodo(todo.id, { status: newStatus });
-
-    // 完成时自动发放 EXP（仅对关联了维度且未发放过的待办）
-    if (newStatus === 'completed' && todo.dimension_key && !todo.exp_granted && progressData) {
-      const exp = grantExpFromTodo({
-        dimension_key: todo.dimension_key,
-        title: todo.title,
-        minutes: (todo as any).minutes || 30,
-        quality: (todo as any).quality || 'normal',
-      });
-      if (exp > 0) {
-        updateTodo(todo.id, { exp_granted: true } as any);
-      }
-    }
   };
 
   const toggleTodayTodo = (todo: Todo) => {
@@ -353,48 +314,6 @@ export default function Todos() {
                 关联文件 {newFileIds.length > 0 && `(${newFileIds.length})`}
               </button>
             </div>
-
-            {/* 成长维度选择 */}
-            {enabledKeys.length > 0 && (
-              <div className="flex items-center gap-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="w-3.5 h-3.5 text-parchment-400" />
-                  <span className="text-xs text-parchment-400">成长维度:</span>
-                </div>
-                <select
-                  value={newDimension}
-                  onChange={(e) => setNewDimension(e.target.value)}
-                  className="input-field !py-1 !text-xs !w-auto"
-                >
-                  <option value="">不使用</option>
-                  {enabledKeys.map((k) => {
-                    const d = defs[k];
-                    return <option key={k} value={k}>{d?.emoji || ''} {d?.name || k}</option>;
-                  })}
-                </select>
-                {newDimension && (
-                  <>
-                    <input
-                      type="number"
-                      value={newMinutes}
-                      onChange={(e) => setNewMinutes(Math.max(1, parseInt(e.target.value) || 30))}
-                      className="input-field !w-16 !py-1 !text-xs"
-                      min="1"
-                    />
-                    <span className="text-xs text-parchment-500">分钟</span>
-                    <select
-                      value={newQuality}
-                      onChange={(e) => setNewQuality(e.target.value as any)}
-                      className="input-field !py-1 !text-xs !w-auto"
-                    >
-                      <option value="low">😴 较低效</option>
-                      <option value="normal">👌 标准</option>
-                      <option value="high">🌟 高效</option>
-                    </select>
-                  </>
-                )}
-              </div>
-            )}
 
             {/* File Picker */}
             {showFilePicker && (
@@ -574,22 +493,6 @@ export default function Todos() {
                                       className="input-field !w-auto !py-0.5 !text-xs"
                                     />
                                   </div>
-                                  {enabledKeys.length > 0 && (
-                                    <div className="flex items-center gap-1.5">
-                                      <TrendingUp className="w-3 h-3 text-parchment-500" />
-                                      <select
-                                        value={editDimension}
-                                        onChange={(e) => setEditDimension(e.target.value)}
-                                        className="input-field !py-0.5 !text-xs !w-auto"
-                                      >
-                                        <option value="">无维度</option>
-                                        {enabledKeys.map((k) => {
-                                          const d = defs[k];
-                                          return <option key={k} value={k}>{d?.emoji || ''} {d?.name || k}</option>;
-                                        })}
-                                      </select>
-                                    </div>
-                                  )}
                                 </div>
                                 <div className="flex gap-2">
                                   <button onClick={saveEdit} className="btn-primary !py-1 !text-xs">保存</button>
@@ -615,11 +518,6 @@ export default function Todos() {
                                   }`}>
                                     {priorityLabels[todo.priority]}
                                   </span>
-                                  {todo.dimension_key && defs[todo.dimension_key] && (
-                                    <span className="tag text-[10px] bg-gold-400/10 text-gold-400 border border-gold-400/20">
-                                      {defs[todo.dimension_key].emoji} {defs[todo.dimension_key].name}
-                                    </span>
-                                  )}
                                   {todo.dueDate && (
                                     <span className={`flex items-center gap-1 text-[10px] ${
                                       overdue ? 'text-red-400 font-medium' : 'text-parchment-400'

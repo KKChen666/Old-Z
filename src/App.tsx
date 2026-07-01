@@ -9,7 +9,7 @@ import Notes from "@/pages/Notes";
 import Graph from "@/pages/Graph";
 import Chat from "@/pages/Chat";
 import Timeline from "@/pages/Timeline";
-import QuantLife from "@/pages/quantlife";
+import SettingsPage from "@/pages/SettingsPage";
 import { useAppStore } from "@/stores/useAppStore";
 import { api, getToken, clearAuth, syncTokenToNative, clearNativeToken } from "@/utils/api";
 
@@ -101,7 +101,7 @@ export default function App() {
           <Route path="/graph" element={<Graph />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/timeline" element={<Timeline />} />
-          <Route path="/quantlife" element={<QuantLife />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
       </Routes>
     </Router>

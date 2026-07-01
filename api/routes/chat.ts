@@ -7,6 +7,7 @@ import {
   saveUserMessage,
   saveAiMessage,
   createChatTimelineEvent,
+  planDirection,
 } from '../services/chat.js';
 
 const router = Router();
@@ -49,6 +50,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     // 调用AI
     const aiContent = await chatWithAI(
+      req.userId!,
       content,
       history.slice(-20).map((m: any) => ({ role: m.role, content: m.content })),
       context
@@ -70,6 +72,23 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('POST /chat error:', error);
     res.status(500).json({ success: false, error: 'Failed to chat' });
+  }
+});
+
+// ============ AI 规划方向 ============
+router.post('/plan', async (req: AuthRequest, res: Response) => {
+  try {
+    const { goal, context, stages } = req.body;
+    if (!goal || typeof goal !== 'string' || goal.trim().length === 0) {
+      res.status(400).json({ success: false, error: '请输入目标' });
+      return;
+    }
+
+    const result = await planDirection(req.userId!, goal.trim(), (context || '').trim(), stages || []);
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error('POST /chat/plan error:', error);
+    res.status(500).json({ success: false, error: error.message || 'AI 规划生成失败' });
   }
 });
 
