@@ -2,6 +2,89 @@
 @tailwind components;
 @tailwind utilities;
 
+:root,
+.dark {
+  --color-ink-50: 245 240 232;
+  --color-ink-100: 232 223 208;
+  --color-ink-200: 212 201 168;
+  --color-ink-300: 184 168 122;
+  --color-ink-400: 154 138 90;
+  --color-ink-500: 107 96 64;
+  --color-ink-600: 74 66 48;
+  --color-ink-700: 58 53 37;
+  --color-ink-800: 42 42 42;
+  --color-ink-900: 30 30 30;
+  --color-ink-950: 20 20 20;
+  --color-forest-50: 232 240 232;
+  --color-forest-100: 197 220 197;
+  --color-forest-200: 143 184 143;
+  --color-forest-300: 90 148 90;
+  --color-forest-400: 58 122 58;
+  --color-forest-500: 42 90 42;
+  --color-forest-600: 26 74 26;
+  --color-forest-700: 26 58 26;
+  --color-forest-800: 26 46 26;
+  --color-forest-900: 20 36 20;
+  --color-forest-950: 14 26 14;
+  --color-gold-50: 253 248 237;
+  --color-gold-100: 248 237 207;
+  --color-gold-200: 240 216 154;
+  --color-gold-300: 232 196 106;
+  --color-gold-400: 212 168 83;
+  --color-gold-500: 196 146 64;
+  --color-gold-600: 168 120 48;
+  --color-gold-700: 138 94 37;
+  --color-gold-800: 107 72 32;
+  --color-gold-900: 74 50 24;
+  --color-parchment-50: 254 252 248;
+  --color-parchment-100: 245 240 232;
+  --color-parchment-200: 232 223 208;
+  --color-parchment-300: 212 201 168;
+  --color-parchment-400: 184 168 122;
+  --color-parchment-500: 154 138 90;
+}
+
+.mimo {
+  --color-ink-50: 20 20 19;
+  --color-ink-100: 26 25 24;
+  --color-ink-200: 38 38 36;
+  --color-ink-300: 48 48 46;
+  --color-ink-400: 94 93 89;
+  --color-ink-500: 115 114 108;
+  --color-ink-600: 194 192 182;
+  --color-ink-700: 227 218 204;
+  --color-ink-800: 240 238 230;
+  --color-ink-900: 250 247 242;
+  --color-ink-950: 254 251 246;
+  --color-forest-50: 245 247 244;
+  --color-forest-100: 229 234 224;
+  --color-forest-200: 188 209 202;
+  --color-forest-300: 120 140 93;
+  --color-forest-400: 96 118 73;
+  --color-forest-500: 78 98 59;
+  --color-forest-600: 64 80 49;
+  --color-forest-700: 47 62 38;
+  --color-forest-800: 234 239 231;
+  --color-forest-900: 244 247 241;
+  --color-forest-950: 250 252 249;
+  --color-gold-50: 255 247 243;
+  --color-gold-100: 252 232 224;
+  --color-gold-200: 246 202 186;
+  --color-gold-300: 235 156 127;
+  --color-gold-400: 217 119 87;
+  --color-gold-500: 198 97 63;
+  --color-gold-600: 191 77 67;
+  --color-gold-700: 156 74 33;
+  --color-gold-800: 118 56 31;
+  --color-gold-900: 76 42 31;
+  --color-parchment-50: 254 251 246;
+  --color-parchment-100: 20 20 19;
+  --color-parchment-200: 38 38 36;
+  --color-parchment-300: 77 76 72;
+  --color-parchment-400: 115 114 108;
+  --color-parchment-500: 137 135 129;
+}
+
 @layer base {
   * {
     margin: 0;
@@ -19,6 +102,11 @@
     padding-top: env(safe-area-inset-top, 0);
   }
 
+  .mimo body {
+    background-color: #fefbf6;
+    color: #141413;
+  }
+
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
@@ -33,8 +121,16 @@
     border-radius: 3px;
   }
 
+  .mimo ::-webkit-scrollbar-thumb {
+    background: rgba(217, 119, 87, 0.24);
+  }
+
   ::-webkit-scrollbar-thumb:hover {
     background: rgba(212, 168, 83, 0.4);
+  }
+
+  .mimo ::-webkit-scrollbar-thumb:hover {
+    background: rgba(217, 119, 87, 0.42);
   }
 }
 
@@ -392,6 +488,177 @@
   caret-color: #e8c46a;
 }
 
+.mimo .prose-notes {
+  color: #262624;
+}
+
+.mimo .prose-notes h1,
+.mimo .prose-notes h2,
+.mimo .prose-notes h3 {
+  color: #141413;
+}
+
+.mimo .prose-notes blockquote {
+  border-left-color: #d97757;
+  color: #4d4c48;
+  background: rgba(217, 119, 87, 0.08);
+}
+
+.mimo .prose-notes pre {
+  background: #faf9f5;
+  border-color: #e3dacc;
+  color: #262624;
+}
+
+.mimo .prose-notes code {
+  background: rgba(227, 218, 204, 0.55);
+  color: #c6613f;
+}
+
+.mimo .prose-notes hr {
+  border-top-color: #e3dacc;
+}
+
+.mimo .prose-notes a {
+  color: #c6613f;
+  text-decoration-color: rgba(217, 119, 87, 0.32);
+}
+
+.mimo .prose-notes a:hover {
+  color: #bf4d43;
+  text-decoration-color: #bf4d43;
+}
+
+.mimo .prose-notes:empty::before {
+  color: #898781;
+}
+
+.mimo .mdx-notes-editor {
+  --baseBg: #fefbf6;
+  --baseText: #262624;
+  --accentBase: #d97757;
+  --accentBgSubtle: rgba(217, 119, 87, 0.1);
+  --accentText: #c6613f;
+  background: #fefbf6;
+}
+
+.mimo .mdx-notes-editor .mdxeditor,
+.mimo .mdx-notes-editor .dark-theme {
+  --baseBase: #fefbf6;
+  --baseBgSubtle: #faf7f2;
+  --baseBg: #f5efe5;
+  --baseBgHover: #eee6d9;
+  --baseBgActive: #e7dccd;
+  --baseLine: #e3dacc;
+  --baseBorder: #d1cfc5;
+  --baseBorderHover: #c2c0b6;
+  --baseSolid: #87867f;
+  --baseSolidHover: #73726c;
+  --baseText: #262624;
+  --baseTextContrast: #141413;
+  --accentBase: #fefbf6;
+  --accentBgSubtle: rgba(217, 119, 87, 0.1);
+  --accentBg: rgba(217, 119, 87, 0.16);
+  --accentBgHover: rgba(217, 119, 87, 0.22);
+  --accentBgActive: rgba(217, 119, 87, 0.28);
+  --accentLine: rgba(217, 119, 87, 0.34);
+  --accentBorder: rgba(217, 119, 87, 0.42);
+  --accentBorderHover: rgba(198, 97, 63, 0.62);
+  --accentSolid: #d97757;
+  --accentSolidHover: #c6613f;
+  --accentText: #c6613f;
+  --accentTextContrast: #fefbf6;
+  --focusRing: rgba(217, 119, 87, 0.42);
+}
+
+.mimo .mdx-notes-editor .mdxeditor,
+.mimo .mdx-notes-editor .mdx-notes-content [contenteditable='true'],
+.mimo .mdx-notes-editor .mdx-notes-content [data-lexical-editor='true'] {
+  color: #262624 !important;
+  caret-color: #d97757;
+}
+
+.mimo .mdx-notes-editor .mdxeditor-toolbar,
+.mimo .mdx-notes-editor [class*='toolbarRoot'] {
+  background: #fefbf6 !important;
+  border-bottom-color: rgba(227, 218, 204, 0.95);
+  color: #262624 !important;
+}
+
+.mimo .mdx-notes-editor .mdxeditor-toolbar button,
+.mimo .mdx-notes-editor .mdxeditor-toolbar [role='button'],
+.mimo .mdx-notes-editor [class*='toolbarButton'],
+.mimo .mdx-notes-editor [class*='toolbarToggleItem'],
+.mimo .mdx-notes-editor .mdxeditor-toolbar svg,
+.mimo .mdx-notes-editor [class*='toolbar'] svg {
+  color: #4d4c48 !important;
+}
+
+.mimo .mdx-notes-editor .mdxeditor-toolbar button:hover,
+.mimo .mdx-notes-editor .mdxeditor-toolbar [role='button']:hover,
+.mimo .mdx-notes-editor [class*='toolbarButton']:hover,
+.mimo .mdx-notes-editor [class*='toolbarToggleItem']:hover {
+  background: rgba(217, 119, 87, 0.12) !important;
+  color: #141413 !important;
+}
+
+.mimo .mdx-notes-editor .mdxeditor-toolbar button[data-state='on'],
+.mimo .mdx-notes-editor [class*='toolbarToggleItem'][data-state='on'] {
+  background: rgba(217, 119, 87, 0.18) !important;
+  color: #c6613f !important;
+}
+
+.mimo .mdx-notes-editor [class*='toolbarNodeKindSelectTrigger'],
+.mimo .mdx-notes-editor [class*='toolbarButtonSelectTrigger'],
+.mimo .mdx-notes-editor [class*='selectTrigger'],
+.mimo .mdx-notes-editor select {
+  background: #faf7f2 !important;
+  color: #141413 !important;
+  border-color: #e3dacc !important;
+}
+
+.mimo .mdx-notes-editor [class*='selectContainer'],
+.mimo .mdx-notes-editor [class*='toolbarNodeKindSelectContainer'],
+.mimo .mdx-notes-editor [class*='toolbarCodeBlockLanguageSelectContent'],
+.mimo .mdx-notes-editor [class*='toolbarButtonDropdownContainer'],
+.mimo .mdx-notes-editor [class*='popupContainer'] {
+  background: #fefbf6 !important;
+  color: #141413 !important;
+  border-color: #e3dacc !important;
+  box-shadow: 0 18px 48px rgba(20, 20, 19, 0.12) !important;
+}
+
+.mimo .mdx-notes-editor [class*='selectItem'],
+.mimo .mdx-notes-editor [class*='toolbarNodeKindSelectItem'] {
+  color: #262624 !important;
+}
+
+.mimo .mdx-notes-editor [class*='selectItem'][data-highlighted],
+.mimo .mdx-notes-editor [class*='toolbarNodeKindSelectItem'][data-highlighted] {
+  background: rgba(217, 119, 87, 0.12) !important;
+  color: #c6613f !important;
+}
+
+.mimo .mdx-notes-editor .cm-editor,
+.mimo .mdx-notes-editor [class*='codeMirrorWrapper'],
+.mimo .mdx-notes-editor [class*='codeMirrorToolbar'] {
+  background: #faf7f2 !important;
+  color: #262624 !important;
+  border-color: #e3dacc !important;
+}
+
+.mimo .mdx-notes-editor .cm-content,
+.mimo .mdx-notes-editor .cm-line,
+.mimo .mdx-notes-editor .cm-line span {
+  color: #262624 !important;
+}
+
+.mimo .mdx-notes-editor .cm-gutters {
+  background: #f5efe5 !important;
+  color: #898781 !important;
+  border-right-color: #e3dacc;
+}
+
 /* ========== Capacitor / Mobile safe-area ========== */
 .safe-area-pb {
   padding-bottom: env(safe-area-inset-bottom, 0px);
@@ -414,6 +681,10 @@
     -webkit-backdrop-filter: none;
     background-color: rgba(30, 30, 30, 0.95);
   }
+
+  .mimo .glass-card {
+    background-color: rgba(250, 247, 242, 0.95);
+  }
 }
 
 .scrollbar-none::-webkit-scrollbar {
@@ -435,6 +706,14 @@
   /* 优化触摸高亮 */
   a, button, [role="button"], input[type="submit"], input[type="button"] {
     -webkit-tap-highlight-color: rgba(212, 168, 83, 0.15);
+  }
+
+  .mimo a,
+  .mimo button,
+  .mimo [role="button"],
+  .mimo input[type="submit"],
+  .mimo input[type="button"] {
+    -webkit-tap-highlight-color: rgba(217, 119, 87, 0.15);
   }
 
   /* 禁用按钮和链接的双击缩放 */
@@ -500,6 +779,10 @@
 
 .bottom-tab-item.active::after {
   transform: translateX(-50%) scaleX(1);
+}
+
+.mimo .bottom-tab-item::after {
+  background: #d97757;
 }
 
 /* 滑动手势优化 */

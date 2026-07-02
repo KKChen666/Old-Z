@@ -12,6 +12,7 @@ import SettingsPage from "@/pages/SettingsPage";
 import Discover from "@/pages/Discover";
 import { useAppStore } from "@/stores/useAppStore";
 import { api, getToken, clearAuth, syncTokenToNative, clearNativeToken } from "@/utils/api";
+import { useTheme } from "@/hooks/useTheme";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, setUser } = useAppStore();
@@ -49,6 +50,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  useTheme();
   const { user, setUser } = useAppStore();
   const [authChecked, setAuthChecked] = useState(false);
 

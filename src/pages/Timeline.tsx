@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
+import TimelineCalendar from '@/components/TimelineCalendar';
 import {
   Upload,
   CheckSquare,
@@ -8,7 +10,10 @@ import {
   MessageCircle,
   Sparkles,
   Clock,
+  CalendarDays,
 } from 'lucide-react';
+
+type TimelineTab = 'timeline' | 'calendar';
 
 const eventIcons: Record<string, typeof Upload> = {
   file_upload: Upload,
@@ -64,6 +69,7 @@ function formatFullTime(timestamp: string): string {
 
 export default function Timeline() {
   const { timeline } = useAppStore();
+  const [activeTab, setActiveTab] = useState<TimelineTab>('timeline');
 
   // Group by date
   const grouped = timeline.reduce((acc, event) => {
@@ -74,15 +80,43 @@ export default function Timeline() {
   }, {} as Record<string, typeof timeline>);
 
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto">
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="font-serif text-2xl font-bold text-parchment-100">时间轴</h1>
         <p className="text-sm text-parchment-400 mt-1">记录每日工作与成长</p>
+        <div className="mt-4 flex gap-0 border-b border-ink-800/50">
+          <button
+            onClick={() => setActiveTab('timeline')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-all ${
+              activeTab === 'timeline'
+                ? 'border-gold-400 text-gold-400'
+                : 'border-transparent text-parchment-400 hover:text-parchment-200'
+            }`}
+          >
+            <Clock className="w-4 h-4" />
+            时间轴
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`flex items-center gap-1.5 px-4 py-2 text-sm border-b-2 transition-all ${
+              activeTab === 'calendar'
+                ? 'border-gold-400 text-gold-400'
+                : 'border-transparent text-parchment-400 hover:text-parchment-200'
+            }`}
+          >
+            <CalendarDays className="w-4 h-4" />
+            日历
+          </button>
+        </div>
       </div>
 
+      {activeTab === 'calendar' ? (
+        <TimelineCalendar />
+      ) : (
+      <>
       {/* Timeline */}
-      <div className="relative">
+      <div className="relative max-w-3xl">
         {/* Vertical line */}
         <div className="absolute left-6 top-0 bottom-0 w-px bg-gradient-to-b from-gold-400/30 via-ink-700/50 to-transparent" />
 
@@ -146,6 +180,8 @@ export default function Timeline() {
           <p className="text-parchment-400">暂无活动记录</p>
           <p className="text-xs text-ink-500 mt-1">开始使用 Old Z，你的活动会自动记录在这里</p>
         </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -18,6 +18,8 @@ import notesRoutes from './routes/notes.js'
 import chatRoutes from './routes/chat.js'
 import timelineRoutes from './routes/timeline.js'
 import settingsRoutes from './routes/settings.js'
+import reportsRoutes from './routes/reports.js'
+import { llmRequestContextMiddleware } from './services/llmRequestContext.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -31,6 +33,7 @@ const app: express.Application = express()
 app.use(cors())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+app.use(llmRequestContextMiddleware)
 
 /**
  * API Routes
@@ -42,6 +45,7 @@ app.use('/api/notes', notesRoutes)
 app.use('/api/chat', chatRoutes)
 app.use('/api/timeline', timelineRoutes)
 app.use('/api/settings', settingsRoutes)
+app.use('/api/reports', reportsRoutes)
 
 /**
  * health

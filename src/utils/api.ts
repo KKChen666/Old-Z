@@ -1,4 +1,5 @@
 import { registerPlugin } from '@capacitor/core';
+import type { AiActionSuggestion, ChatConversation, ChatReference, DailyReport, NoteChange, NoteSnapshot } from '@/types';
 
 // Capacitor: detect running inside native shell
 // isNativePlatform is a FUNCTION, must call it — checking truthiness of the function
@@ -92,6 +93,19 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
+  const shouldAttachLocalLlm = path.startsWith('/chat') || path === '/notes/assist';
+  if (shouldAttachLocalLlm) {
+    const activeStorage = localStorage.getItem('old-z-active-llm-storage');
+    const activeId = localStorage.getItem('old-z-active-llm-id');
+    const localPresets = localStorage.getItem('old-z-local-llm-presets');
+    if (activeStorage === 'local' && activeId && localPresets) {
+      try {
+        const presets = JSON.parse(localPresets);
+        const activePreset = Array.isArray(presets) ? presets.find((item) => item.id === activeId) : null;
+        if (activePreset) headers['x-oldz-local-llm-config'] = JSON.stringify(activePreset);
+      } catch {}
+    }
+  }
   // Only set Content-Type for requests with a body
   if (options?.body) {
     headers['Content-Type'] = 'application/json';
@@ -169,14 +183,38 @@ export const api = {
 
   // Notes
   getNotes: () => request<any[]>('/notes'),
+  getNoteChanges: (date: string) => request<NoteChange[]>(`/notes/changes?date=${encodeURIComponent(date)}`),
+  getNoteSnapshots: (id: string) => request<NoteSnapshot[]>(`/notes/${id}/snapshots`),
+  restoreNoteSnapshot: (id: string, snapshotId: string) =>
+    request<{ id: string; title: string; content: string; updatedAt: string }>(`/notes/${id}/restore`, { method: 'POST', body: JSON.stringify({ snapshotId }) }),
   createNote: (note: any) => request<any>('/notes', { method: 'POST', body: JSON.stringify(note) }),
   updateNote: (id: string, updates: any) => request<void>(`/notes/${id}`, { method: 'PATCH', body: JSON.stringify(updates) }),
   deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: 'DELETE' }),
+  assistNote: (payload: { mode: string; instruction?: string; title?: string; content?: string; selection?: string }) =>
+    request<{ content: string }>('/notes/assist', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Chat
-  getChatMessages: () => request<any[]>('/chat'),
+  getChatMessages: (params?: { scope?: 'global' | 'note'; noteId?: string; conversationId?: string }) => {
+    const search = new URLSearchParams();
+    if (params?.scope) search.set('scope', params.scope);
+    if (params?.noteId) search.set('noteId', params.noteId);
+    if (params?.conversationId) search.set('conversationId', params.conversationId);
+    const suffix = search.toString() ? `?${search.toString()}` : '';
+    return request<any[]>(`/chat${suffix}`);
+  },
+  getChatConversations: () => request<ChatConversation[]>('/chat/conversations'),
+  createChatConversation: (payload?: { title?: string; scope?: 'global' | 'note'; noteId?: string }) =>
+    request<ChatConversation>('/chat/conversations', { method: 'POST', body: JSON.stringify(payload || {}) }),
+  renameChatConversation: (id: string, title: string) =>
+    request<void>(`/chat/conversations/${id}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
+  deleteChatConversation: (id: string) => request<void>(`/chat/conversations/${id}`, { method: 'DELETE' }),
   chat: {
-    send: (content: string) => request<{ userMessage: any; aiMessage: any }>('/chat', { method: 'POST', body: JSON.stringify({ content }) }),
+    send: (content: string, options?: { scope?: 'global' | 'note'; noteId?: string; conversationId?: string; references?: ChatReference[] }) =>
+      request<{ conversation: ChatConversation; userMessage: any; aiMessage: any }>('/chat', { method: 'POST', body: JSON.stringify({ content, ...options }) }),
+    generate: (prompt: string) =>
+      request<{ content: string }>('/chat/generate', { method: 'POST', body: JSON.stringify({ prompt }) }),
+    actions: (message: string, aiReply: string) =>
+      request<AiActionSuggestion[]>('/chat/actions', { method: 'POST', body: JSON.stringify({ message, aiReply }) }),
     plan: (goal: string, context: string, stages: any[]) =>
       request<{ main_line: string; today_actions: string[] }>('/chat/plan', { method: 'POST', body: JSON.stringify({ goal, context, stages }) }),
   },
@@ -185,9 +223,16 @@ export const api = {
   getTimeline: () => request<any[]>('/timeline'),
   createTimelineEvent: (event: any) => request<any>('/timeline', { method: 'POST', body: JSON.stringify(event) }),
 
+  // Reports
+  getDailyReport: (date: string) => request<DailyReport | null>(`/reports/daily?date=${encodeURIComponent(date)}`),
+  getMonthlyDailyReports: (month: string) => request<DailyReport[]>(`/reports/daily?month=${encodeURIComponent(month)}`),
+  saveDailyReport: (date: string, content: string) =>
+    request<{ date: string; content: string }>('/reports/daily', { method: 'PUT', body: JSON.stringify({ date, content }) }),
+
   // Settings
   settings: {
     getLlmConfig: () => request<any>('/settings/llm'),
     saveLlmConfig: (config: any) => request<any>('/settings/llm', { method: 'POST', body: JSON.stringify(config) }),
+    getLlmBalance: (preset: any) => request<any>('/settings/llm/balance', { method: 'POST', body: JSON.stringify({ preset }) }),
   },
 };

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { FileItem, Todo, Note, ChatMessage, TimelineEvent } from '@/types';
+import type { FileItem, Todo, Note, ChatMessage, TimelineEvent, ChatConversation } from '@/types';
 import { api, clearAuth, clearNativeToken } from '@/utils/api';
 
 interface AppState {
@@ -9,6 +9,8 @@ interface AppState {
   todos: Todo[];
   notes: Note[];
   chatMessages: ChatMessage[];
+  chatConversations: ChatConversation[];
+  activeConversationId: string | null;
   timeline: TimelineEvent[];
   sidebarCollapsed: boolean;
   loaded: boolean;
@@ -27,6 +29,11 @@ interface AppState {
   updateNote: (id: string, updates: Partial<Note>) => void;
   deleteNote: (id: string) => void;
   addChatMessage: (message: ChatMessage) => void;
+  setChatMessages: (messages: ChatMessage[]) => void;
+  setChatConversations: (conversations: ChatConversation[]) => void;
+  upsertChatConversation: (conversation: ChatConversation) => void;
+  removeChatConversation: (id: string) => void;
+  setActiveConversationId: (id: string | null) => void;
   addTimelineEvent: (event: TimelineEvent) => void;
 }
 
@@ -37,6 +44,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   todos: [],
   notes: [],
   chatMessages: [],
+  chatConversations: [],
+  activeConversationId: null,
   timeline: [],
   sidebarCollapsed: false,
   loaded: false,
@@ -52,14 +61,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   loadData: async () => {
     if (get().loaded || !get().user) return;
     try {
-      const [files, todos, notes, chatMessages, timeline] = await Promise.all([
+      const [files, todos, notes, chatConversations, timeline] = await Promise.all([
         api.getFiles(),
         api.getTodos(),
         api.getNotes(),
-        api.getChatMessages(),
+        api.getChatConversations(),
         api.getTimeline(),
       ]);
-      set({ files, todos, notes, chatMessages, timeline, loaded: true });
+      const activeConversationId = chatConversations[0]?.id || null;
+      const chatMessages = activeConversationId ? await api.getChatMessages({ conversationId: activeConversationId }) : [];
+      set({ files, todos, notes, chatMessages, chatConversations, activeConversationId, timeline, loaded: true });
     } catch (error) {
       console.error('Failed to load data:', error);
       set({ loaded: false });
@@ -126,6 +137,30 @@ export const useAppStore = create<AppState>((set, get) => ({
   addChatMessage: (message) => {
     set((s) => ({ chatMessages: [...s.chatMessages, message] }));
   },
+
+  setChatMessages: (messages) => set({ chatMessages: messages }),
+
+  setChatConversations: (conversations) => set({ chatConversations: conversations }),
+
+  upsertChatConversation: (conversation) => {
+    set((s) => {
+      const exists = s.chatConversations.some((item) => item.id === conversation.id);
+      const chatConversations = exists
+        ? s.chatConversations.map((item) => (item.id === conversation.id ? { ...item, ...conversation } : item))
+        : [conversation, ...s.chatConversations];
+      return { chatConversations };
+    });
+  },
+
+  removeChatConversation: (id) => {
+    set((s) => ({
+      chatConversations: s.chatConversations.filter((item) => item.id !== id),
+      activeConversationId: s.activeConversationId === id ? null : s.activeConversationId,
+      chatMessages: s.activeConversationId === id ? [] : s.chatMessages,
+    }));
+  },
+
+  setActiveConversationId: (id) => set({ activeConversationId: id }),
 
   addTimelineEvent: (event) => {
     set((s) => ({ timeline: [event, ...s.timeline] }));

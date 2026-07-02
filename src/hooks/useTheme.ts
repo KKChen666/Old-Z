@@ -1,29 +1,32 @@
 import { useState, useEffect } from 'react';
 
-type Theme = 'light' | 'dark';
+export type Theme = 'dark' | 'mimo';
+
+const themes: Theme[] = ['dark', 'mimo'];
+
+function getSavedTheme(): Theme {
+  const savedTheme = localStorage.getItem('theme') as Theme | null;
+  return savedTheme && themes.includes(savedTheme) ? savedTheme : 'dark';
+}
 
 export function useTheme() {
-  const [theme, setTheme] = useState<Theme>(() => {
-    const savedTheme = localStorage.getItem('theme') as Theme;
-    if (savedTheme) {
-      return savedTheme;
-    }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  });
+  const [theme, setTheme] = useState<Theme>(getSavedTheme);
 
   useEffect(() => {
-    document.documentElement.classList.remove('light', 'dark');
+    document.documentElement.classList.remove('light', 'dark', 'mimo');
     document.documentElement.classList.add(theme);
     localStorage.setItem('theme', theme);
   }, [theme]);
 
   const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    setTheme(prevTheme => prevTheme === 'dark' ? 'mimo' : 'dark');
   };
 
   return {
     theme,
+    setTheme,
     toggleTheme,
-    isDark: theme === 'dark'
+    isDark: theme === 'dark',
+    isMimo: theme === 'mimo',
   };
 } 

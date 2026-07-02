@@ -43,12 +43,69 @@ export interface Note {
   updatedAt: string;
 }
 
+export interface NoteChange {
+  noteId: string;
+  title: string;
+  previousTitle?: string | null;
+  changedAt: string;
+  isNew: boolean;
+  added: string[];
+  removed: string[];
+}
+
+export interface NoteSnapshot {
+  id: string;
+  noteId: string;
+  title: string;
+  content: string;
+  snapshotDate: string;
+  createdAt: string;
+}
+
+export interface DailyReport {
+  id: string;
+  date: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: string;
-  references?: { type: 'file' | 'note' | 'todo'; id: string }[];
+  scope?: 'global' | 'note';
+  noteId?: string;
+  noteTitle?: string;
+  conversationId?: string;
+  references?: ChatReference[];
+}
+
+export interface ChatReference {
+  type: 'file' | 'note' | 'todo';
+  id: string;
+  title?: string;
+}
+
+export interface ChatConversation {
+  id: string;
+  title: string;
+  scope: 'global' | 'note';
+  noteId?: string;
+  createdAt: string;
+  updatedAt: string;
+  messageCount?: number;
+  lastMessageAt?: string;
+}
+
+export interface AiActionSuggestion {
+  type: 'todo' | 'note' | 'reminder';
+  title: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  tags?: string[];
+  content?: string;
 }
 
 export interface TimelineEvent {

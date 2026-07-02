@@ -117,6 +117,64 @@ const initDB = async () => {
       )
     `);
 
+    // 笔记快照表：用于按日期追踪同一篇笔记的新增/修改内容
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS note_snapshots (
+        id VARCHAR(64) PRIMARY KEY,
+        note_id VARCHAR(64) NOT NULL,
+        user_id VARCHAR(64) NOT NULL,
+        title VARCHAR(500) NOT NULL,
+        content MEDIUMTEXT NOT NULL,
+        snapshot_date DATE NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_note_snapshots_daily (user_id, note_id, snapshot_date),
+        INDEX idx_note_snapshots_user_snapshot_date (user_id, snapshot_date),
+        INDEX idx_note_snapshots_user_date (user_id, created_at),
+        INDEX idx_note_snapshots_note_date (note_id, created_at),
+        FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
+      )
+    `);
+    try {
+      await conn.execute('ALTER TABLE note_snapshots ADD COLUMN snapshot_date DATE NULL AFTER content');
+      await conn.execute('UPDATE note_snapshots SET snapshot_date = DATE(created_at) WHERE snapshot_date IS NULL');
+      await conn.execute('ALTER TABLE note_snapshots MODIFY snapshot_date DATE NOT NULL');
+    } catch (e: any) {
+      if (e.errno !== 1060) throw e;
+    }
+    await conn.execute(`
+      DELETE ns1 FROM note_snapshots ns1
+      JOIN note_snapshots ns2
+       ON ns1.user_id = ns2.user_id
+       AND ns1.note_id = ns2.note_id
+       AND ns1.snapshot_date = ns2.snapshot_date
+       AND (ns1.created_at < ns2.created_at OR (ns1.created_at = ns2.created_at AND ns1.id < ns2.id))
+    `);
+    try {
+      await conn.execute('CREATE UNIQUE INDEX uk_note_snapshots_daily ON note_snapshots (user_id, note_id, snapshot_date)');
+    } catch (e: any) {
+      if (e.errno !== 1061) throw e;
+    }
+    try {
+      await conn.execute('CREATE INDEX idx_note_snapshots_user_snapshot_date ON note_snapshots (user_id, snapshot_date)');
+    } catch (e: any) {
+      if (e.errno !== 1061) throw e;
+    }
+    await conn.execute('DELETE FROM note_snapshots WHERE snapshot_date < DATE_SUB(CURDATE(), INTERVAL 6 DAY)');
+
+    // 日报表：月报只基于当月已生成的日报进行总结
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS daily_reports (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL,
+        report_date DATE NOT NULL,
+        content MEDIUMTEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_daily_reports_user_date (user_id, report_date),
+        INDEX idx_daily_reports_user_month (user_id, report_date)
+      )
+    `);
+
     // 待办-笔记关联表
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS todo_notes (
@@ -135,6 +193,19 @@ const initDB = async () => {
         role ENUM('user','assistant') NOT NULL,
         content TEXT NOT NULL,
         timestamp DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS chat_conversations (
+        id VARCHAR(64) PRIMARY KEY,
+        user_id VARCHAR(64) NOT NULL,
+        title VARCHAR(200) NOT NULL,
+        scope VARCHAR(20) NOT NULL DEFAULT 'global',
+        note_id VARCHAR(64),
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_chat_conversations_user_updated (user_id, updated_at)
       )
     `);
 
@@ -199,6 +270,27 @@ const initDB = async () => {
       )
     `);
 
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS quantlife_llm_presets (
+        id VARCHAR(64) NOT NULL,
+        user_id VARCHAR(64) NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        provider VARCHAR(16) NOT NULL DEFAULT 'openai',
+        base_url VARCHAR(512),
+        api_key VARCHAR(2048),
+        model VARCHAR(128),
+        balance_url VARCHAR(1024),
+        balance_method VARCHAR(8) NOT NULL DEFAULT 'GET',
+        balance_headers TEXT,
+        balance_body TEXT,
+        balance_path VARCHAR(200),
+        is_active BOOLEAN NOT NULL DEFAULT FALSE,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id, user_id),
+        INDEX idx_llm_presets_user_active (user_id, is_active, updated_at)
+      )
+    `);
+
     // 为现有表添加 user_id 列（忽略已存在的列）
     const tablesWithUserId = ['files', 'todos', 'notes', 'chat_messages', 'timeline_events'];
     for (const table of tablesWithUserId) {
@@ -219,6 +311,32 @@ const initDB = async () => {
       await conn.execute('ALTER TABLE todos ADD COLUMN is_today_todo BOOLEAN NOT NULL DEFAULT FALSE');
     } catch (e: any) {
       if (e.errno !== 1060) throw e;
+    }
+
+    try {
+      await conn.execute("ALTER TABLE chat_messages ADD COLUMN scope VARCHAR(20) NOT NULL DEFAULT 'global'");
+    } catch (e: any) {
+      if (e.errno !== 1060) throw e;
+    }
+    try {
+      await conn.execute('ALTER TABLE chat_messages ADD COLUMN note_id VARCHAR(64) NULL');
+    } catch (e: any) {
+      if (e.errno !== 1060) throw e;
+    }
+    try {
+      await conn.execute('ALTER TABLE chat_messages ADD COLUMN conversation_id VARCHAR(64) NULL');
+    } catch (e: any) {
+      if (e.errno !== 1060) throw e;
+    }
+    try {
+      await conn.execute('CREATE INDEX idx_chat_messages_scope_note ON chat_messages (user_id, scope, note_id, timestamp)');
+    } catch (e: any) {
+      if (e.errno !== 1061) throw e;
+    }
+    try {
+      await conn.execute('CREATE INDEX idx_chat_messages_conversation ON chat_messages (user_id, conversation_id, timestamp)');
+    } catch (e: any) {
+      if (e.errno !== 1061) throw e;
     }
 
     console.log('Database tables initialized successfully!');

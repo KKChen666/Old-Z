@@ -2,15 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import { api } from '@/utils/api';
-import { Settings, Zap, Check, Loader2, User, Lock, LogOut } from 'lucide-react';
+import { Settings, Zap, Check, Loader2, User, Lock, LogOut, Palette, Moon, Sun, Plus, Trash2, Cloud, HardDrive, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { type Theme, useTheme } from '@/hooks/useTheme';
+import AdvancedLlmSettings from '@/components/settings/LlmSettings';
 
 type SettingsTab = 'user' | 'llm';
 
+type LlmStorage = 'cloud' | 'local';
+type LlmProvider = 'openai' | 'anthropic';
+
 interface LlmConfig {
-  provider: 'openai' | 'anthropic';
+  provider: LlmProvider;
   openai: { base_url: string; api_key: string; model: string };
   anthropic: { base_url: string; auth_token: string; model: string };
+}
+
+interface LlmPreset {
+  id: string;
+  name: string;
+  provider: LlmProvider;
+  base_url: string;
+  api_key: string;
+  model: string;
+  balance_url: string;
+  balance_method: 'GET' | 'POST';
+  balance_headers: string;
+  balance_body: string;
+  balance_path: string;
 }
 
 export default function SettingsPage() {
@@ -62,7 +81,7 @@ export default function SettingsPage() {
         </button>
       </div>
 
-      {activeTab === 'user' ? <UserSettings flashSaved={flashSaved} /> : <LlmSettings flashSaved={flashSaved} />}
+      {activeTab === 'user' ? <UserSettings flashSaved={flashSaved} /> : <AdvancedLlmSettings flashSaved={flashSaved} />}
     </div>
   );
 }
@@ -70,6 +89,7 @@ export default function SettingsPage() {
 // ============ 用户设置 ============
 function UserSettings({ flashSaved }: { flashSaved: () => void }) {
   const { user, setUser, logout } = useAppStore();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [username, setUsername] = useState(user?.username || '');
   const [nickname, setNickname] = useState(user?.displayName || '');
@@ -149,6 +169,39 @@ function UserSettings({ flashSaved }: { flashSaved: () => void }) {
 
   return (
     <div className="space-y-5">
+      <div className="glass-card p-5 space-y-4">
+        <h3 className="text-sm font-semibold text-parchment-100 flex items-center gap-2">
+          <Palette className="w-4 h-4 text-gold-400" />
+          外观主题
+        </h3>
+        <div className="grid grid-cols-2 gap-2 rounded-xl bg-ink-950/50 p-1 border border-ink-800/50">
+          {[
+            { value: 'dark' as Theme, label: '经典暗色', icon: Moon },
+            { value: 'mimo' as Theme, label: 'MiMo 暖白', icon: Sun },
+          ].map((item) => {
+            const Icon = item.icon;
+            const active = theme === item.value;
+
+            return (
+              <button
+                key={item.value}
+                type="button"
+                onClick={() => setTheme(item.value)}
+                className={cn(
+                  'flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all',
+                  active
+                    ? 'bg-gold-400 text-ink-950 shadow-sm shadow-gold-400/20'
+                    : 'text-parchment-400 hover:bg-ink-800/60 hover:text-parchment-100'
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {/* 个人信息 */}
       <div className="glass-card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-parchment-100 flex items-center gap-2">

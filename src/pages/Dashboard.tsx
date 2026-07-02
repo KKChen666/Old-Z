@@ -19,7 +19,14 @@ import type { Todo } from '@/types';
 import { getFileType } from '@/lib/utils';
 
 function todayStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return toDateKey(new Date());
+}
+
+function toDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function getDateLabel(dateStr: string): string {
@@ -42,7 +49,7 @@ function isOverdue(todo: Todo): boolean {
 }
 
 export default function Dashboard() {
-  const { todos, files, notes, timeline, addFile, addTimelineEvent, updateTodo, loadData } = useAppStore();
+  const { todos, files, notes, addFile, addTimelineEvent, updateTodo, loadData } = useAppStore();
   const [isDragging, setIsDragging] = useState(false);
   const [dropMessage, setDropMessage] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -65,7 +72,7 @@ export default function Dashboard() {
   for (let i = 1; i <= 7; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
-    const dateKey = d.toISOString().split('T')[0];
+    const dateKey = toDateKey(d);
     const dayTodos = todos.filter((t) => t.dueDate === dateKey && t.status !== 'completed');
     if (dayTodos.length > 0) {
       upcomingDays.push({
@@ -406,8 +413,8 @@ export default function Dashboard() {
                 <p className="text-xs text-ink-500 text-center py-4">本周暂无活动</p>
               )}
             </div>
-          </div>
         </div>
+      </div>
       </div>
     </div>
   );

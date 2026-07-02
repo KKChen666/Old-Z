@@ -151,6 +151,15 @@ export interface ChatContext {
   notes: { title: string; content: string }[];
 }
 
+export interface AiActionSuggestion {
+  type: 'todo' | 'note' | 'reminder';
+  title: string;
+  description?: string;
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  tags?: string[];
+  content?: string;
+}
+
 export function buildChatContextMessage(ctx: ChatContext): string {
   const parts: string[] = ['\n---\n用户当前数据：'];
 
@@ -177,4 +186,42 @@ export function buildChatContextMessage(ctx: ChatContext): string {
 
   parts.push('\n---');
   return parts.join('\n');
+}
+
+export const ACTION_SUGGESTION_SYSTEM_PROMPT = `你是 Old Z 的 AI 联动规划器。你会阅读用户问题、AI 回复以及当前项目数据，然后提出可以落地到应用里的动作建议。
+
+只能输出严格 JSON，不要输出 Markdown。格式如下：
+{
+  "actions": [
+    {
+      "type": "todo" | "note" | "reminder",
+      "title": "不超过 60 个字的标题",
+      "description": "可选，给待办或提醒使用的补充说明",
+      "priority": "low" | "medium" | "high" | "urgent",
+      "tags": ["ai", "可选标签"],
+      "content": "可选，给笔记使用的正文"
+    }
+  ]
+}
+
+规则：
+- 最多给 4 条建议，只给真正值得落地的动作。
+- todo 用于明确下一步行动；note 用于值得沉淀的总结、方案、清单；reminder 用于需要进入时间线的提醒或风险。
+- 不要重复当前已存在的待办或笔记。
+- 标题必须具体、可执行，不要写“跟进一下”这类空话。
+- 如果没有合适动作，返回 {"actions": []}。`;
+
+export function buildActionSuggestionUserMessage(
+  userMessage: string,
+  aiReply: string,
+  ctx: ChatContext
+): string {
+  return [
+    buildChatContextMessage(ctx),
+    '\n用户刚才的问题：',
+    userMessage,
+    '\nAI 刚才的回复：',
+    aiReply,
+    '\n请基于以上内容给出可落地到 Old Z 的动作建议。'
+  ].join('\n');
 }
