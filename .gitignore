@@ -12,6 +12,8 @@ dist
 dist-ssr
 dist-electron
 release
+release2
+installers
 .electron-cache
 tmp
 *.local
@@ -36,3 +38,7 @@ tmp
 # Android SDK
 .android-sdk/
 .android-sdk-local/
+
+# Build artifacts
+*.apk
+*.aab
