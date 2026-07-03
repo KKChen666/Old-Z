@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, ChevronUp, ChevronDown, ZoomIn, ZoomOut } from 'lucide-react';
 import mammoth from 'mammoth';
+import { fetchFileAsArrayBuffer } from './fileLoader';
 
 interface DocxViewerProps {
   url: string;
@@ -38,7 +39,7 @@ export default function DocxViewer({ url }: DocxViewerProps) {
         setLoading(true);
         setError(null);
 
-        const arrayBuffer = await fetchAsArrayBuffer(url);
+        const arrayBuffer = await fetchFileAsArrayBuffer(url);
         const result = await mammoth.convertToHtml({ arrayBuffer });
         setHtml(result.value);
 

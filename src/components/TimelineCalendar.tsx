@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useAppStore } from '@/stores/useAppStore';
 import { api } from '@/utils/api';
 import {
@@ -110,6 +112,29 @@ function isOverdue(todo: Todo): boolean {
   return !!todo.dueDate && todo.status !== 'completed' && todo.dueDate < todayStr();
 }
 
+function ReportMarkdown({ content }: { content: string }) {
+  return (
+    <div className="space-y-3 text-sm leading-7 text-parchment-200">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => <h1 className="font-serif text-xl font-semibold text-parchment-100">{children}</h1>,
+          h2: ({ children }) => <h2 className="font-serif text-lg font-semibold text-parchment-100">{children}</h2>,
+          h3: ({ children }) => <h3 className="mt-4 text-sm font-semibold text-parchment-100 first:mt-0">{children}</h3>,
+          p: ({ children }) => <p className="text-sm leading-7 text-parchment-200">{children}</p>,
+          ul: ({ children }) => <ul className="space-y-1 pl-5 text-sm leading-7 text-parchment-200">{children}</ul>,
+          ol: ({ children }) => <ol className="space-y-1 pl-5 text-sm leading-7 text-parchment-200">{children}</ol>,
+          li: ({ children }) => <li className="list-disc pl-1">{children}</li>,
+          strong: ({ children }) => <strong className="font-semibold text-parchment-100">{children}</strong>,
+          code: ({ children }) => <code className="rounded bg-ink-800/60 px-1 py-0.5 text-xs text-gold-300">{children}</code>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
+  );
+}
+
 export default function TimelineCalendar() {
   const { todos, files, notes, timeline, updateTodo } = useAppStore();
   const [selectedDate, setSelectedDate] = useState(todayStr());
@@ -122,6 +147,7 @@ export default function TimelineCalendar() {
   const [monthlyReportLabel, setMonthlyReportLabel] = useState('');
   const [reportLoading, setReportLoading] = useState<'daily' | 'monthly' | null>(null);
   const [reportModalOpen, setReportModalOpen] = useState(false);
+  const [reportEditing, setReportEditing] = useState(false);
   const [dailyReportSaving, setDailyReportSaving] = useState(false);
   const [noteChanges, setNoteChanges] = useState<NoteChange[]>([]);
   const [noteChangesLoading, setNoteChangesLoading] = useState(false);
@@ -170,9 +196,13 @@ export default function TimelineCalendar() {
   useEffect(() => {
     let cancelled = false;
     setDailyReport('');
+    setReportEditing(true);
     api.getDailyReport(selectedDate)
       .then((report) => {
-        if (!cancelled && report?.content) setDailyReport(report.content);
+        if (!cancelled && report?.content) {
+          setDailyReport(report.content);
+          setReportEditing(false);
+        }
       })
       .catch((error) => {
         console.warn('Daily report fetch error:', error);
@@ -275,6 +305,7 @@ export default function TimelineCalendar() {
     try {
       const result = await api.chat.generate(prompt);
       setDailyReport(result.content);
+      setReportEditing(false);
       api.saveDailyReport(selectedDate, result.content).catch((error) => {
         console.warn('Daily report save error:', error);
       });
@@ -291,6 +322,7 @@ export default function TimelineCalendar() {
     setDailyReportSaving(true);
     try {
       await api.saveDailyReport(selectedDate, dailyReport);
+      setReportEditing(false);
     } catch (error) {
       console.error('Daily report save error:', error);
       window.alert('日报保存失败，请稍后重试');
@@ -504,14 +536,28 @@ export default function TimelineCalendar() {
                 >
                   {dailyReportSaving ? '保存中...' : '保存日报'}
                 </button>
+                {dailyReport.trim() && (
+                  <button
+                    onClick={() => setReportEditing((current) => !current)}
+                    className="btn-ghost !py-2 !text-xs"
+                  >
+                    {reportEditing ? '预览日报' : '编辑日报'}
+                  </button>
+                )}
               </div>
 
-              <textarea
-                value={dailyReport}
-                onChange={(event) => setDailyReport(event.target.value)}
-                placeholder={isFutureDate ? '未来日期不能 AI 生成日报，可以先手写计划或备注...' : '点击 AI 生成日报，或直接在这里手写/编辑这一天的日报...'}
-                className="input-field min-h-[300px] resize-y text-sm leading-relaxed"
-              />
+              {reportEditing || !dailyReport.trim() ? (
+                <textarea
+                  value={dailyReport}
+                  onChange={(event) => setDailyReport(event.target.value)}
+                  placeholder={isFutureDate ? '未来日期不能 AI 生成日报，可以先手写计划或备注...' : '点击 AI 生成日报，或直接在这里手写/编辑这一天的日报...'}
+                  className="input-field min-h-[300px] resize-y text-sm leading-relaxed"
+                />
+              ) : (
+                <div className="min-h-[300px] rounded-lg border border-ink-700/40 bg-ink-900/35 p-4">
+                  <ReportMarkdown content={dailyReport} />
+                </div>
+              )}
 
               <div className="rounded-lg border border-ink-700/40 bg-ink-900/35 p-3">
                 <div className="mb-3 flex items-center justify-between gap-3">

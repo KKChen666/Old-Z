@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import Papa from 'papaparse';
+import { fetchFileAsText } from './fileLoader';
 
 interface CsvViewerProps {
   url: string;
@@ -35,7 +36,7 @@ export default function CsvViewer({ url }: CsvViewerProps) {
         setLoading(true);
         setError(null);
 
-        const text = await fetchAsText(url);
+        const text = await fetchFileAsText(url);
 
         const result = Papa.parse(text, {
           header: false,

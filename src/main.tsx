@@ -13,8 +13,16 @@ async function initCapacitor() {
 
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar')
+    await StatusBar.setOverlaysWebView({ overlay: false })
     await StatusBar.setStyle({ style: Style.Dark })
     await StatusBar.setBackgroundColor({ color: '#0a0a0f' })
+  } catch {}
+
+  try {
+    const { App: CapacitorApp } = await import('@capacitor/app')
+    await CapacitorApp.addListener('backButton', () => {
+      CapacitorApp.exitApp()
+    })
   } catch {}
 
   try {

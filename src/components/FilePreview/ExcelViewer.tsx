@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { fetchFileAsArrayBuffer } from './fileLoader';
 
 interface ExcelViewerProps {
   url: string;
@@ -36,7 +37,7 @@ export default function ExcelViewer({ url }: ExcelViewerProps) {
         setLoading(true);
         setError(null);
 
-        const arrayBuffer = await fetchAsArrayBuffer(url);
+        const arrayBuffer = await fetchFileAsArrayBuffer(url);
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
         const sheetsData = workbook.SheetNames.map((name) => {

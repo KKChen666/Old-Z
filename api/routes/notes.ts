@@ -1,11 +1,26 @@
 import { Router, type Response } from 'express';
 import pool from '../config/database.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
-import { callLLM } from '../services/ai.js';
+import { callLLM, safeJsonParse } from '../services/ai.js';
 import { getUserLlmConfig } from '../services/settings.js';
 
 const router = Router();
 router.use(authMiddleware);
+
+const APP_TIME_ZONE = process.env.APP_TIME_ZONE || 'Asia/Shanghai';
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function appDateString(offsetDays = 0): string {
+  const date = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  const parts = DATE_FORMATTER.formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
 
 const NOTE_ASSIST_SYSTEM_PROMPT = `你是 Old Z 的笔记写作助手。你帮助用户在写笔记时整理思路、改写文字、续写内容、提取行动项。
 
@@ -15,6 +30,33 @@ const NOTE_ASSIST_SYSTEM_PROMPT = `你是 Old Z 的笔记写作助手。你帮�
 - 保持用户原本的语言和语气，默认使用中文。
 - 如果用户提供了选中文本，优先处理选中文本；否则处理整篇笔记。
 - 内容要具体、有结构，但不要凭空编造事实。`;
+
+const NOTE_INTENT_SYSTEM_PROMPT = `You classify user input inside a note editor.
+Return strict JSON only.
+
+Intent types:
+- function: deterministic editor API calls, such as insert divider, bold selected text, insert table, insert todo.
+- ask: the user is asking a question or chatting. Default to ask when uncertain. Ask must not modify the document by default.
+- edit: AI edits or writes against the current document/selection, such as summarize, continue writing, polish, translate, compress.
+- document: structural document operations, such as delete empty lines, change heading levels, sort blocks, delete all.
+- workflow: complex multi-step agent tasks, such as write a PRD and generate todos.
+- mixed: one request contains multiple intents/actions, such as summarize then append, translate then insert table.
+
+Supported tools: divider, deleteAll, boldSelection, insertTable.
+Dangerous operations such as deleteAll must use type "document" and risk "confirm".
+
+Return:
+{
+  "type": "function" | "ask" | "edit" | "document" | "workflow" | "mixed",
+  "tool": "divider" | "deleteAll" | "boldSelection" | "insertTable" | null,
+  "operation": "deleteAll" | "removeEmptyLines" | "headingLevel" | "sort" | null,
+  "risk": "safe" | "confirm",
+  "mode": "summarize" | "continue" | "translate" | "polish" | "custom" | null,
+  "rows": number | null,
+  "cols": number | null,
+  "steps": [] | null,
+  "reason": "short reason"
+}`;
 
 function buildNoteAssistPrompt(params: {
   mode: string;
@@ -41,27 +83,129 @@ function buildNoteAssistPrompt(params: {
   ].filter(Boolean).join('\n\n');
 }
 
+function buildNoteIntentPrompt(params: {
+  instruction: string;
+  hasSelection?: boolean;
+  title?: string;
+  contentPreview?: string;
+}): string {
+  return [
+    `User input: ${params.instruction}`,
+    `Has selection: ${params.hasSelection ? 'yes' : 'no'}`,
+    `Note title: ${params.title || 'Untitled'}`,
+    params.contentPreview ? `Note preview:\n${params.contentPreview}` : '',
+  ].filter(Boolean).join('\n\n');
+}
+
+function normalizeNoteIntent(raw: any) {
+  const type = ['function', 'ask', 'edit', 'document', 'workflow', 'mixed', 'tool', 'command'].includes(raw?.type) ? raw.type : 'ask';
+  const tool = ['divider', 'deleteAll', 'boldSelection', 'insertTable'].includes(raw?.tool) ? raw.tool : null;
+  const operation = ['deleteAll', 'removeEmptyLines', 'headingLevel', 'sort'].includes(raw?.operation) ? raw.operation : null;
+  const mode = ['summarize', 'continue', 'translate', 'polish', 'custom'].includes(raw?.mode) ? raw.mode : null;
+  const rows = Number.isFinite(Number(raw?.rows)) ? Math.min(Math.max(Number(raw.rows), 1), 12) : null;
+  const cols = Number.isFinite(Number(raw?.cols)) ? Math.min(Math.max(Number(raw.cols), 1), 8) : null;
+
+  if ((type === 'document' || tool === 'deleteAll' || operation === 'deleteAll') && (tool === 'deleteAll' || operation === 'deleteAll')) {
+    return {
+      type: 'document',
+      tool: null,
+      operation: 'deleteAll',
+      risk: 'confirm',
+      mode: null,
+      rows: null,
+      cols: null,
+      steps: null,
+      reason: typeof raw?.reason === 'string' ? raw.reason.slice(0, 200) : '',
+    };
+  }
+  if ((type === 'function' || type === 'tool') && tool && tool !== 'deleteAll') {
+    return {
+      type: 'function',
+      tool,
+      operation: null,
+      risk: 'safe',
+      mode: null,
+      rows: tool === 'insertTable' ? rows || 3 : null,
+      cols: tool === 'insertTable' ? cols || 3 : null,
+      steps: null,
+      reason: typeof raw?.reason === 'string' ? raw.reason.slice(0, 200) : '',
+    };
+  }
+  if (type === 'edit' || type === 'command') {
+    return {
+      type: 'edit',
+      tool: null,
+      operation: null,
+      risk: 'safe',
+      mode: mode || 'custom',
+      rows: null,
+      cols: null,
+      steps: null,
+      reason: typeof raw?.reason === 'string' ? raw.reason.slice(0, 200) : '',
+    };
+  }
+  if (type === 'workflow') {
+    return {
+      type: 'workflow',
+      tool: null,
+      operation: null,
+      risk: 'safe',
+      mode: null,
+      rows: null,
+      cols: null,
+      steps: null,
+      goal: typeof raw?.goal === 'string' ? raw.goal.slice(0, 500) : '',
+      reason: typeof raw?.reason === 'string' ? raw.reason.slice(0, 200) : '',
+    };
+  }
+  if (type === 'mixed') {
+    return {
+      type: 'mixed',
+      tool: null,
+      operation: null,
+      risk: raw?.risk === 'confirm' ? 'confirm' : 'safe',
+      mode: null,
+      rows: null,
+      cols: null,
+      steps: Array.isArray(raw?.steps) ? raw.steps.slice(0, 6) : [],
+      reason: typeof raw?.reason === 'string' ? raw.reason.slice(0, 200) : '',
+    };
+  }
+  return {
+    type: 'ask',
+    tool: null,
+    operation: null,
+    risk: 'safe',
+    mode: null,
+    rows: null,
+    cols: null,
+    steps: null,
+    reason: typeof raw?.reason === 'string' ? raw.reason.slice(0, 200) : '',
+  };
+}
+
 function snapshotId(): string {
   return `ns-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 async function saveNoteSnapshot(userId: string, noteId: string, title: string, content: string) {
+  const snapshotDate = appDateString();
   await pool.execute(
     `INSERT INTO note_snapshots (id, note_id, user_id, title, content, snapshot_date, created_at)
-     VALUES (?, ?, ?, ?, ?, CURDATE(), ?)
+     VALUES (?, ?, ?, ?, ?, ?, ?)
      ON DUPLICATE KEY UPDATE
        title = VALUES(title),
        content = VALUES(content),
        created_at = VALUES(created_at)`,
-    [snapshotId(), noteId, userId, title, content || '', new Date()]
+    [snapshotId(), noteId, userId, title, content || '', snapshotDate, new Date()]
   );
   await cleanupOldNoteSnapshots(userId);
 }
 
 async function cleanupOldNoteSnapshots(userId: string) {
   await pool.execute(
-    'DELETE FROM note_snapshots WHERE user_id = ? AND snapshot_date < DATE_SUB(CURDATE(), INTERVAL 6 DAY)',
-    [userId]
+    'DELETE FROM note_snapshots WHERE user_id = ? AND snapshot_date < ?',
+    [userId, appDateString(-6)]
   );
 }
 
@@ -185,6 +329,38 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   }
 });
 
+router.post('/intent', async (req: AuthRequest, res: Response) => {
+  try {
+    const { instruction, hasSelection, title, contentPreview } = req.body;
+    if (!instruction || typeof instruction !== 'string') {
+      res.status(400).json({ success: false, error: '请输入 AI 指令' });
+      return;
+    }
+
+    const llmConfig = await getUserLlmConfig(req.userId!);
+    if (!llmConfig) {
+      res.json({ success: true, data: { type: 'ask', tool: null, risk: 'safe', mode: null, rows: null, cols: null, reason: 'No LLM config; default to safe ask.' } });
+      return;
+    }
+
+    const result = await callLLM(
+      llmConfig,
+      NOTE_INTENT_SYSTEM_PROMPT,
+      buildNoteIntentPrompt({
+        instruction: instruction.slice(0, 1000),
+        hasSelection: Boolean(hasSelection),
+        title: typeof title === 'string' ? title.slice(0, 500) : '',
+        contentPreview: typeof contentPreview === 'string' ? contentPreview.slice(0, 4000) : '',
+      }),
+      { temperature: 0, maxTokens: 500, jsonMode: true, timeoutMs: 15000 }
+    );
+    res.json({ success: true, data: normalizeNoteIntent(safeJsonParse(result)) });
+  } catch (error: any) {
+    console.error('POST /notes/intent error:', error);
+    res.json({ success: true, data: { type: 'ask', tool: null, risk: 'safe', mode: null, rows: null, cols: null, reason: 'Classifier failed; default to safe ask.' } });
+  }
+});
+
 router.post('/assist', async (req: AuthRequest, res: Response) => {
   try {
     const { mode, instruction, title, content, selection } = req.body;
@@ -281,10 +457,10 @@ router.get('/:id/snapshots', async (req: AuthRequest, res: Response) => {
     const [snapshots] = await pool.execute(
       `SELECT id, note_id, title, content, snapshot_date, created_at
        FROM note_snapshots
-       WHERE user_id = ? AND note_id = ? AND snapshot_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+       WHERE user_id = ? AND note_id = ? AND snapshot_date >= ?
        ORDER BY snapshot_date DESC, created_at DESC
        LIMIT 7`,
-      [req.userId!, req.params.id]
+      [req.userId!, req.params.id, appDateString(-6)]
     );
 
     res.json({
@@ -315,9 +491,9 @@ router.post('/:id/restore', async (req: AuthRequest, res: Response) => {
     const [snapshots] = await pool.execute(
       `SELECT id, note_id, title, content
        FROM note_snapshots
-       WHERE id = ? AND note_id = ? AND user_id = ? AND snapshot_date >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+       WHERE id = ? AND note_id = ? AND user_id = ? AND snapshot_date >= ?
        LIMIT 1`,
-      [restoreSnapshotId, req.params.id, req.userId!]
+      [restoreSnapshotId, req.params.id, req.userId!, appDateString(-6)]
     );
     const snapshot = (snapshots as any[])[0];
     if (!snapshot) {
@@ -330,7 +506,6 @@ router.post('/:id/restore', async (req: AuthRequest, res: Response) => {
       'UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ? AND user_id = ?',
       [snapshot.title, snapshot.content, now, req.params.id, req.userId!]
     );
-    await saveNoteSnapshot(req.userId!, req.params.id, snapshot.title, snapshot.content);
 
     res.json({
       success: true,
@@ -386,16 +561,24 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
 // 删除笔记
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
+  const conn = await pool.getConnection();
   try {
-    const [result] = await pool.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
+    await conn.beginTransaction();
+    await conn.execute('DELETE FROM note_snapshots WHERE note_id = ? AND user_id = ?', [req.params.id, req.userId!]);
+    const [result] = await conn.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
     if (result.affectedRows === 0) {
+      await conn.rollback();
       res.status(404).json({ success: false, error: '笔记不存在' });
       return;
     }
+    await conn.commit();
     res.json({ success: true });
   } catch (error) {
+    await conn.rollback();
     console.error('DELETE /notes error:', error);
     res.status(500).json({ success: false, error: 'Failed to delete note' });
+  } finally {
+    conn.release();
   }
 });
 

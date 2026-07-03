@@ -1,5 +1,24 @@
 import pool from '../config/database.js';
 
+const APP_TIME_ZONE = process.env.APP_TIME_ZONE || 'Asia/Shanghai';
+const DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
+  timeZone: APP_TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+function appDateString(offsetDays = 0): string {
+  const date = new Date(Date.now() + offsetDays * 24 * 60 * 60 * 1000);
+  const parts = DATE_FORMATTER.formatToParts(date);
+  const part = (type: string) => parts.find((item) => item.type === type)?.value || '';
+  return `${part('year')}-${part('month')}-${part('day')}`;
+}
+
+function ignoreMysqlError(error: any, errno: number) {
+  if (error.errno !== errno) throw error;
+}
+
 const initDB = async () => {
   const conn = await pool.getConnection();
   try {
@@ -136,11 +155,10 @@ const initDB = async () => {
     `);
     try {
       await conn.execute('ALTER TABLE note_snapshots ADD COLUMN snapshot_date DATE NULL AFTER content');
-      await conn.execute('UPDATE note_snapshots SET snapshot_date = DATE(created_at) WHERE snapshot_date IS NULL');
-      await conn.execute('ALTER TABLE note_snapshots MODIFY snapshot_date DATE NOT NULL');
     } catch (e: any) {
-      if (e.errno !== 1060) throw e;
+      ignoreMysqlError(e, 1060);
     }
+    await conn.execute('UPDATE note_snapshots SET snapshot_date = DATE(created_at) WHERE snapshot_date IS NULL');
     await conn.execute(`
       DELETE ns1 FROM note_snapshots ns1
       JOIN note_snapshots ns2
@@ -149,17 +167,18 @@ const initDB = async () => {
        AND ns1.snapshot_date = ns2.snapshot_date
        AND (ns1.created_at < ns2.created_at OR (ns1.created_at = ns2.created_at AND ns1.id < ns2.id))
     `);
+    await conn.execute('ALTER TABLE note_snapshots MODIFY snapshot_date DATE NOT NULL');
     try {
       await conn.execute('CREATE UNIQUE INDEX uk_note_snapshots_daily ON note_snapshots (user_id, note_id, snapshot_date)');
     } catch (e: any) {
-      if (e.errno !== 1061) throw e;
+      ignoreMysqlError(e, 1061);
     }
     try {
       await conn.execute('CREATE INDEX idx_note_snapshots_user_snapshot_date ON note_snapshots (user_id, snapshot_date)');
     } catch (e: any) {
-      if (e.errno !== 1061) throw e;
+      ignoreMysqlError(e, 1061);
     }
-    await conn.execute('DELETE FROM note_snapshots WHERE snapshot_date < DATE_SUB(CURDATE(), INTERVAL 6 DAY)');
+    await conn.execute('DELETE FROM note_snapshots WHERE snapshot_date < ?', [appDateString(-6)]);
 
     // 日报表：月报只基于当月已生成的日报进行总结
     await conn.execute(`

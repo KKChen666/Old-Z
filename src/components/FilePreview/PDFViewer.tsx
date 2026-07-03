@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Loader2, ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
 import * as pdfjsLib from 'pdfjs-dist';
+import { fetchFileAsArrayBuffer, isNativeFilePreview } from './fileLoader';
 
 // 设置 PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
@@ -46,8 +47,11 @@ export default function PDFViewer({ url }: PDFViewerProps) {
       try {
         setLoading(true);
         setError(null);
-        const arrayBuffer = await fetchAsArrayBuffer(url);
-        const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+        const arrayBuffer = await fetchFileAsArrayBuffer(url);
+        const loadingTask = pdfjsLib.getDocument({
+          data: arrayBuffer,
+          disableWorker: isNativeFilePreview(),
+        } as any);
         const pdfDoc = await loadingTask.promise;
         setPdf(pdfDoc);
         setTotalPages(pdfDoc.numPages);

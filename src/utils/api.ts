@@ -93,7 +93,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const headers: Record<string, string> = {
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
-  const shouldAttachLocalLlm = path.startsWith('/chat') || path === '/notes/assist';
+  const shouldAttachLocalLlm = path.startsWith('/chat') || path === '/notes/assist' || path === '/notes/intent';
   if (shouldAttachLocalLlm) {
     const activeStorage = localStorage.getItem('old-z-active-llm-storage');
     const activeId = localStorage.getItem('old-z-active-llm-id');
@@ -192,6 +192,8 @@ export const api = {
   deleteNote: (id: string) => request<void>(`/notes/${id}`, { method: 'DELETE' }),
   assistNote: (payload: { mode: string; instruction?: string; title?: string; content?: string; selection?: string }) =>
     request<{ content: string }>('/notes/assist', { method: 'POST', body: JSON.stringify(payload) }),
+  classifyNoteIntent: (payload: { instruction: string; hasSelection?: boolean; title?: string; contentPreview?: string }) =>
+    request<any>('/notes/intent', { method: 'POST', body: JSON.stringify(payload) }),
 
   // Chat
   getChatMessages: (params?: { scope?: 'global' | 'note'; noteId?: string; conversationId?: string }) => {

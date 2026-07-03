@@ -82,15 +82,15 @@ export default function FilePreview({ url, name, onClose }: FilePreviewProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center animate-fade-in p-2 sm:p-0 safe-area-pt safe-area-pb">
       {/* 背景遮罩 */}
       <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose} />
 
       {/* 预览容器 */}
-      <div className="relative w-[90vw] h-[90vh] max-w-6xl glass-card flex flex-col overflow-hidden">
+      <div className="relative h-[calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-1rem)] w-full max-w-6xl glass-card flex flex-col overflow-hidden sm:h-[90vh] sm:w-[90vw]">
         {/* 标题栏 */}
-        <div className="flex items-center justify-between p-4 border-b border-ink-700/50">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-between gap-2 p-3 sm:p-4 border-b border-ink-700/50">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <h3 className="text-sm font-medium text-parchment-200 truncate">
               {name}
             </h3>
@@ -98,7 +98,7 @@ export default function FilePreview({ url, name, onClose }: FilePreviewProps) {
               {ext}
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <a
               href={url}
               download={name}

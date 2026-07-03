@@ -177,7 +177,7 @@ function UserSettings({ flashSaved }: { flashSaved: () => void }) {
         <div className="grid grid-cols-2 gap-2 rounded-xl bg-ink-950/50 p-1 border border-ink-800/50">
           {[
             { value: 'dark' as Theme, label: '经典暗色', icon: Moon },
-            { value: 'mimo' as Theme, label: 'MiMo 暖白', icon: Sun },
+            { value: 'mimo' as Theme, label: '暖白', icon: Sun },
           ].map((item) => {
             const Icon = item.icon;
             const active = theme === item.value;

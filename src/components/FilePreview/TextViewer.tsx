@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { fetchFileAsText } from './fileLoader';
 
 interface TextViewerProps {
   url: string;
@@ -33,7 +34,7 @@ export default function TextViewer({ url }: TextViewerProps) {
       try {
         setLoading(true);
         setError(null);
-        const text = await fetchAsText(url);
+        const text = await fetchFileAsText(url);
         setContent(text);
       } catch (err) {
         console.error('Failed to load text:', err);
