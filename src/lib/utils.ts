@@ -15,6 +15,11 @@ export function getFileType(name: string): FileType {
   return 'other';
 }
 
+/** 强制将 HTTP URL 升级为 HTTPS，避免 Mixed Content 拦截 */
+export function ensureHttps(url: string): string {
+  return url.replace(/^http:\/\//, 'https://');
+}
+
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B';
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';

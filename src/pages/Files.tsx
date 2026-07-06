@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import FilePreview from '@/components/FilePreview';
 import type { FileFilter, ViewMode, FileItem, Todo } from '@/types';
-import { getFileType, formatFileSize } from '@/lib/utils';
+import { getFileType, formatFileSize, ensureHttps } from '@/lib/utils';
 
 const fileIcons: Record<string, typeof FileText> = {
   document: FileText,
@@ -269,7 +269,7 @@ export default function Files() {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => window.open(file.url, '_blank')}
+                            onClick={() => window.open(ensureHttps(file.url!), '_blank')}
                             className="p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
                             title="下载"
                           >
@@ -366,10 +366,9 @@ export default function Files() {
                                 <Eye className="w-3.5 h-3.5" />
                               </button>
                               <button
-                                onClick={() => window.open(file.url, '_blank')}
+                                onClick={() => window.open(ensureHttps(file.url!), '_blank')}
                                 className="p-1 rounded-md hover:bg-ink-700/50 text-parchment-400 hover:text-gold-400 transition-colors"
-                                title="下载"
-                              >
+                                title="下载"  >
                                 <Download className="w-3.5 h-3.5" />
                               </button>
                             </>

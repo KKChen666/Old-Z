@@ -1,4 +1,5 @@
 import { FileQuestion, Download } from 'lucide-react';
+import { ensureHttps } from '@/lib/utils';
 
 interface UnsupportedViewerProps {
   name: string;
@@ -15,7 +16,7 @@ export default function UnsupportedViewer({ name, url }: UnsupportedViewerProps)
       </div>
       {url && (
         <a
-          href={url}
+          href={ensureHttps(url)}
           download={name}
           className="btn-primary flex items-center gap-2 mt-4"
         >

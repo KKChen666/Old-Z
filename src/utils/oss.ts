@@ -67,8 +67,10 @@ export async function uploadToOSS(
 
   try {
     const result = await client.put(key, file);
+    // OSS 默认返回 HTTP URL，强制转 HTTPS 避免 Mixed Content 拦截
+    const url = result.url.replace(/^http:\/\//, 'https://');
     return {
-      url: result.url,
+      url,
       key: result.name,
     };
   } catch (error) {

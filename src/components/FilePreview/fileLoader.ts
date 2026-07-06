@@ -9,7 +9,9 @@ export function isNativeFilePreview(): boolean {
 }
 
 async function fetchFile(url: string): Promise<Response> {
-  const response = await fetch(url, {
+  // 强制将 OSS HTTP URL 升级为 HTTPS，避免 Mixed Content 拦截
+  const secureUrl = url.replace(/^http:\/\//, 'https://');
+  const response = await fetch(secureUrl, {
     mode: 'cors',
     credentials: 'omit',
     cache: 'no-store',

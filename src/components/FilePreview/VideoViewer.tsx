@@ -1,3 +1,5 @@
+import { ensureHttps } from '@/lib/utils';
+
 interface VideoViewerProps {
   url: string;
   name: string;
@@ -7,7 +9,7 @@ export default function VideoViewer({ url, name }: VideoViewerProps) {
   return (
     <div className="flex-1 flex items-center justify-center bg-black">
       <video
-        src={url}
+        src={ensureHttps(url)}
         controls
         autoPlay={false}
         className="max-w-full max-h-full"

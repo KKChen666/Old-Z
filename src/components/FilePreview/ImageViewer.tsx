@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Loader2, ZoomIn, ZoomOut, RotateCw } from 'lucide-react';
+import { ensureHttps } from '@/lib/utils';
 
 interface ImageViewerProps {
   url: string;
@@ -40,7 +41,7 @@ export default function ImageViewer({ url, name }: ImageViewerProps) {
           <Loader2 className="w-8 h-8 animate-spin text-gold-400 absolute" />
         )}
         <img
-          src={url}
+          src={ensureHttps(url)}
           alt={name}
           className="max-w-full max-h-full object-contain"
           style={{

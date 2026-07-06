@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { X, Download, ExternalLink } from 'lucide-react';
+import { ensureHttps } from '@/lib/utils';
 import PDFViewer from './PDFViewer';
 import DocxViewer from './DocxViewer';
 import ExcelViewer from './ExcelViewer';
@@ -100,7 +101,7 @@ export default function FilePreview({ url, name, onClose }: FilePreviewProps) {
           </div>
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <a
-              href={url}
+              href={ensureHttps(url)}
               download={name}
               className="p-2 rounded-lg hover:bg-ink-700/50 text-parchment-400 hover:text-parchment-200 transition-colors"
               title="下载"
@@ -108,7 +109,7 @@ export default function FilePreview({ url, name, onClose }: FilePreviewProps) {
               <Download className="w-4 h-4" />
             </a>
             <a
-              href={url}
+              href={ensureHttps(url)}
               target="_blank"
               rel="noopener noreferrer"
               className="p-2 rounded-lg hover:bg-ink-700/50 text-parchment-400 hover:text-parchment-200 transition-colors"

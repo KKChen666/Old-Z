@@ -1,4 +1,5 @@
 import { Music } from 'lucide-react';
+import { ensureHttps } from '@/lib/utils';
 
 interface AudioViewerProps {
   url: string;
@@ -14,7 +15,7 @@ export default function AudioViewer({ url, name }: AudioViewerProps) {
       <p className="text-parchment-200 text-sm text-center max-w-md truncate">
         {name}
       </p>
-      <audio src={url} controls autoPlay={false} className="w-full max-w-md">
+      <audio src={ensureHttps(url)} controls autoPlay={false} className="w-full max-w-md">
         您的浏览器不支持音频播放
       </audio>
     </div>
