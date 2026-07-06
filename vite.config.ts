@@ -24,5 +24,17 @@ export default defineConfig({
         secure: false,
       }
     }
-  }
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-pdf': ['pdfjs-dist'],
+          'vendor-xlsx': ['xlsx'],
+          'vendor-docx': ['mammoth'],
+          'vendor-oss': ['ali-oss'],
+        },
+      },
+    },
+  },
 })
