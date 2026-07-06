@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import {
@@ -43,10 +44,15 @@ const discoverRoutes: Record<string, string> = {
 };
 
 export default function Layout() {
-  const { sidebarCollapsed, toggleSidebar, user, logout } = useAppStore();
+  const { sidebarCollapsed, toggleSidebar, user, logout, loadData } = useAppStore();
   const navigate = useNavigate();
   const location = useLocation();
   const mobileBackTitle = discoverRoutes[location.pathname];
+
+  // 所有受保护页面统一加载数据（解决在非 Dashboard 页面刷新导致数据丢失的问题）
+  useEffect(() => {
+    if (user) loadData();
+  }, [user, loadData]);
 
   const handleLogout = () => {
     logout();
