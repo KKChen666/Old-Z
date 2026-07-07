@@ -1,34 +1,4 @@
-// @ts-ignore
-import OSS from 'ali-oss';
-
-// 阿里云OSS配置
-// 注意：不要同时设置 region 和 endpoint，否则会导致签名不匹配
-const ossConfig = {
-  region: import.meta.env.VITE_OSS_REGION || 'oss-cn-beijing',
-  accessKeyId: import.meta.env.VITE_OSS_ACCESS_KEY_ID || '',
-  accessKeySecret: import.meta.env.VITE_OSS_ACCESS_KEY_SECRET || '',
-  bucket: import.meta.env.VITE_OSS_BUCKET || 'oldzz',
-};
-
-// 调试日志
-console.log('OSS Config:', {
-  region: ossConfig.region,
-  accessKeyId: ossConfig.accessKeyId ? `${ossConfig.accessKeyId.substring(0, 6)}...` : 'NOT SET',
-  accessKeySecret: ossConfig.accessKeySecret ? '***' : 'NOT SET',
-  bucket: ossConfig.bucket,
-  isConfigured: !!(ossConfig.accessKeyId && ossConfig.accessKeySecret),
-});
-
-// 生成OSS文件路径
-function generateOSSKey(fileName: string, folder: string = 'uploads'): string {
-  const timestamp = Date.now();
-  const random = Math.random().toString(36).slice(2, 8);
-  const ext = fileName.split('.').pop() || '';
-  const nameWithoutExt = fileName
-    .replace(/\.[^/.]+$/, '')
-    .replace(/[^a-zA-Z0-9\u4e00-\u9fa5_-]/g, '_');
-  return `${folder}/${timestamp}_${random}_${nameWithoutExt}.${ext}`;
-}
+import { getToken, getEffectiveApiBase } from './api';
 
 // 跟踪本地 blob URL 以便清理
 const localBlobUrls: string[] = [];
@@ -40,42 +10,44 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// 上传文件到OSS
+/**
+ * 上传文件 — 通过后端代理上传到 OSS，凭证不暴露在前端
+ * 后端 POST /api/files/upload 接收 raw binary，代传 OSS 后返回 URL
+ */
 export async function uploadToOSS(
   file: File,
   folder: string = 'uploads'
 ): Promise<{ url: string; key: string }> {
-  const key = generateOSSKey(file.name, folder);
-
-  // 未配置凭证时回退到本地预览
-  if (!ossConfig.accessKeyId || !ossConfig.accessKeySecret) {
-    console.warn('OSS credentials not configured, using local preview');
-    const blobUrl = URL.createObjectURL(file);
-    localBlobUrls.push(blobUrl);
-    return {
-      url: blobUrl,
-      key: `local/${file.name}`,
-    };
-  }
-
-  const client = new OSS({
-    region: ossConfig.region,
-    accessKeyId: ossConfig.accessKeyId,
-    accessKeySecret: ossConfig.accessKeySecret,
-    bucket: ossConfig.bucket,
-  });
-
   try {
-    const result = await client.put(key, file);
-    // OSS 默认返回 HTTP URL，强制转 HTTPS 避免 Mixed Content 拦截
-    const url = result.url.replace(/^http:\/\//, 'https://');
-    return {
-      url,
-      key: result.name,
-    };
-  } catch (error) {
-    console.error('OSS upload error:', error);
-    // 上传失败时回退到本地预览
+    const token = getToken();
+    const apiBase = getEffectiveApiBase();
+
+    const res = await fetch(`${apiBase}/files/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': token ? `Bearer ${token}` : '',
+        'Content-Type': file.type || 'application/octet-stream',
+        'x-file-name': encodeURIComponent(file.name),
+        'x-file-folder': folder,
+      },
+      body: file,
+    });
+
+    if (!res.ok) {
+      let errorMsg = `上传失败 ${res.status}`;
+      try {
+        const errorData = await res.json();
+        if (errorData.error) errorMsg = errorData.error;
+      } catch {}
+      throw new Error(errorMsg);
+    }
+
+    const data = await res.json();
+    if (!data.success) throw new Error(data.error || '上传失败');
+    return data.data;
+  } catch (error: any) {
+    // 网络错误或后端不可用时回退到本地预览
+    console.warn('Upload via backend failed, falling back to local preview:', error.message);
     const blobUrl = URL.createObjectURL(file);
     localBlobUrls.push(blobUrl);
     return {
@@ -85,7 +57,10 @@ export async function uploadToOSS(
   }
 }
 
-// 检查OSS配置是否完整
+/**
+ * 检查 OSS 是否已配置（后端配置）
+ * 前端无法直接知道，默认返回 true 让上传尝试走后端
+ */
 export function isOSSConfigured(): boolean {
-  return !!(ossConfig.accessKeyId && ossConfig.accessKeySecret);
+  return true;
 }

@@ -3,14 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import { LogIn, UserPlus, Eye, EyeOff, Zap, KeyRound, Server, X, Check, RotateCcw } from 'lucide-react';
 import { api, saveAuth, syncTokenToNative, getEffectiveApiBase, getDefaultApiBase } from '@/utils/api';
 import { useAppStore } from '@/stores/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
+import { toast } from '@/components/Toast';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { setUser } = useAppStore();
+  const { setUser } = useAppStore(useShallow((s) => ({ setUser: s.setUser })));
   const [tab, setTab] = useState<'login' | 'register' | 'reset'>('login');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
+  const [oldPassword, setOldPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
@@ -107,6 +110,7 @@ export default function Login() {
   const validate = (): string | null => {
     if (tab === 'reset') {
       if (username.length < 3) return '用户名至少 3 个字符';
+      if (oldPassword.length < 6) return '旧密码至少 6 个字符';
       if (password.length < 6) return '新密码至少 6 个字符';
       if (password !== confirmPassword) return '两次密码输入不一致';
       return null;
@@ -124,6 +128,7 @@ export default function Login() {
     const err = validate();
     if (err) {
       setError(err);
+      toast.warning(err);
       return;
     }
     setLoading(true);
@@ -141,14 +146,16 @@ export default function Login() {
         setUser(res.user);
         navigate('/');
       } else {
-        const res = await api.resetPassword(username, password);
+        const res = await api.resetPassword(username, oldPassword, password);
         saveAuth(res.token);
         syncTokenToNative(res.token);
         setUser(res.user);
         navigate('/');
       }
     } catch (e: any) {
-      setError(e.message || '操作失败，请重试');
+      const msg = e.message || '操作失败，请重试';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -159,6 +166,7 @@ export default function Login() {
     setError('');
     setSuccess('');
     setPassword('');
+    setOldPassword('');
     setConfirmPassword('');
     setDisplayName('');
   };
@@ -376,6 +384,21 @@ export default function Login() {
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="给自己取个名字吧"
                   autoComplete="name"
+                  className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
+                />
+              </div>
+            )}
+
+            {/* Old Password (reset only) */}
+            {tab === 'reset' && (
+              <div>
+                <label className="block text-xs font-medium text-parchment-400 mb-1.5">旧密码</label>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={oldPassword}
+                  onChange={(e) => setOldPassword(e.target.value)}
+                  placeholder="请输入旧密码"
+                  autoComplete="current-password"
                   className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
                 />
               </div>

@@ -5,6 +5,30 @@ import app from './app.js';
 import initDB from './database/init.js';
 
 /**
+ * 启动前校验必需的环境变量
+ */
+function validateEnv() {
+  const required: Record<string, string> = {
+    JWT_SECRET: process.env.JWT_SECRET || '',
+  };
+  const missing: string[] = [];
+  for (const [key, val] of Object.entries(required)) {
+    if (!val) missing.push(key);
+  }
+  if (missing.length > 0) {
+    console.error('FATAL: Missing required environment variables:', missing.join(', '));
+    console.error('Please set them in your .env file.');
+    process.exit(1);
+  }
+  // OSS 配置警告（非必需，但缺失时文件上传受限）
+  if (!process.env.OSS_ACCESS_KEY_ID || !process.env.OSS_ACCESS_KEY_SECRET) {
+    console.warn('WARNING: OSS credentials not configured. File uploads will fall back to base64 (limited to 2MB).');
+  }
+}
+
+validateEnv();
+
+/**
  * start server with port
  */
 const PORT = process.env.PORT || 3001;

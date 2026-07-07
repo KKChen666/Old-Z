@@ -1,21 +1,34 @@
 import { HashRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import Layout from "@/components/Layout";
 import Login from "@/pages/Login";
-import Dashboard from "@/pages/Dashboard";
-import Files from "@/pages/Files";
-import Todos from "@/pages/Todos";
-import Notes from "@/pages/Notes";
-import Chat from "@/pages/Chat";
-import Timeline from "@/pages/Timeline";
-import SettingsPage from "@/pages/SettingsPage";
-import Discover from "@/pages/Discover";
 import { useAppStore } from "@/stores/useAppStore";
+import { useShallow } from "zustand/react/shallow";
 import { api, getToken, clearAuth, syncTokenToNative, clearNativeToken } from "@/utils/api";
 import { useTheme } from "@/hooks/useTheme";
+import { ToastProvider } from "@/components/Toast";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+
+// 路由级 code splitting — 每个页面独立 chunk，首屏只加载当前路由
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const Files = lazy(() => import("@/pages/Files"));
+const Todos = lazy(() => import("@/pages/Todos"));
+const Notes = lazy(() => import("@/pages/Notes"));
+const Chat = lazy(() => import("@/pages/Chat"));
+const Timeline = lazy(() => import("@/pages/Timeline"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const Discover = lazy(() => import("@/pages/Discover"));
+
+function PageLoader() {
+  return (
+    <div className="h-full flex items-center justify-center bg-ink-950">
+      <div className="text-parchment-400 text-sm animate-pulse">加载中…</div>
+    </div>
+  );
+}
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, setUser } = useAppStore();
+  const { user, setUser } = useAppStore(useShallow((s) => ({ user: s.user, setUser: s.setUser })));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -51,7 +64,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   useTheme();
-  const { user, setUser } = useAppStore();
+  const { user, setUser } = useAppStore(useShallow((s) => ({ user: s.user, setUser: s.setUser })));
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
@@ -62,15 +75,8 @@ export default function App() {
     }
     // 应用启动时同步 Token 到原生层（供桌面小部件使用）
     syncTokenToNative(token);
-    // Only check auth if ProtectedRoute hasn't already resolved the user
-    if (!user) {
-      api.getMe()
-        .then(u => { setUser(u); })
-        .catch(() => { clearAuth(); clearNativeToken(); })
-        .finally(() => { setAuthChecked(true); });
-    } else {
-      setAuthChecked(true);
-    }
+    // 认证检查交给 ProtectedRoute 负责，App 不再重复调用 getMe
+    setAuthChecked(true);
   }, []);
 
   useEffect(() => {
@@ -92,20 +98,26 @@ export default function App() {
   }
 
   return (
-    <Router>
-      <Routes>
-        <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
-        <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/files" element={<Files />} />
-          <Route path="/todos" element={<Todos />} />
-          <Route path="/notes" element={<Notes />} />
-          <Route path="/chat" element={<Chat />} />
-          <Route path="/discover" element={<Discover />} />
-          <Route path="/timeline" element={<Timeline />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-      </Routes>
-    </Router>
+    <ToastProvider>
+      <ErrorBoundary>
+        <Router>
+          <Suspense fallback={<PageLoader />}>
+            <Routes>
+              <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+              <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/files" element={<Files />} />
+                <Route path="/todos" element={<Todos />} />
+                <Route path="/notes" element={<Notes />} />
+                <Route path="/chat" element={<Chat />} />
+                <Route path="/discover" element={<Discover />} />
+                <Route path="/timeline" element={<Timeline />} />
+                <Route path="/settings" element={<SettingsPage />} />
+              </Route>
+            </Routes>
+          </Suspense>
+        </Router>
+      </ErrorBoundary>
+    </ToastProvider>
   );
 }

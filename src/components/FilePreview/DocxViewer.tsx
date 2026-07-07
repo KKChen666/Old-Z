@@ -1,28 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Loader2, ChevronUp, ChevronDown, ZoomIn, ZoomOut } from 'lucide-react';
 import mammoth from 'mammoth';
+import DOMPurify from 'dompurify';
 import { fetchFileAsArrayBuffer } from './fileLoader';
+import { toast } from '@/components/Toast';
 
 interface DocxViewerProps {
   url: string;
-}
-
-// 通用的文件加载函数
-async function fetchAsArrayBuffer(url: string): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'arraybuffer';
-    xhr.onload = () => {
-      if (xhr.status === 200 || xhr.status === 0) {
-        resolve(xhr.response);
-      } else {
-        reject(new Error(`Failed to fetch: ${xhr.status}`));
-      }
-    };
-    xhr.onerror = () => reject(new Error('Network error'));
-    xhr.send();
-  });
 }
 
 export default function DocxViewer({ url }: DocxViewerProps) {
@@ -41,13 +25,15 @@ export default function DocxViewer({ url }: DocxViewerProps) {
 
         const arrayBuffer = await fetchFileAsArrayBuffer(url);
         const result = await mammoth.convertToHtml({ arrayBuffer });
-        setHtml(result.value);
+        // 用 DOMPurify 清洗 HTML，防止存储型 XSS
+        setHtml(DOMPurify.sanitize(result.value, { USE_PROFILES: { html: true } }));
 
         if (result.messages.length > 0) {
           console.warn('Docx conversion warnings:', result.messages);
         }
       } catch (err) {
         console.error('Failed to load docx:', err);
+        toast.error('Word 文档加载失败');
         setError('Word 文档加载失败');
       } finally {
         setLoading(false);

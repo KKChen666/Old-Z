@@ -16,7 +16,7 @@ export default defineConfig({
     tsconfigPaths(),
   ],
   server: {
-    host: '0.0.0.0',
+    host: 'localhost',
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
@@ -33,6 +33,9 @@ export default defineConfig({
           'vendor-xlsx': ['xlsx'],
           'vendor-docx': ['mammoth'],
           'vendor-oss': ['ali-oss'],
+          'vendor-md-editor': ['@mdxeditor/editor'],
+          'vendor-chart': ['chart.js', 'react-chartjs-2'],
+          'vendor-markdown': ['react-markdown', 'remark-gfm'],
         },
       },
     },

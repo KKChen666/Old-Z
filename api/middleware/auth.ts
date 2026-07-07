@@ -1,7 +1,13 @@
 import jwt from 'jsonwebtoken'
 import type { Request, Response, NextFunction } from 'express'
 
-const JWT_SECRET = process.env.JWT_SECRET || 'old-z-secret-key-2024'
+if (!process.env.JWT_SECRET) {
+  console.error('FATAL ERROR: JWT_SECRET environment variable is required')
+  console.error('Please set JWT_SECRET in your .env file')
+  process.exit(1)
+}
+
+const JWT_SECRET: string = process.env.JWT_SECRET
 
 export interface AuthRequest extends Request {
   userId?: string

@@ -8,6 +8,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 
 type DiscoverItem = {
   to: string;
@@ -19,7 +20,11 @@ type DiscoverItem = {
 };
 
 export default function Discover() {
-  const { files, timeline, loadData } = useAppStore();
+  const { files, timeline, loadData } = useAppStore(useShallow((s) => ({
+    files: s.files,
+    timeline: s.timeline,
+    loadData: s.loadData,
+  })));
 
   useEffect(() => {
     loadData();

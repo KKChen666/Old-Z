@@ -1,4 +1,5 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useDeferredValue, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/stores/useAppStore';
 import { uploadToOSS } from '@/utils/oss';
 import {
@@ -20,6 +21,7 @@ import {
   Eye,
 } from 'lucide-react';
 import FilePreview from '@/components/FilePreview';
+import { toast } from '@/components/Toast';
 import type { FileFilter, ViewMode, FileItem, Todo } from '@/types';
 import { getFileType, formatFileSize, ensureHttps } from '@/lib/utils';
 
@@ -42,7 +44,13 @@ const fileColors: Record<string, string> = {
 };
 
 export default function Files() {
-  const { files, removeFile, addFile, addTimelineEvent, addTodo } = useAppStore();
+  const { files, removeFile, addFile, addTimelineEvent, addTodo } = useAppStore(useShallow((s) => ({
+    files: s.files,
+    removeFile: s.removeFile,
+    addFile: s.addFile,
+    addTimelineEvent: s.addTimelineEvent,
+    addTodo: s.addTodo,
+  })));
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [filter, setFilter] = useState<FileFilter>('all');
   const [search, setSearch] = useState('');
@@ -62,12 +70,14 @@ export default function Files() {
 
   const allTags = [...new Set(files.flatMap((f) => f.tags))];
 
-  const filteredFiles = files.filter((f) => {
+  // 搜索防抖：useDeferredValue 让搜索输入不阻塞 UI
+  const deferredSearch = useDeferredValue(search);
+  const filteredFiles = useMemo(() => files.filter((f) => {
     if (filter !== 'all' && f.type !== filter) return false;
-    if (search && !f.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (deferredSearch && !f.name.toLowerCase().includes(deferredSearch.toLowerCase())) return false;
     if (selectedTags.length > 0 && !selectedTags.some((t) => f.tags.includes(t))) return false;
     return true;
-  });
+  }), [files, deferredSearch, filter, selectedTags]);
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -105,6 +115,7 @@ export default function Files() {
       }
     } catch (error) {
       console.error('Upload failed:', error);
+      toast.error('文件上传失败，请检查网络或 OSS 配置');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -244,7 +255,7 @@ export default function Files() {
                 <div
                   key={file.id}
                   className="glass-card-hover p-3 sm:p-4 animate-fade-in group"
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  style={{ animationDelay: `${Math.min(index * 50, 500)}ms` }}
                   onDoubleClick={() => file.url && handleOpenFile(file)}
                 >
                   <div className="flex items-start justify-between mb-3">

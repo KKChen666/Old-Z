@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useAppStore } from '@/stores/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { api } from '@/utils/api';
 import {
   CalendarDays,
@@ -136,7 +137,13 @@ function ReportMarkdown({ content }: { content: string }) {
 }
 
 export default function TimelineCalendar() {
-  const { todos, files, notes, timeline, updateTodo } = useAppStore();
+  const { todos, files, notes, timeline, updateTodo } = useAppStore(useShallow((s) => ({
+    todos: s.todos,
+    files: s.files,
+    notes: s.notes,
+    timeline: s.timeline,
+    updateTodo: s.updateTodo,
+  })));
   const [selectedDate, setSelectedDate] = useState(todayStr());
   const [calendarMonth, setCalendarMonth] = useState(() => {
     const now = new Date();

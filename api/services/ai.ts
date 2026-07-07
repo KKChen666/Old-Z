@@ -128,6 +128,108 @@ export function safeJsonParse(text: string): any {
   }
 }
 
+// ============ 流式 LLM 调用（SSE 逐 chunk 返回）============
+export async function callLLMStream(
+  config: LlmProviderConfig,
+  systemPrompt: string,
+  userMessage: string,
+  onChunk: (text: string) => void,
+  options?: { temperature?: number; maxTokens?: number; timeoutMs?: number }
+): Promise<string> {
+  const fullText: string[] = [];
+
+  if (config.provider === 'anthropic') {
+    // Anthropic 流式
+    const cleanBase = (config.anthropic_base_url || 'https://api.anthropic.com').replace(/\/+$/, '');
+    const url = `${cleanBase}/v1/messages`;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options?.timeoutMs || 60000);
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': config.anthropic_auth_token,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: config.anthropic_model || 'claude-sonnet-4-5',
+          max_tokens: options?.maxTokens || 4096,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userMessage }],
+          stream: true,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`Anthropic API error ${res.status}: ${errText}`);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const json = JSON.parse(line.slice(6));
+              if (json.type === 'content_block_delta' && json.delta?.text) {
+                fullText.push(json.delta.text);
+                onChunk(json.delta.text);
+              }
+            } catch { /* skip non-JSON lines */ }
+          }
+        }
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  } else {
+    // OpenAI 流式
+    const client = new OpenAI({
+      apiKey: config.openai_api_key,
+      baseURL: config.openai_base_url?.endsWith('/v1')
+        ? config.openai_base_url
+        : `${config.openai_base_url || 'https://api.openai.com'}/v1`,
+      timeout: options?.timeoutMs || 60000,
+    });
+
+    const stream = await client.chat.completions.create({
+      model: config.openai_model || 'gpt-4.1-mini',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userMessage },
+      ],
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens || 4096,
+      stream: true,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices[0]?.delta?.content;
+      if (content) {
+        fullText.push(content);
+        onChunk(content);
+      }
+    }
+  }
+
+  return fullText.join('');
+}
+
 // ============ 聊天系统提示 ============
 export const CHAT_SYSTEM_PROMPT = `你是 Old Z（老周）的 AI 助手，一款融合笔记、待办、文件管理、个人数字大脑的效率应用。
 

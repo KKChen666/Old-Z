@@ -111,6 +111,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     headers['Content-Type'] = 'application/json';
   }
 
+  // 请求超时控制 — 30 秒后自动中止（AI 聊天等长请求走流式接口不受此限制）
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
   let res: Response;
   try {
     res = await fetch(`${API_BASE}${path}`, {
@@ -119,8 +123,13 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
         ...headers,
         ...options?.headers,
       },
+      signal: options?.signal || controller.signal,
     });
   } catch (fetchErr: any) {
+    // AbortError — 请求超时
+    if (fetchErr?.name === 'AbortError') {
+      throw new Error('请求超时，请稍后重试');
+    }
     // 网络层错误（DNS 失败、连接超时、CORS、混合内容等）
     const msg = String(fetchErr?.message || fetchErr);
     if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_NAME_NOT_RESOLVED')) {
@@ -133,6 +142,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
       throw new Error('连接超时，请检查网络状况');
     }
     throw new Error('网络请求失败，请检查网络连接');
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (res.status === 401) {
@@ -162,8 +173,8 @@ export const api = {
     request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   getMe: () =>
     request<{ id: string; username: string; displayName: string }>('/auth/me'),
-  resetPassword: (username: string, newPassword: string) =>
-    request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ username, newPassword }) }),
+  resetPassword: (username: string, oldPassword: string, newPassword: string) =>
+    request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/reset-password', { method: 'POST', body: JSON.stringify({ username, oldPassword, newPassword }) }),
   updateProfile: (updates: { displayName?: string; username?: string }) =>
     request<{ id: string; username: string; displayName: string }>('/auth/profile', { method: 'PATCH', body: JSON.stringify(updates) }),
   changePassword: (oldPassword: string, newPassword: string) =>
@@ -213,6 +224,88 @@ export const api = {
   chat: {
     send: (content: string, options?: { scope?: 'global' | 'note'; noteId?: string; conversationId?: string; references?: ChatReference[] }) =>
       request<{ conversation: ChatConversation; userMessage: any; aiMessage: any }>('/chat', { method: 'POST', body: JSON.stringify({ content, ...options }) }),
+    /**
+     * 流式发送消息 — 通过 SSE 逐字返回 AI 回复
+     * onChunk 在收到每个文本块时调用，onMeta 在收到初始元数据时调用，onDone 在完成时调用
+     */
+    sendStream: async (
+      content: string,
+      options: { scope?: 'global' | 'note'; noteId?: string; conversationId?: string; references?: ChatReference[] },
+      callbacks: {
+        onMeta?: (data: { conversation: ChatConversation; userMessage: any; aiMessageId: string }) => void;
+        onChunk?: (text: string) => void;
+        onDone?: (aiMessage: any) => void;
+        onError?: (error: string) => void;
+      }
+    ): Promise<void> => {
+      const token = getToken();
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+
+      // 附加本地 LLM 配置（与 request() 一致）
+      const shouldAttachLocalLlm = true;
+      if (shouldAttachLocalLlm) {
+        const activeStorage = localStorage.getItem('old-z-active-llm-storage');
+        const activeId = localStorage.getItem('old-z-active-llm-id');
+        const localPresets = localStorage.getItem('old-z-local-llm-presets');
+        if (activeStorage === 'local' && activeId && localPresets) {
+          try {
+            const presets = JSON.parse(localPresets);
+            const activePreset = Array.isArray(presets) ? presets.find((item) => item.id === activeId) : null;
+            if (activePreset) headers['x-oldz-local-llm-config'] = JSON.stringify(activePreset);
+          } catch {}
+        }
+      }
+
+      const res = await fetch(`${API_BASE}/chat/stream`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ content, ...options }),
+      });
+
+      if (!res.ok) {
+        let errorMsg = `API error: ${res.status}`;
+        try {
+          const errorData = await res.json();
+          if (errorData.error) errorMsg = errorData.error;
+        } catch {}
+        throw new Error(errorMsg);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('无法读取流式响应');
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.type === 'meta') {
+                callbacks.onMeta?.(data);
+              } else if (data.type === 'chunk') {
+                callbacks.onChunk?.(data.content);
+              } else if (data.type === 'done') {
+                callbacks.onDone?.(data.aiMessage);
+              } else if (data.type === 'error') {
+                callbacks.onError?.(data.error);
+              }
+            } catch { /* skip non-JSON lines */ }
+          }
+        }
+      }
+    },
     generate: (prompt: string) =>
       request<{ content: string }>('/chat/generate', { method: 'POST', body: JSON.stringify({ prompt }) }),
     actions: (message: string, aiReply: string) =>

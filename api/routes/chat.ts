@@ -2,6 +2,7 @@ import { Router, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import {
   chatWithAI,
+  chatWithAIStream,
   loadChatHistory,
   loadNoteContext,
   loadNoteMeta,
@@ -187,6 +188,101 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   } catch (error) {
     console.error('POST /chat error:', error);
     res.status(500).json({ success: false, error: 'Failed to chat' });
+  }
+});
+
+// ============ 流式 AI 聊天（SSE）============
+router.post('/stream', async (req: AuthRequest, res: Response) => {
+  try {
+    const { content, scope: rawScope, noteId: rawNoteId, conversationId: rawConversationId, references: rawReferences } = req.body;
+
+    if (!content || typeof content !== 'string') {
+      res.status(400).json({ success: false, error: '消息内容不能为空' });
+      return;
+    }
+    if (content.length > 10000) {
+      res.status(400).json({ success: false, error: '消息内容过长' });
+      return;
+    }
+
+    const scope = rawScope === 'note' ? 'note' : 'global';
+    const noteId = scope === 'note' && typeof rawNoteId === 'string' ? rawNoteId : undefined;
+    const requestedConversationId = typeof rawConversationId === 'string' ? rawConversationId : undefined;
+    const requestedReferences = normalizeChatReferences(rawReferences);
+    const referenceDetails = await loadChatReferenceDetails(req.userId!, requestedReferences);
+    const referencedContent = buildReferencedPrompt(content, referenceDetails);
+    let noteMeta: { id: string; title: string } | undefined;
+
+    if (scope === 'note') {
+      if (!noteId) {
+        res.status(400).json({ success: false, error: '缺少笔记 ID' });
+        return;
+      }
+      noteMeta = await loadNoteMeta(req.userId!, noteId);
+    }
+
+    const userMsgId = `u-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const aiMsgId = `a-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const conversation = await ensureChatConversation(req.userId!, {
+      conversationId: requestedConversationId,
+      scope,
+      noteId,
+      title: content.slice(0, 32),
+    });
+
+    // 保存用户消息
+    const now = await saveUserMessage(req.userId!, userMsgId, content, { scope, noteId, conversationId: conversation.id });
+    await saveChatReferences(userMsgId, referenceDetails);
+
+    // 加载历史与上下文
+    const history = await loadChatHistory(req.userId!, { scope, noteId, conversationId: conversation.id });
+    const context = scope === 'note' && noteId
+      ? await loadNoteContext(req.userId!, noteId)
+      : await loadUserContext(req.userId!);
+
+    // 设置 SSE 响应头
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no'); // 禁用 Nginx 缓冲
+
+    // 发送初始元数据
+    res.write(`data: ${JSON.stringify({ type: 'meta', conversation, userMessage: { id: userMsgId, role: 'user', content, timestamp: now, scope, noteId, noteTitle: noteMeta?.title, conversationId: conversation.id, references: referenceDetails.map((ref) => ({ type: ref.type, id: ref.id, title: ref.title })) }, aiMessageId: aiMsgId })}\n\n`);
+
+    // 流式调用 AI
+    let aiContent = '';
+    try {
+      aiContent = await chatWithAIStream(
+        req.userId!,
+        referencedContent,
+        history.slice(-20).map((m: any) => ({ role: m.role, content: m.content })),
+        context,
+        (chunk) => {
+          res.write(`data: ${JSON.stringify({ type: 'chunk', content: chunk })}\n\n`);
+        }
+      );
+    } catch (aiError: any) {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: aiError.message || 'AI 调用失败' })}\n\n`);
+      res.end();
+      return;
+    }
+
+    // 保存 AI 回复
+    const aiTime = await saveAiMessage(req.userId!, aiMsgId, aiContent, { scope, noteId, conversationId: conversation.id });
+    await touchChatConversation(req.userId!, conversation.id, content);
+    await createChatTimelineEvent(req.userId!);
+
+    // 发送完成信号
+    res.write(`data: ${JSON.stringify({ type: 'done', aiMessage: { id: aiMsgId, role: 'assistant', content: aiContent, timestamp: aiTime, scope, noteId, noteTitle: noteMeta?.title, conversationId: conversation.id } })}\n\n`);
+    res.end();
+  } catch (error) {
+    console.error('POST /chat/stream error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ success: false, error: 'Failed to chat' });
+    } else {
+      res.write(`data: ${JSON.stringify({ type: 'error', error: '服务器内部错误' })}\n\n`);
+      res.end();
+    }
   }
 });
 

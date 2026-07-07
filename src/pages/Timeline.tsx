@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAppStore } from '@/stores/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import TimelineCalendar from '@/components/TimelineCalendar';
 import {
   Upload,
@@ -49,6 +50,10 @@ function formatTime(timestamp: string): string {
   const date = new Date(timestamp);
   const now = new Date();
   const diff = now.getTime() - date.getTime();
+
+  // 处理未来时间（时钟偏差或错误数据）
+  if (diff < 0) return '刚刚';
+
   const minutes = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
 
@@ -68,7 +73,7 @@ function formatFullTime(timestamp: string): string {
 }
 
 export default function Timeline() {
-  const { timeline } = useAppStore();
+  const timeline = useAppStore((s) => s.timeline);
   const [activeTab, setActiveTab] = useState<TimelineTab>('timeline');
 
   // Group by date

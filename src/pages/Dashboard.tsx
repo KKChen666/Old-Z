@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/stores/useAppStore';
 import { uploadToOSS } from '@/utils/oss';
 import {
@@ -16,7 +17,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { Todo } from '@/types';
-import { getFileType } from '@/lib/utils';
+import { getFileType, getDateLabel, isOverdue } from '@/lib/utils';
+import { toast } from '@/components/Toast';
 
 function todayStr(): string {
   return toDateKey(new Date());
@@ -29,27 +31,16 @@ function toDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function getDateLabel(dateStr: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const date = new Date(dateStr + 'T00:00:00');
-  date.setHours(0, 0, 0, 0);
-  const diff = Math.floor((date.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return '今天';
-  if (diff === 1) return '明天';
-  if (diff === -1) return '昨天';
-  if (diff < -1) return `${Math.abs(diff)} 天前`;
-  if (diff <= 7) return `${diff} 天后`;
-  return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
-}
-
-function isOverdue(todo: Todo): boolean {
-  if (!todo.dueDate || todo.status === 'completed') return false;
-  return todo.dueDate < todayStr();
-}
-
 export default function Dashboard() {
-  const { todos, files, notes, addFile, addTimelineEvent, updateTodo, loadData } = useAppStore();
+  const { todos, files, notes, addFile, addTimelineEvent, updateTodo, loadData } = useAppStore(useShallow((s) => ({
+    todos: s.todos,
+    files: s.files,
+    notes: s.notes,
+    addFile: s.addFile,
+    addTimelineEvent: s.addTimelineEvent,
+    updateTodo: s.updateTodo,
+    loadData: s.loadData,
+  })));
   const [isDragging, setIsDragging] = useState(false);
   const [dropMessage, setDropMessage] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -145,6 +136,7 @@ export default function Dashboard() {
         } catch (error) {
           console.error('Upload error:', error);
           setDropMessage('上传失败，请检查OSS配置');
+          toast.error('文件上传失败，请检查 OSS 配置');
         }
       } else if (droppedText) {
         const newFile = {
@@ -189,6 +181,7 @@ export default function Dashboard() {
       } catch (error) {
         console.error('Upload error:', error);
         setDropMessage('上传失败，请检查网络或OSS配置');
+        toast.error('文件上传失败，请检查网络或 OSS 配置');
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';

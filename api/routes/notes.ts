@@ -552,6 +552,31 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // 同步笔记正文中 @文件 标记到 note_files 关联表（用于持久化 linkedFileIds）
+    if (content !== undefined) {
+      const mentionedIds = Array.from(
+        new Set(
+          (content.match(/oldzfile:\/\/([^\s)"'>]+)/g) || [])
+            .map((m: string) => m.replace(/^oldzfile:\/\//, ''))
+        )
+      ).filter(Boolean) as string[];
+
+      let validIds: string[] = [];
+      if (mentionedIds.length > 0) {
+        const placeholders = mentionedIds.map(() => '?').join(',');
+        const [owned] = await pool.execute(
+          `SELECT id FROM files WHERE user_id = ? AND id IN (${placeholders})`,
+          [req.userId!, ...mentionedIds]
+        );
+        validIds = (owned as any[]).map((r) => r.id);
+      }
+
+      await pool.execute('DELETE FROM note_files WHERE note_id = ?', [req.params.id]);
+      for (const fid of validIds) {
+        await pool.execute('INSERT IGNORE INTO note_files (note_id, file_id) VALUES (?, ?)', [req.params.id, fid]);
+      }
+    }
+
     res.json({ success: true });
   } catch (error) {
     console.error('PATCH /notes error:', error);

@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
-import { X, Download, ExternalLink } from 'lucide-react';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { X, Download, ExternalLink, Loader2 } from 'lucide-react';
 import { ensureHttps } from '@/lib/utils';
-import PDFViewer from './PDFViewer';
-import DocxViewer from './DocxViewer';
-import ExcelViewer from './ExcelViewer';
-import ImageViewer from './ImageViewer';
-import VideoViewer from './VideoViewer';
-import AudioViewer from './AudioViewer';
-import TextViewer from './TextViewer';
-import CsvViewer from './CsvViewer';
-import UnsupportedViewer from './UnsupportedViewer';
+
+// 懒加载各预览器 — 按需加载，减少首次预览的 JS 体积
+const PDFViewer = lazy(() => import('./PDFViewer'));
+const DocxViewer = lazy(() => import('./DocxViewer'));
+const ExcelViewer = lazy(() => import('./ExcelViewer'));
+const ImageViewer = lazy(() => import('./ImageViewer'));
+const VideoViewer = lazy(() => import('./VideoViewer'));
+const AudioViewer = lazy(() => import('./AudioViewer'));
+const TextViewer = lazy(() => import('./TextViewer'));
+const CsvViewer = lazy(() => import('./CsvViewer'));
+const HtmlViewer = lazy(() => import('./HtmlViewer'));
+const UnsupportedViewer = lazy(() => import('./UnsupportedViewer'));
 
 interface FilePreviewProps {
   url: string;
@@ -40,8 +43,11 @@ function getFileCategory(ext: string): string {
   // 音频
   if (['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma'].includes(ext)) return 'audio';
 
+  // HTML（在沙箱中渲染，而非展示源码）
+  if (['html', 'htm'].includes(ext)) return 'html';
+
   // 文本
-  if (['txt', 'md', 'json', 'xml', 'html', 'htm', 'css', 'js', 'ts', 'jsx', 'tsx', 'java', 'py', 'rb', 'go', 'rs', 'c', 'cpp', 'h', 'hpp', 'sh', 'bash', 'yml', 'yaml', 'toml', 'ini', 'conf', 'log'].includes(ext)) return 'text';
+  if (['txt', 'md', 'json', 'xml', 'css', 'js', 'ts', 'jsx', 'tsx', 'java', 'py', 'rb', 'go', 'rs', 'c', 'cpp', 'h', 'hpp', 'sh', 'bash', 'yml', 'yaml', 'toml', 'ini', 'conf', 'log'].includes(ext)) return 'text';
 
   return 'unsupported';
 }
@@ -77,6 +83,8 @@ export default function FilePreview({ url, name, onClose }: FilePreviewProps) {
         return <AudioViewer url={url} name={name} />;
       case 'text':
         return <TextViewer url={url} />;
+      case 'html':
+        return <HtmlViewer url={url} name={name} />;
       default:
         return <UnsupportedViewer name={name} url={url} />;
     }
@@ -129,7 +137,9 @@ export default function FilePreview({ url, name, onClose }: FilePreviewProps) {
 
         {/* 预览内容 */}
         <div className="flex-1 overflow-hidden">
-          {renderViewer()}
+          <Suspense fallback={<div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-gold-400" /></div>}>
+            {renderViewer()}
+          </Suspense>
         </div>
       </div>
     </div>

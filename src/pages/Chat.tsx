@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/stores/useAppStore';
 import { api } from '@/utils/api';
 import {
@@ -20,12 +21,19 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/Toast';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { AiActionSuggestion, ChatReference, Note, TimelineEvent, Todo } from '@/types';
 
 type ChatTab = 'chat' | 'plan';
 
 export default function Chat() {
-  const { chatMessages, addChatMessage, loadData } = useAppStore();
+  const { chatMessages, addChatMessage, loadData } = useAppStore(useShallow((s) => ({
+    chatMessages: s.chatMessages,
+    addChatMessage: s.addChatMessage,
+    loadData: s.loadData,
+  })));
   const [activeTab, setActiveTab] = useState<ChatTab>('chat');
 
   return (
@@ -96,9 +104,26 @@ function ChatPanel() {
     upsertChatConversation,
     removeChatConversation,
     setActiveConversationId,
-  } = useAppStore();
+  } = useAppStore(useShallow((s) => ({
+    chatMessages: s.chatMessages,
+    chatConversations: s.chatConversations,
+    activeConversationId: s.activeConversationId,
+    files: s.files,
+    todos: s.todos,
+    notes: s.notes,
+    addChatMessage: s.addChatMessage,
+    addTodo: s.addTodo,
+    addNote: s.addNote,
+    addTimelineEvent: s.addTimelineEvent,
+    setChatMessages: s.setChatMessages,
+    setChatConversations: s.setChatConversations,
+    upsertChatConversation: s.upsertChatConversation,
+    removeChatConversation: s.removeChatConversation,
+    setActiveConversationId: s.setActiveConversationId,
+  })));
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const [activeNoteContext, setActiveNoteContext] = useState<{ id: string; title: string } | null>(null);
   const [actionSuggestions, setActionSuggestions] = useState<Record<string, AiActionSuggestion[]>>({});
   const [actionsLoadingFor, setActionsLoadingFor] = useState<string | null>(null);
@@ -143,9 +168,15 @@ function ChatPanel() {
   }, [chatMessages]);
 
   const refreshConversations = async () => {
-    const conversations = await api.getChatConversations();
-    setChatConversations(conversations);
-    return conversations;
+    try {
+      const conversations = await api.getChatConversations();
+      setChatConversations(conversations);
+      return conversations;
+    } catch (err) {
+      console.error('Failed to refresh conversations:', err);
+      toast.error('刷新对话列表失败');
+      return [];
+    }
   };
 
   const selectConversation = async (conversationId: string) => {
@@ -156,18 +187,29 @@ function ChatPanel() {
     setAppliedActions(new Set());
     setSelectedReferences([]);
     setReferencePickerOpen(false);
-    const messages = await api.getChatMessages({ conversationId });
-    setChatMessages(messages);
+    try {
+      const messages = await api.getChatMessages({ conversationId });
+      setChatMessages(messages);
+    } catch (err) {
+      console.error('Failed to load messages:', err);
+      toast.error('加载消息失败');
+      setChatMessages([]);
+    }
   };
 
   const createConversation = async () => {
-    const conversation = await api.createChatConversation({ title: '新对话', scope: 'global' });
-    upsertChatConversation(conversation);
-    setActiveConversationId(conversation.id);
-    setChatMessages([]);
-    setActiveNoteContext(null);
-    setSelectedReferences([]);
-    setReferencePickerOpen(false);
+    try {
+      const conversation = await api.createChatConversation({ title: '新对话', scope: 'global' });
+      upsertChatConversation(conversation);
+      setActiveConversationId(conversation.id);
+      setChatMessages([]);
+      setActiveNoteContext(null);
+      setSelectedReferences([]);
+      setReferencePickerOpen(false);
+    } catch (err) {
+      console.error('Failed to create conversation:', err);
+      toast.error('创建对话失败');
+    }
   };
 
   const renameConversation = async (conversationId: string) => {
@@ -175,22 +217,34 @@ function ChatPanel() {
     if (!title) return;
     const conversation = chatConversations.find((item) => item.id === conversationId);
     if (!conversation) return;
-    await api.renameChatConversation(conversationId, title);
-    upsertChatConversation({ ...conversation, title });
-    setEditingConversationId(null);
-    setEditingConversationTitle('');
+    try {
+      await api.renameChatConversation(conversationId, title);
+      upsertChatConversation({ ...conversation, title });
+      setEditingConversationId(null);
+      setEditingConversationTitle('');
+      toast.success('对话已重命名');
+    } catch (err) {
+      console.error('Failed to rename conversation:', err);
+      toast.error('重命名失败');
+    }
   };
 
   const deleteConversation = async (conversationId: string) => {
     if (!window.confirm('确定删除这个对话吗？其中的消息也会一起删除。')) return;
-    await api.deleteChatConversation(conversationId);
-    removeChatConversation(conversationId);
-    const conversations = (await refreshConversations()).filter((item) => item.id !== conversationId);
-    const next = conversations[0] || null;
-    setActiveConversationId(next?.id || null);
-    setSelectedReferences([]);
-    setReferencePickerOpen(false);
-    setChatMessages(next ? await api.getChatMessages({ conversationId: next.id }) : []);
+    try {
+      await api.deleteChatConversation(conversationId);
+      removeChatConversation(conversationId);
+      const conversations = (await refreshConversations()).filter((item) => item.id !== conversationId);
+      const next = conversations[0] || null;
+      setActiveConversationId(next?.id || null);
+      setSelectedReferences([]);
+      setReferencePickerOpen(false);
+      setChatMessages(next ? await api.getChatMessages({ conversationId: next.id }) : []);
+      toast.success('对话已删除');
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+      toast.error('删除对话失败');
+    }
   };
 
   const referenceLabel = (type: ChatReference['type']) => {
@@ -245,42 +299,71 @@ function ChatPanel() {
     const userContent = input;
     setInput('');
     setIsTyping(true);
+    setStreamingContent('');
 
     try {
-      const result = await api.chat.send(
-        userContent,
-        activeNoteContext
-          ? { scope: 'note', noteId: activeNoteContext.id, conversationId: activeConversationId || undefined, references: selectedReferences }
-          : { scope: 'global', conversationId: activeConversationId || undefined, references: selectedReferences }
-      );
-      if (result.conversation) {
-        upsertChatConversation(result.conversation);
-        if (!activeConversationId) setActiveConversationId(result.conversation.id);
-      }
-      addChatMessage(result.userMessage);
-      addChatMessage(result.aiMessage);
-      setSelectedReferences([]);
-      setReferencePickerOpen(false);
-      refreshConversations().then((conversations) => {
-        const current = conversations.find((item) => item.id === result.conversation.id);
-        if (current) upsertChatConversation(current);
-      }).catch(console.error);
+      const options = activeNoteContext
+        ? { scope: 'global' as const, noteId: activeNoteContext.id, conversationId: activeConversationId || undefined, references: selectedReferences }
+        : { scope: 'global' as const, conversationId: activeConversationId || undefined, references: selectedReferences };
 
-      setActionsLoadingFor(result.aiMessage.id);
-      api.chat.actions(userContent, result.aiMessage.content)
-        .then((actions) => {
-          if (actions.length > 0) {
-            setActionSuggestions((prev) => ({ ...prev, [result.aiMessage.id]: actions }));
+      let aiMessageId = '';
+      let userMessage: any = null;
+      let conversation: any = null;
+
+      await api.chat.sendStream(userContent, options, {
+        onMeta: (data) => {
+          conversation = data.conversation;
+          userMessage = data.userMessage;
+          aiMessageId = data.aiMessageId;
+          if (conversation) {
+            upsertChatConversation(conversation);
+            if (!activeConversationId) setActiveConversationId(conversation.id);
           }
-        })
-        .catch((error) => {
-          console.warn('AI action suggestion error:', error);
-        })
-        .finally(() => {
-          setActionsLoadingFor((current) => (current === result.aiMessage.id ? null : current));
-        });
+          if (userMessage) addChatMessage(userMessage);
+        },
+        onChunk: (text) => {
+          setStreamingContent((prev) => prev + text);
+        },
+        onDone: (aiMessage) => {
+          setStreamingContent('');
+          addChatMessage(aiMessage);
+          setSelectedReferences([]);
+          setReferencePickerOpen(false);
+          refreshConversations().then((conversations) => {
+            const current = conversations.find((item) => item.id === conversation?.id);
+            if (current) upsertChatConversation(current);
+          }).catch(console.error);
+
+          // 请求 AI 联动建议
+          if (aiMessage.content) {
+            setActionsLoadingFor(aiMessage.id);
+            api.chat.actions(userContent, aiMessage.content)
+              .then((actions) => {
+                if (actions.length > 0) {
+                  setActionSuggestions((prev) => ({ ...prev, [aiMessage.id]: actions }));
+                }
+              })
+              .catch((error) => {
+                console.warn('AI action suggestion error:', error);
+              })
+              .finally(() => {
+                setActionsLoadingFor((current) => (current === aiMessage.id ? null : current));
+              });
+          }
+        },
+        onError: (error) => {
+          setStreamingContent('');
+          addChatMessage({
+            id: `e-${Date.now()}`,
+            role: 'assistant',
+            content: `抱歉，AI 调用失败：${error}`,
+            timestamp: new Date().toISOString(),
+          });
+        },
+      });
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error('Chat stream error:', error);
+      setStreamingContent('');
       addChatMessage({
         id: `e-${Date.now()}`,
         role: 'assistant',
@@ -514,36 +597,37 @@ function ChatPanel() {
                   </button>
                 )}
               </div>
-              <div className="text-sm text-parchment-200 whitespace-pre-wrap leading-relaxed">
-                {msg.content.split('\n').map((line, i) => {
-                  if (line.startsWith('## ')) {
-                    return <h3 key={i} className="font-serif text-base font-semibold text-parchment-200 mt-3 mb-1">{line.slice(3)}</h3>;
-                  }
-                  if (line.startsWith('# ')) {
-                    return <h2 key={i} className="font-serif text-lg font-bold text-parchment-100 my-2">{line.slice(2)}</h2>;
-                  }
-                  if (line.startsWith('```')) {
-                    return null;
-                  }
-                  if (line.startsWith('- ')) {
-                    return <p key={i} className="ml-2 my-0.5">{line}</p>;
-                  }
-                  const parts = line.split(/(\*\*[^*]+\*\*)/g);
-                  const hasBold = parts.length > 1;
-                  if (hasBold) {
-                    return (
-                      <p key={i} className="my-0.5">
-                        {parts.map((part, j) => {
-                          if (part.startsWith('**') && part.endsWith('**')) {
-                            return <strong key={j} className="font-semibold text-parchment-100">{part.slice(2, -2)}</strong>;
-                          }
-                          return <span key={j}>{part}</span>;
-                        })}
-                      </p>
-                    );
-                  }
-                  return <p key={i} className="my-0.5">{line}</p>;
-                })}
+              <div className="text-sm text-parchment-200 leading-relaxed">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h1: ({ children }) => <h1 className="font-serif text-lg font-bold text-parchment-100 my-2">{children}</h1>,
+                    h2: ({ children }) => <h2 className="font-serif text-base font-semibold text-parchment-100 mt-3 mb-1">{children}</h2>,
+                    h3: ({ children }) => <h3 className="font-serif text-sm font-semibold text-parchment-200 mt-2 mb-1">{children}</h3>,
+                    p: ({ children }) => <p className="my-1">{children}</p>,
+                    ul: ({ children }) => <ul className="ml-4 my-1 list-disc space-y-0.5">{children}</ul>,
+                    ol: ({ children }) => <ol className="ml-4 my-1 list-decimal space-y-0.5">{children}</ol>,
+                    li: ({ children }) => <li className="text-parchment-200">{children}</li>,
+                    strong: ({ children }) => <strong className="font-semibold text-parchment-100">{children}</strong>,
+                    em: ({ children }) => <em className="italic text-parchment-300">{children}</em>,
+                    code: ({ children, className }) => {
+                      const isBlock = className?.includes('language-');
+                      if (isBlock) {
+                        return <pre className="bg-ink-900/80 border border-ink-700/50 rounded-md p-3 my-2 overflow-x-auto"><code className="text-xs text-parchment-300">{children}</code></pre>;
+                      }
+                      return <code className="bg-ink-800/60 px-1 py-0.5 rounded text-xs text-gold-300">{children}</code>;
+                    },
+                    pre: ({ children }) => <>{children}</>,
+                    blockquote: ({ children }) => <blockquote className="border-l-2 border-gold-400/40 pl-3 my-2 text-parchment-400 italic">{children}</blockquote>,
+                    a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-gold-300 hover:text-gold-200 underline">{children}</a>,
+                    table: ({ children }) => <table className="my-2 border-collapse text-xs">{children}</table>,
+                    th: ({ children }) => <th className="border border-ink-700/50 px-2 py-1 bg-ink-800/40 text-parchment-100">{children}</th>,
+                    td: ({ children }) => <td className="border border-ink-700/50 px-2 py-1">{children}</td>,
+                    hr: () => <hr className="border-ink-700/50 my-2" />,
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
               </div>
 
               {msg.references && msg.references.length > 0 && (
@@ -618,12 +702,38 @@ function ChatPanel() {
             <div className="w-8 h-8 rounded-lg bg-forest-800/40 flex items-center justify-center flex-shrink-0">
               <Bot className="w-4 h-4 text-forest-300" />
             </div>
-            <div className="bg-forest-800/30 border border-forest-600/20 rounded-2xl px-4 py-3">
-              <div className="flex gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-parchment-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-                <div className="w-2 h-2 rounded-full bg-parchment-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-                <div className="w-2 h-2 rounded-full bg-parchment-400 animate-bounce" style={{ animationDelay: '300ms' }} />
-              </div>
+            <div className="bg-forest-800/30 border border-forest-600/20 rounded-2xl px-4 py-3 max-w-[85%] sm:max-w-[70%]">
+              {streamingContent ? (
+                <div className="text-sm text-parchment-200 leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      p: ({ children }) => <p className="my-1">{children}</p>,
+                      ul: ({ children }) => <ul className="ml-4 my-1 list-disc space-y-0.5">{children}</ul>,
+                      ol: ({ children }) => <ol className="ml-4 my-1 list-decimal space-y-0.5">{children}</ol>,
+                      li: ({ children }) => <li className="text-parchment-200">{children}</li>,
+                      strong: ({ children }) => <strong className="font-semibold text-parchment-100">{children}</strong>,
+                      code: ({ children, className }) => {
+                        const isBlock = className?.includes('language-');
+                        if (isBlock) {
+                          return <pre className="bg-ink-900/80 border border-ink-700/50 rounded-md p-3 my-2 overflow-x-auto"><code className="text-xs text-parchment-300">{children}</code></pre>;
+                        }
+                        return <code className="bg-ink-800/60 px-1 py-0.5 rounded text-xs text-gold-300">{children}</code>;
+                      },
+                      pre: ({ children }) => <>{children}</>,
+                    }}
+                  >
+                    {streamingContent}
+                  </ReactMarkdown>
+                  <span className="inline-block w-1.5 h-4 bg-gold-400 animate-pulse ml-0.5 align-middle" />
+                </div>
+              ) : (
+                <div className="flex gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-parchment-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-parchment-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-2 h-2 rounded-full bg-parchment-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+              )}
             </div>
           </div>
         )}

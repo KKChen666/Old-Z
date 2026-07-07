@@ -1,9 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import ReactMarkdown from 'react-markdown';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import FilePreview from '@/components/FilePreview';
 import { useCellValue, usePublisher } from '@mdxeditor/gurx';
 import { $createParagraphNode } from 'lexical';
 import { useAppStore } from '@/stores/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { api } from '@/utils/api';
 import {
   MDXEditor,
@@ -62,8 +64,11 @@ import {
   Tag,
   Trash2,
   Wand2,
+  Paperclip,
+  Search,
+  File as FileIcon,
 } from 'lucide-react';
-import type { NoteSnapshot } from '@/types';
+import type { NoteSnapshot, FileItem } from '@/types';
 
 function isHtmlContent(content: string): boolean {
   return /<[a-z][\s\S]*>/i.test(content);
@@ -137,6 +142,18 @@ function htmlToMarkdown(html: string): string {
 
 function normalizeNoteContent(content: string): string {
   return isHtmlContent(content) ? htmlToMarkdown(content) : content;
+}
+
+// 笔记中 @文件 的标记语法：[@文件名](oldzfile://<fileId>)
+const FILE_MENTION_SCHEME = 'oldzfile://';
+const FILE_MENTION_RE = /oldzfile:\/\/([^\s)"'>]+)/g;
+
+function extractMentionFileIds(content: string): string[] {
+  const ids = new Set<string>();
+  for (const match of content.matchAll(FILE_MENTION_RE)) {
+    if (match[1]) ids.add(match[1]);
+  }
+  return Array.from(ids);
 }
 
 function getPlainText(content: string): string {
@@ -322,7 +339,7 @@ function ClearFormattingButton() {
   );
 }
 
-function createEditorPlugins(onStartAiCommand: () => void) {
+function createEditorPlugins(onStartAiCommand: () => void, onOpenFilePicker: () => void) {
   return [
   headingsPlugin(),
   listsPlugin(),
@@ -363,6 +380,19 @@ function createEditorPlugins(onStartAiCommand: () => void) {
         <InsertTable />
         <InsertCodeBlock />
         <InsertThematicBreak />
+        <Separator />
+        <ButtonWithTooltip
+          title="链接文件（或在正文输入 @ 触发）"
+          aria-label="链接文件"
+          onMouseDown={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+          onMouseUp={(event) => event.stopPropagation()}
+          onClick={onOpenFilePicker}
+        >
+          <Paperclip className="w-4 h-4" />
+        </ButtonWithTooltip>
         <Separator />
         <ButtonWithTooltip
           title="AI 编辑"
@@ -546,7 +576,15 @@ function getSmallTalkReply(instruction: string): string {
 }
 
 export default function Notes() {
-  const { notes, addNote, updateNote, deleteNote, addTodo, addChatMessage } = useAppStore();
+  const { notes, files, addNote, updateNote, deleteNote, addTodo, addChatMessage } = useAppStore(useShallow((s) => ({
+    notes: s.notes,
+    files: s.files,
+    addNote: s.addNote,
+    updateNote: s.updateNote,
+    deleteNote: s.deleteNote,
+    addTodo: s.addTodo,
+    addChatMessage: s.addChatMessage,
+  })));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editingMarkdown, setEditingMarkdown] = useState('');
@@ -580,6 +618,10 @@ export default function Notes() {
   const [slashAiConfirm, setSlashAiConfirm] = useState<{ action: 'deleteAll'; message: string } | null>(null);
   const [dismissedSlashAiStart, setDismissedSlashAiStart] = useState<number | null>(null);
   const [toolbarSlashAiStart, setToolbarSlashAiStart] = useState<number | null>(null);
+  const [mentionPickerOpen, setMentionPickerOpen] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [previewFile, setPreviewFile] = useState<FileItem | null>(null);
+  const mentionActiveRef = useRef(false);
   const [snapshots, setSnapshots] = useState<NoteSnapshot[]>([]);
   const [showSnapshots, setShowSnapshots] = useState(false);
   const [snapshotsLoading, setSnapshotsLoading] = useState(false);
@@ -596,6 +638,12 @@ export default function Notes() {
   const slashAiEscAtRef = useRef(0);
   const currentNote = notes.find((n) => n.id === selectedNote);
   const currentMarkdown = useMemo(() => normalizeNoteContent(currentNote?.content || ''), [currentNote?.content]);
+
+  const mentionFiles = useMemo(() => {
+    const keyword = mentionSearch.trim().toLowerCase();
+    const list = keyword ? files.filter((f) => f.name.toLowerCase().includes(keyword)) : files;
+    return list.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [files, mentionSearch]);
   const snapshotPreviewDiff = useMemo(() => {
     if (!previewSnapshot) return [];
     const currentContent = editingId === currentNote?.id ? editingMarkdown : currentMarkdown;
@@ -1215,7 +1263,54 @@ export default function Notes() {
     insertSlashAiCommand();
   }, [activeSlashAiCommand, closeSlashAiCommand, insertSlashAiCommand]);
 
-  const noteEditorPlugins = useMemo(() => createEditorPlugins(openToolbarAi), [openToolbarAi]);
+  const openMentionPicker = useCallback(() => {
+    mentionActiveRef.current = false;
+    setMentionSearch('');
+    setMentionPickerOpen(true);
+  }, []);
+
+  const closeMentionPicker = useCallback(() => {
+    mentionActiveRef.current = false;
+    setMentionPickerOpen(false);
+  }, []);
+
+  const selectMention = useCallback((file: FileItem) => {
+    const token = `[@${file.name}](oldzfile://${file.id})`;
+    // @ 已被 preventDefault 拦截，编辑器内不会有游离 @，直接在光标处插入链接
+    editorRef.current?.insertMarkdown(` ${token} `);
+    setEditingMarkdown((editorRef.current?.getMarkdown() ?? editingMarkdown) + ` ${token} `);
+    mentionActiveRef.current = false;
+    setMentionPickerOpen(false);
+    editorRef.current?.focus();
+  }, [editingMarkdown]);
+
+  const handleEditorClick = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    const anchor = (e.target as HTMLElement).closest('a');
+    const href = anchor?.getAttribute('href') || '';
+    if (href.startsWith(FILE_MENTION_SCHEME)) {
+      e.preventDefault();
+      const id = href.slice(FILE_MENTION_SCHEME.length);
+      const file = files.find((f) => f.id === id);
+      if (file) setPreviewFile(file);
+    }
+  }, [files]);
+
+  const handleEditorKeyDown = useCallback((e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key === '@' && !e.nativeEvent.isComposing) {
+      const md = editorRef.current?.getMarkdown() ?? editingMarkdown;
+      const last = md.slice(-1);
+      // 仅在行首或 @ 前为空白时触发，避免劫持邮箱等正常 @
+      if (md.length === 0 || last === '' || /\s/.test(last)) {
+        // 阻止 @ 实际写入编辑器，避免后续出现游离的 @ 字符
+        e.preventDefault();
+        setMentionSearch('');
+        mentionActiveRef.current = true;
+        setMentionPickerOpen(true);
+      }
+    }
+  }, [editingMarkdown]);
+
+  const noteEditorPlugins = useMemo(() => createEditorPlugins(openToolbarAi, openMentionPicker), [openToolbarAi, openMentionPicker]);
 
   const showEditorOnMobile = !!selectedNote || editingId;
 
@@ -1391,7 +1486,7 @@ export default function Notes() {
 
             <div className={`flex-1 relative ${previewSnapshot ? 'overflow-hidden' : 'overflow-y-auto'}`}>
               {!previewSnapshot && (editingId === currentNote.id ? (
-                <div ref={editorShellRef} onMouseUp={handleEditorMouseUp} className="min-h-full mdx-notes-editor">
+                <div ref={editorShellRef} onMouseUp={handleEditorMouseUp} onClick={handleEditorClick} onKeyDown={handleEditorKeyDown} className="min-h-full mdx-notes-editor">
                   <MDXEditor
                     key={editingId}
                     ref={editorRef}
@@ -1707,7 +1802,40 @@ export default function Notes() {
                 </div>
               ) : (
                 <div className="prose-notes p-4 sm:p-6">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={{ a: ({ children, ...props }) => <a {...props} target="_blank" rel="noreferrer">{children}</a> }}>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    urlTransform={(url) =>
+                      url.startsWith(FILE_MENTION_SCHEME)
+                        ? url
+                        : /^(javascript|data|vbscript):/i.test(url)
+                          ? '#'
+                          : defaultUrlTransform(url)
+                    }
+                    components={{
+                      a: ({ children, href, ...props }) => {
+                        if (href && href.startsWith(FILE_MENTION_SCHEME)) {
+                          const id = href.slice(FILE_MENTION_SCHEME.length);
+                          const file = files.find((f) => f.id === id);
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => file && setPreviewFile(file)}
+                              title={file ? `预览 ${file.name}` : '文件已删除'}
+                              className="mx-0.5 inline-flex items-center gap-1 align-baseline rounded bg-ink-800/70 px-1.5 py-0.5 text-[0.85em] text-parchment-100 no-underline hover:bg-ink-700"
+                            >
+                              <Paperclip className="w-3 h-3" />
+                              <span className="max-w-[12rem] truncate">{file ? file.name : String(children)}</span>
+                            </button>
+                          );
+                        }
+                        return (
+                          <a {...props} href={href} target="_blank" rel="noreferrer">
+                            {children}
+                          </a>
+                        );
+                      },
+                    }}
+                  >
                     {currentMarkdown}
                   </ReactMarkdown>
                 </div>
@@ -1932,6 +2060,56 @@ export default function Notes() {
           </div>
         )}
       </div>
+
+    {mentionPickerOpen && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-0 animate-fade-in">
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeMentionPicker} />
+        <div className="relative w-full max-w-lg glass-card rounded-xl overflow-hidden">
+          <div className="flex items-center gap-2 border-b border-ink-700/50 px-3 py-2.5">
+            <Search className="w-4 h-4 text-parchment-400" />
+            <input
+              autoFocus
+              value={mentionSearch}
+              onChange={(e) => setMentionSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') closeMentionPicker();
+                if (e.key === 'Enter' && mentionFiles[0]) selectMention(mentionFiles[0]);
+              }}
+              placeholder="搜索文件并插入到笔记…"
+              className="flex-1 bg-transparent text-sm text-parchment-100 placeholder:text-parchment-500 outline-none"
+            />
+            <button
+              onClick={closeMentionPicker}
+              className="text-parchment-400 hover:text-parchment-200 text-sm"
+              title="关闭"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="max-h-80 overflow-y-auto p-2">
+            {mentionFiles.length === 0 ? (
+              <p className="px-3 py-6 text-center text-xs text-parchment-500">没有匹配的文件</p>
+            ) : (
+              mentionFiles.map((file) => (
+                <button
+                  key={file.id}
+                  onClick={() => selectMention(file)}
+                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-parchment-200 hover:bg-ink-700/50"
+                >
+                  <FileIcon className="w-4 h-4 text-parchment-400 flex-shrink-0" />
+                  <span className="truncate">{file.name}</span>
+                  <span className="ml-auto text-[10px] uppercase text-parchment-500">{file.name.split('.').pop()}</span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+
+    {previewFile && previewFile.url && (
+      <FilePreview url={previewFile.url} name={previewFile.name} onClose={() => setPreviewFile(null)} />
+    )}
     </div>
   );
 }

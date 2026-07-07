@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import { api } from '@/utils/api';
 import { Settings, Zap, Check, Loader2, User, Lock, LogOut, Palette, Moon, Sun, Plus, Trash2, Cloud, HardDrive, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -88,7 +89,11 @@ export default function SettingsPage() {
 
 // ============ 用户设置 ============
 function UserSettings({ flashSaved }: { flashSaved: () => void }) {
-  const { user, setUser, logout } = useAppStore();
+  const { user, setUser, logout } = useAppStore(useShallow((s) => ({
+    user: s.user,
+    setUser: s.setUser,
+    logout: s.logout,
+  })));
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [username, setUsername] = useState(user?.username || '');

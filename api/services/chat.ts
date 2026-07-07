@@ -5,6 +5,7 @@ import {
   buildActionSuggestionUserMessage,
   buildChatContextMessage,
   callLLM,
+  callLLMStream,
   safeJsonParse,
 } from './ai.js';
 import type { AiActionSuggestion } from './ai.js';
@@ -69,6 +70,41 @@ export async function chatWithAI(
     return response || '抱歉，我暂时无法回答这个问题。';
   } catch (error: any) {
     console.error('AI chat error:', error?.message || error);
+    throw new Error(`AI 调用失败：${error?.message || '未知错误'}`);
+  }
+}
+
+// ============ 流式 AI 聊天 ============
+export async function chatWithAIStream(
+  userId: string,
+  message: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+  context: ChatContext,
+  onChunk: (text: string) => void
+): Promise<string> {
+  const llmConfig = await getUserLlmConfig(userId);
+  if (!llmConfig) {
+    throw new Error('请先在设置中配置 AI 接口');
+  }
+
+  const contextMessage = buildChatContextMessage(context);
+  const systemPrompt = CHAT_SYSTEM_PROMPT + '\n\n' + contextMessage;
+
+  const historyStr = history.slice(-10)
+    .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
+    .join('\n\n');
+
+  const userMessage = `${historyStr ? historyStr + '\n\n' : ''}用户: ${message}`;
+
+  try {
+    const response = await callLLMStream(llmConfig, systemPrompt, userMessage, onChunk, {
+      temperature: 0.7,
+      maxTokens: 2048,
+      timeoutMs: 60000,
+    });
+    return response || '抱歉，我暂时无法回答这个问题。';
+  } catch (error: any) {
+    console.error('AI chat stream error:', error?.message || error);
     throw new Error(`AI 调用失败：${error?.message || '未知错误'}`);
   }
 }

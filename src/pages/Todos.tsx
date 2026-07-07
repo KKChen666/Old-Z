@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/stores/useAppStore';
 import {
   Plus,
@@ -18,20 +19,8 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { TodoFilter, PriorityFilter, Todo } from '@/types';
-
-function getDateLabel(dateStr: string): string {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const date = new Date(dateStr + 'T00:00:00');
-  date.setHours(0, 0, 0, 0);
-  const diff = Math.floor((date.getTime() - today.getTime()) / 86400000);
-  if (diff === 0) return '今天';
-  if (diff === 1) return '明天';
-  if (diff === -1) return '昨天';
-  if (diff < -1) return `已过期 ${Math.abs(diff)} 天`;
-  if (diff <= 7) return `${diff} 天后`;
-  return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
-}
+import { getDateLabel } from '@/lib/utils';
+import { toast } from '@/components/Toast';
 
 function getDateGroup(dateStr: string | undefined): string {
   if (!dateStr) return 'no-date';
@@ -53,15 +42,15 @@ function formatQuickDate(offset: number): string {
   return d.toISOString().split('T')[0];
 }
 
-const quickDateOptions = [
-  { label: '今天', value: formatQuickDate(0) },
-  { label: '明天', value: formatQuickDate(1) },
-  { label: '后天', value: formatQuickDate(2) },
-  { label: '下周一', value: (() => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d.toISOString().split('T')[0]; })() },
-];
-
 export default function Todos() {
-  const { todos, files, addTodo, updateTodo, toggleSubtask, deleteTodo } = useAppStore();
+  const { todos, files, addTodo, updateTodo, toggleSubtask, deleteTodo } = useAppStore(useShallow((s) => ({
+    todos: s.todos,
+    files: s.files,
+    addTodo: s.addTodo,
+    updateTodo: s.updateTodo,
+    toggleSubtask: s.toggleSubtask,
+    deleteTodo: s.deleteTodo,
+  })));
   const [statusFilter, setStatusFilter] = useState<TodoFilter>('all');
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all');
   const [showNewTodo, setShowNewTodo] = useState(false);
@@ -75,6 +64,14 @@ export default function Todos() {
   const [editTitle, setEditTitle] = useState('');
   const [editPriority, setEditPriority] = useState<Todo['priority']>('medium');
   const [editDueDate, setEditDueDate] = useState('');
+
+  // 快速日期选项 — 每次渲染时重新计算，避免跨午夜日期不更新
+  const quickDateOptions = useMemo(() => [
+    { label: '今天', value: formatQuickDate(0) },
+    { label: '明天', value: formatQuickDate(1) },
+    { label: '后天', value: formatQuickDate(2) },
+    { label: '下周一', value: (() => { const d = new Date(); d.setDate(d.getDate() + ((8 - d.getDay()) % 7 || 7)); return d.toISOString().split('T')[0]; })() },
+  ], []);
 
   const filteredTodos = todos.filter((t) => {
     if (statusFilter !== 'all' && t.status !== statusFilter) return false;

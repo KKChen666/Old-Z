@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
+import { useShallow } from 'zustand/react/shallow';
 import {
   ArrowLeft,
   LayoutDashboard,
@@ -44,7 +45,13 @@ const discoverRoutes: Record<string, string> = {
 };
 
 export default function Layout() {
-  const { sidebarCollapsed, toggleSidebar, user, logout, loadData } = useAppStore();
+  const { sidebarCollapsed, toggleSidebar, user, logout, loadData } = useAppStore(useShallow((s) => ({
+    sidebarCollapsed: s.sidebarCollapsed,
+    toggleSidebar: s.toggleSidebar,
+    user: s.user,
+    logout: s.logout,
+    loadData: s.loadData,
+  })));
   const navigate = useNavigate();
   const location = useLocation();
   const mobileBackTitle = discoverRoutes[location.pathname];

@@ -208,6 +208,28 @@ export async function fetchLlmBalance(preset: LlmPreset): Promise<any> {
   const normalized = normalizePreset(preset);
   if (!normalized.balance_url) throw new Error('请先填写余额查询接口');
 
+  // SSRF 防护：解析 URL，拒绝私有 IP 和非 HTTP(S) 协议
+  let targetUrl: URL;
+  try {
+    targetUrl = new URL(replaceVars(normalized.balance_url, normalized));
+  } catch {
+    throw new Error('余额查询接口 URL 格式无效');
+  }
+
+  if (targetUrl.protocol !== 'http:' && targetUrl.protocol !== 'https:') {
+    throw new Error('余额查询接口仅支持 HTTP/HTTPS 协议');
+  }
+
+  const hostname = targetUrl.hostname.toLowerCase();
+  const privatePatterns = [
+    /^127\./, /^10\./, /^192\.168\./, /^172\.(1[6-9]|2\d|3[01])\./,
+    /^0\./, /^169\.254\./, /^::1$/, /^fc00:/i, /^fe80:/i,
+    /^localhost$/, /^metadata\.google\.internal$/, // 云平台元数据接口
+  ];
+  if (privatePatterns.some(p => p.test(hostname))) {
+    throw new Error('余额查询接口不允许指向内网地址');
+  }
+
   let headers: Record<string, string> = {};
   if (normalized.balance_headers?.trim()) {
     try {

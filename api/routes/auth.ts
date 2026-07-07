@@ -1,4 +1,4 @@
-import { Router, type Request, type Response } from 'express'
+﻿import { Router, type Request, type Response } from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'node:crypto'
 import pool from '../config/database.js'
@@ -19,8 +19,14 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    if (!password || typeof password !== 'string' || password.length < 6) {
-      res.status(400).json({ success: false, error: '密码长度至少为 6 个字符' })
+    // 用户名仅允许字母、数字、下划线、中横线
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      res.status(400).json({ success: false, error: '用户名只能包含字母、数字、下划线和横线' })
+      return
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6 || password.length > 200) {
+      res.status(400).json({ success: false, error: '密码长度需要在 6-200 个字符之间' })
       return
     }
 
@@ -64,7 +70,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     } else if (error?.code === 'ER_DUP_ENTRY') {
       errorMsg = '用户名已存在'
     } else if (error?.message) {
-      errorMsg = `注册失败：${error.message}`
+      errorMsg = '注册失败，请稍后重试'
     }
     res.status(500).json({ success: false, error: errorMsg })
   }
@@ -116,7 +122,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     } else if (error?.code === 'ER_NO_SUCH_TABLE') {
       errorMsg = '数据库表不存在，请重启服务初始化数据库'
     } else if (error?.message) {
-      errorMsg = `登录失败：${error.message}`
+      errorMsg = '登录失败，请稍后重试'
     }
     res.status(500).json({ success: false, error: errorMsg })
   }
@@ -128,7 +134,14 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
  */
 router.post('/reset-password', async (req: Request, res: Response): Promise<void> => {
   try {
-    const { username, newPassword } = req.body
+    const { username, oldPassword, newPassword } = req.body
+
+    if (!oldPassword || typeof oldPassword !== 'string') {
+      res.status(400).json({ success: false, error: '请输入旧密码' })
+      return
+    }
+
+    
 
     if (!username || typeof username !== 'string') {
       res.status(400).json({ success: false, error: '请输入用户名' })
@@ -140,8 +153,8 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
       return
     }
 
-    // 检查用户是否存在
-    const [rows] = await pool.execute('SELECT id, username FROM users WHERE username = ?', [username])
+    // 检查用户是否存在（需要取 password_hash 来验证旧密码）
+    const [rows] = await pool.execute('SELECT id, username, password_hash, display_name FROM users WHERE username = ?', [username])
     const users = rows as any[]
 
     if (users.length === 0) {
@@ -149,7 +162,14 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
       return
     }
 
-    const user = users[0]
+        const user = users[0]
+    const valid = await bcrypt.compare(oldPassword, user.password_hash)
+
+    if (!valid) {
+      res.status(401).json({ success: false, error: '用户名或密码错误' })
+      return
+    }
+
     const passwordHash = await bcrypt.hash(newPassword, 10)
 
     // 更新密码
@@ -173,7 +193,7 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
     } else if (error?.code === 'ER_NO_SUCH_TABLE') {
       errorMsg = '数据库表不存在，请重启服务初始化数据库'
     } else if (error?.message) {
-      errorMsg = `密码重置失败：${error.message}`
+      errorMsg = '密码重置失败，请稍后重试'
     }
     res.status(500).json({ success: false, error: errorMsg })
   }
@@ -305,3 +325,4 @@ router.post('/change-password', authMiddleware, async (req: AuthRequest, res: Re
 });
 
 export default router
+

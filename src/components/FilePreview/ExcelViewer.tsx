@@ -7,24 +7,6 @@ interface ExcelViewerProps {
   url: string;
 }
 
-// 通用的文件加载函数
-async function fetchAsArrayBuffer(url: string): Promise<ArrayBuffer> {
-  return new Promise((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('GET', url, true);
-    xhr.responseType = 'arraybuffer';
-    xhr.onload = () => {
-      if (xhr.status === 200 || xhr.status === 0) {
-        resolve(xhr.response);
-      } else {
-        reject(new Error(`Failed to fetch: ${xhr.status}`));
-      }
-    };
-    xhr.onerror = () => reject(new Error('Network error'));
-    xhr.send();
-  });
-}
-
 export default function ExcelViewer({ url }: ExcelViewerProps) {
   const [sheets, setSheets] = useState<{ name: string; data: any[][] }[]>([]);
   const [activeSheet, setActiveSheet] = useState(0);
