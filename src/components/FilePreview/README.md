@@ -14,6 +14,7 @@
 | 视频 | .mp4, .webm, .ogg, .mov, .avi | 浏览器原生 |
 | 音频 | .mp3, .wav, .ogg, .aac, .flac | 浏览器原生 |
 | 文本/代码 | .txt, .md, .json, .js, .ts, .py 等 | 浏览器原生 |
+| HTML | .html, .htm | 沙箱 iframe 渲染 |
 
 ## 使用方法
 

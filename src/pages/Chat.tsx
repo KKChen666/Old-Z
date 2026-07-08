@@ -131,10 +131,52 @@ function ChatPanel() {
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingConversationTitle, setEditingConversationTitle] = useState('');
+  const [confirmingDeleteConvId, setConfirmingDeleteConvId] = useState<string | null>(null);
+  const [deletingConvId, setDeletingConvId] = useState<string | null>(null);
   const [referencePickerOpen, setReferencePickerOpen] = useState(false);
   const [referenceSearch, setReferenceSearch] = useState('');
   const [selectedReferences, setSelectedReferences] = useState<ChatReference[]>([]);
+  const [hoveredMsgId, setHoveredMsgId] = useState<string | null>(null);
+  const [deletingMsgId, setDeletingMsgId] = useState<string | null>(null);
+  const [confirmingDeleteMsgId, setConfirmingDeleteMsgId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 找到某条用户消息后面的 AI 回复
+  const findFollowingAiMsg = (userMsgId: string) => {
+    const userIdx = chatMessages.findIndex((m) => m.id === userMsgId);
+    if (userIdx === -1) return null;
+    const next = chatMessages[userIdx + 1];
+    return next?.role === 'assistant' ? next : null;
+  };
+
+  // 删除消息：用户消息会连带 AI 回复一起删；AI 消息只删自己
+  const handleDeleteMessage = async (msgId: string) => {
+    const msg = chatMessages.find((m) => m.id === msgId);
+    if (!msg) return;
+
+    const idsToDelete: string[] = [msgId];
+    if (msg.role === 'user') {
+      const aiMsg = findFollowingAiMsg(msgId);
+      if (aiMsg) idsToDelete.push(aiMsg.id);
+    }
+
+    setDeletingMsgId(msgId);
+    try {
+      await Promise.all(idsToDelete.map((id) => api.deleteChatMessage(id).catch(() => {})));
+      setChatMessages(chatMessages.filter((m) => !idsToDelete.includes(m.id)));
+      // 清理关联的 action suggestions
+      setActionSuggestions((prev) => {
+        const n = { ...prev };
+        idsToDelete.forEach((id) => delete n[id]);
+        return n;
+      });
+    } catch {
+      // 后端删完就完，前端的 filter 已经生效
+    } finally {
+      setDeletingMsgId(null);
+      setConfirmingDeleteMsgId(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -187,6 +229,8 @@ function ChatPanel() {
     setAppliedActions(new Set());
     setSelectedReferences([]);
     setReferencePickerOpen(false);
+    setConfirmingDeleteMsgId(null);
+    setConfirmingDeleteConvId(null);
     try {
       const messages = await api.getChatMessages({ conversationId });
       setChatMessages(messages);
@@ -230,7 +274,7 @@ function ChatPanel() {
   };
 
   const deleteConversation = async (conversationId: string) => {
-    if (!window.confirm('确定删除这个对话吗？其中的消息也会一起删除。')) return;
+    setDeletingConvId(conversationId);
     try {
       await api.deleteChatConversation(conversationId);
       removeChatConversation(conversationId);
@@ -244,6 +288,9 @@ function ChatPanel() {
     } catch (err) {
       console.error('Failed to delete conversation:', err);
       toast.error('删除对话失败');
+    } finally {
+      setDeletingConvId(null);
+      setConfirmingDeleteConvId(null);
     }
   };
 
@@ -503,13 +550,32 @@ function ChatPanel() {
                     >
                       <Pencil className="w-3 h-3" />
                     </button>
-                    <button
-                      onClick={() => deleteConversation(conversation.id)}
-                      className="p-1 rounded text-parchment-500 hover:text-red-300 hover:bg-ink-800"
-                      title="删除"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    {confirmingDeleteConvId === conversation.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-[10px] text-red-400">确认删除？</span>
+                        <button
+                          onClick={() => deleteConversation(conversation.id)}
+                          disabled={deletingConvId === conversation.id}
+                          className="p-1 rounded text-red-400 hover:bg-red-500/20"
+                        >
+                          {deletingConvId === conversation.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckSquare className="w-3 h-3" />}
+                        </button>
+                        <button
+                          onClick={() => setConfirmingDeleteConvId(null)}
+                          className="p-1 rounded text-parchment-400 hover:text-parchment-200 hover:bg-ink-800"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmingDeleteConvId(conversation.id)}
+                        className="p-1 rounded text-parchment-500 hover:text-red-300 hover:bg-ink-800"
+                        title="删除"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -555,9 +621,11 @@ function ChatPanel() {
         {chatMessages.map((msg) => (
           <div
             key={msg.id}
-            className={`flex gap-3 animate-fade-in ${
+            className={`flex gap-3 animate-fade-in group ${
               msg.role === 'user' ? 'flex-row-reverse' : ''
             }`}
+            onMouseEnter={() => setHoveredMsgId(msg.id)}
+            onMouseLeave={() => setHoveredMsgId((v) => v === msg.id ? null : v)}
           >
             <div
               className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -573,12 +641,47 @@ function ChatPanel() {
               )}
             </div>
             <div
-              className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 ${
+              className={`relative max-w-[85%] sm:max-w-[70%] rounded-2xl px-3 sm:px-4 py-2.5 sm:py-3 ${
                 msg.role === 'user'
                   ? 'bg-gold-400/15 border border-gold-400/20'
                   : 'bg-forest-800/30 border border-forest-600/20'
               }`}
             >
+              {/* 删除按钮 — hover 时显示，两步确认 */}
+              {confirmingDeleteMsgId === msg.id ? (
+                <div
+                  className={`absolute top-1.5 flex items-center gap-0.5 rounded-md bg-ink-900/95 border border-red-500/30 px-1 py-0.5 transition-all ${
+                    msg.role === 'user' ? '-left-[72px]' : '-right-[72px]'
+                  } ${hoveredMsgId === msg.id ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                >
+                  <span className="text-[10px] text-red-400 px-1">删除？</span>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleDeleteMessage(msg.id); }}
+                    disabled={deletingMsgId === msg.id}
+                    className="p-0.5 rounded text-red-400 hover:bg-red-500/20"
+                  >
+                    {deletingMsgId === msg.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckSquare className="w-3 h-3" />}
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setConfirmingDeleteMsgId(null); }}
+                    className="p-0.5 rounded text-parchment-400 hover:text-parchment-200 hover:bg-ink-700"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setConfirmingDeleteMsgId(msg.id); }}
+                  className={`absolute top-1.5 flex items-center gap-1 px-2 py-1 rounded-md text-[11px] bg-ink-900/90 border border-ink-700/50 text-parchment-500 hover:text-red-400 hover:border-red-500/40 transition-all ${
+                    msg.role === 'user' ? '-left-[52px]' : '-right-[52px]'
+                  } ${
+                    hoveredMsgId === msg.id ? 'opacity-100' : 'opacity-0 pointer-events-none'
+                  }`}
+                  title={msg.role === 'user' ? '删除此轮对话' : '删除此回复'}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              )}
               <div className="flex items-center gap-2 mb-2">
                 <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] border ${
                   msg.scope === 'note'

@@ -2,6 +2,7 @@ import { useState, useRef, useDeferredValue, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/stores/useAppStore';
 import { uploadToOSS } from '@/utils/oss';
+import type { UploadProgress } from '@/utils/oss';
 import {
   Search,
   Grid3X3,
@@ -23,7 +24,7 @@ import {
 import FilePreview from '@/components/FilePreview';
 import { toast } from '@/components/Toast';
 import type { FileFilter, ViewMode, FileItem, Todo } from '@/types';
-import { getFileType, formatFileSize, ensureHttps } from '@/lib/utils';
+import { getFileType, formatFileSize, ensureHttps, readFileText } from '@/lib/utils';
 
 const fileIcons: Record<string, typeof FileText> = {
   document: FileText,
@@ -35,11 +36,11 @@ const fileIcons: Record<string, typeof FileText> = {
 };
 
 const fileColors: Record<string, string> = {
-  document: 'text-blue-400 bg-blue-400/10',
-  image: 'text-pink-400 bg-pink-400/10',
+  document: 'text-forest-300 bg-forest-400/10',
+  image: 'text-gold-300 bg-gold-400/10',
   pdf: 'text-red-400 bg-red-400/10',
-  link: 'text-cyan-400 bg-cyan-400/10',
-  email: 'text-yellow-400 bg-yellow-400/10',
+  link: 'text-forest-300 bg-forest-400/10',
+  email: 'text-gold-300 bg-gold-400/10',
   other: 'text-parchment-400 bg-parchment-400/10',
 };
 
@@ -56,6 +57,9 @@ export default function Files() {
   const [search, setSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadCompleted, setUploadCompleted] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showTodoForm, setShowTodoForm] = useState(false);
   const [selectedFileForTodo, setSelectedFileForTodo] = useState<FileItem | null>(null);
@@ -89,11 +93,19 @@ export default function Files() {
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
 
+    const filesArr = Array.from(selectedFiles);
     setUploading(true);
+    setUploadProgress(0);
+    setUploadTotal(filesArr.length);
+    setUploadCompleted(0);
     try {
-      for (const file of Array.from(selectedFiles)) {
-        const { url } = await uploadToOSS(file);
+      for (let i = 0; i < filesArr.length; i++) {
+        const file = filesArr[i];
+        const { url } = await uploadToOSS(file, 'uploads', {
+          onProgress: (p: UploadProgress) => setUploadProgress(p.percent),
+        });
         const fileType = getFileType(file.name);
+        const content = await readFileText(file);
 
         addFile({
           id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -102,6 +114,7 @@ export default function Files() {
           size: file.size,
           tags: ['手动上传'],
           url,
+          content: content || undefined,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         });
@@ -112,10 +125,13 @@ export default function Files() {
           title: `上传了 ${file.name}`,
           timestamp: new Date().toISOString(),
         });
+
+        setUploadCompleted(i + 1);
+        setUploadProgress(100);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Upload failed:', error);
-      toast.error('文件上传失败，请检查网络或 OSS 配置');
+      toast.error(error?.message || '文件上传失败，请检查网络或 OSS 配置');
     } finally {
       setUploading(false);
       if (fileInputRef.current) {
@@ -175,6 +191,25 @@ export default function Files() {
           </button>
           <input ref={fileInputRef} type="file" multiple onChange={handleUpload} className="hidden" />
         </div>
+        {/* 上传进度条 */}
+        {uploading && (
+          <div className="mt-3 space-y-1">
+            <div className="flex items-center justify-between text-xs text-parchment-400">
+              <span>
+                {uploadTotal > 1
+                  ? `正在上传 ${uploadCompleted + 1}/${uploadTotal}`
+                  : '正在上传'}
+              </span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-ink-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-gold-400 to-forest-400 transition-all duration-300 ease-out"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">

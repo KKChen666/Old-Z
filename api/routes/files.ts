@@ -42,23 +42,9 @@ router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), async (req: 
     const fileName = (req.headers['x-file-name'] as string) || `file-${Date.now()}`;
     const folder = (req.headers['x-file-folder'] as string) || 'uploads';
 
-    // 未配置 OSS 时回退到 base64 data URL（仅限小文件）
+    // OSS 未配置时直接报错，不允许 base64 存储
     if (!ossClient) {
-      if (req.body.length > 2 * 1024 * 1024) {
-        res.status(413).json({ success: false, error: '服务器未配置 OSS，文件超过 2MB 限制' });
-        return;
-      }
-      const ext = fileName.split('.').pop() || 'bin';
-      const mimeMap: Record<string, string> = {
-        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif',
-        pdf: 'application/pdf', txt: 'text/plain', json: 'application/json',
-        doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        xls: 'application/vnd.ms-excel', xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        csv: 'text/csv', mp4: 'video/mp4', webm: 'video/webm',
-      };
-      const mime = mimeMap[ext.toLowerCase()] || 'application/octet-stream';
-      const dataUrl = `data:${mime};base64,${req.body.toString('base64')}`;
-      res.json({ success: true, data: { url: dataUrl, key: `local/${fileName}` } });
+      res.status(500).json({ success: false, error: 'OSS 存储未配置，请联系管理员' });
       return;
     }
 

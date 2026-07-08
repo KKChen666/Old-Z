@@ -170,8 +170,22 @@ export default function LlmSettings({ flashSaved }: { flashSaved: () => void }) 
     setResult('');
     try {
       const data = await api.settings.getLlmBalance(editingPreset);
-      const value = typeof data?.value === 'object' ? JSON.stringify(data.value) : String(data?.value ?? '');
-      setResult(`余额查询结果：${value || JSON.stringify(data?.raw)}`);
+      const balance = data?.balance;
+      const details = data?.details as Record<string, string> | undefined;
+      if (balance) {
+        const parts = [`💳 **余额：${balance}**`];
+        if (details && Object.keys(details).length > 0) {
+          const detailText = Object.entries(details)
+            .map(([key, val]) => `· ${key}：${val}`)
+            .join('\n');
+          parts.push(detailText);
+        }
+        setResult(parts.join('\n'));
+      } else {
+        // 无法识别，降级展示原始 JSON（格式化）
+        const raw = data?.raw;
+        setResult(`无法识别余额格式，原始响应：\n\`\`\`json\n${JSON.stringify(raw, null, 2)}\n\`\`\``);
+      }
     } catch (err: any) {
       setResult(`余额查询失败：${err.message || '未知错误'}`);
     } finally {
@@ -322,8 +336,29 @@ export default function LlmSettings({ flashSaved }: { flashSaved: () => void }) 
       </div>
 
       {result && (
-        <div className={cn('text-sm p-3 rounded-lg', result.includes('成功') || result.includes('结果') ? 'bg-forest-800/20 text-forest-400' : 'bg-red-500/10 text-red-400')}>
-          {result}
+        <div className={cn(
+          'text-sm p-4 rounded-lg space-y-2',
+          result.startsWith('💳')
+            ? 'bg-forest-800/20 text-parchment-100 border border-forest-600/30'
+            : result.includes('失败')
+              ? 'bg-red-500/10 text-red-400'
+              : result.includes('无法识别')
+                ? 'bg-gold-900/20 text-parchment-200 border border-gold-700/30'
+                : 'bg-forest-800/20 text-forest-400'
+        )}>
+          {result.split('\n').map((line, i) => {
+            if (line.startsWith('·')) {
+              return <div key={i} className="text-parchment-300 ml-2">{line}</div>;
+            }
+            if (line.startsWith('```')) return null;
+            if (line.startsWith('💳')) {
+              return <div key={i} className="text-base font-semibold text-parchment-100">{line.replace('💳 ', '')}</div>;
+            }
+            if (line.startsWith('无法识别')) {
+              return <div key={i} className="text-gold-300">{line}</div>;
+            }
+            return <div key={i} className="font-mono text-xs text-parchment-400 whitespace-pre-wrap">{line}</div>;
+          })}
         </div>
       )}
     </div>

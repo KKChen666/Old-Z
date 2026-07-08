@@ -14,6 +14,8 @@ import {
   suggestChatActions,
   createChatConversation,
   deleteChatConversation,
+  deleteChatMessage,
+  deleteLastExchange,
   ensureChatConversation,
   loadChatConversations,
   renameChatConversation,
@@ -283,6 +285,37 @@ router.post('/stream', async (req: AuthRequest, res: Response) => {
       res.write(`data: ${JSON.stringify({ type: 'error', error: '服务器内部错误' })}\n\n`);
       res.end();
     }
+  }
+});
+
+// ============ 删除单条消息 ============
+router.delete('/messages/:id', async (req: AuthRequest, res: Response) => {
+  try {
+    const ok = await deleteChatMessage(req.userId!, req.params.id);
+    if (!ok) {
+      res.status(404).json({ success: false, error: '消息不存在或无权操作' });
+      return;
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error('DELETE /chat/messages/:id error:', error);
+    res.status(500).json({ success: false, error: '删除失败' });
+  }
+});
+
+// ============ 撤回最后一轮对话 ============
+router.post('/withdraw', async (req: AuthRequest, res: Response) => {
+  try {
+    const { conversationId } = req.body;
+    if (!conversationId || typeof conversationId !== 'string') {
+      res.status(400).json({ success: false, error: '缺少对话 ID' });
+      return;
+    }
+    const deleted = await deleteLastExchange(req.userId!, conversationId);
+    res.json({ success: true, data: { deleted } });
+  } catch (error) {
+    console.error('POST /chat/withdraw error:', error);
+    res.status(500).json({ success: false, error: '撤回失败' });
   }
 });
 

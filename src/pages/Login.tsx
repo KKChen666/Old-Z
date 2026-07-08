@@ -301,7 +301,7 @@ export default function Login() {
         ) : (
           <>
             {/* Card - 去掉 backdrop-blur 以修复 Android WebView 中的点击穿透问题 */}
-            <div className="p-6 rounded-2xl border border-ink-700/30 bg-ink-900/95">
+            <div className="glass-card p-6">
           {/* Tabs */}
           {tab !== 'reset' && (
             <div className="flex mb-6 bg-ink-900/60 rounded-xl p-1">
@@ -368,7 +368,7 @@ export default function Login() {
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="请输入用户名"
                 autoComplete="username"
-                className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
+                className="input-field text-sm"
               />
             </div>
 
@@ -384,7 +384,7 @@ export default function Login() {
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="给自己取个名字吧"
                   autoComplete="name"
-                  className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
+                  className="input-field text-sm"
                 />
               </div>
             )}
@@ -399,7 +399,7 @@ export default function Login() {
                   onChange={(e) => setOldPassword(e.target.value)}
                   placeholder="请输入旧密码"
                   autoComplete="current-password"
-                  className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
+                  className="input-field text-sm"
                 />
               </div>
             )}
@@ -440,7 +440,7 @@ export default function Login() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="请再次输入密码"
                   autoComplete="new-password"
-                  className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
+                  className="input-field text-sm"
                 />
               </div>
             )}

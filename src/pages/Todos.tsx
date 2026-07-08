@@ -186,7 +186,7 @@ export default function Todos() {
 
   const priorityColors: Record<string, string> = {
     urgent: 'border-l-red-500',
-    high: 'border-l-orange-400',
+    high: 'border-l-gold-400',
     medium: 'border-l-gold-400',
     low: 'border-l-forest-400',
   };

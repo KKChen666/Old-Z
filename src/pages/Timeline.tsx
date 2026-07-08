@@ -27,22 +27,22 @@ const eventIcons: Record<string, typeof Upload> = {
 };
 
 const eventColors: Record<string, string> = {
-  file_upload: 'text-blue-400 bg-blue-400/10 border-blue-400/30',
+  file_upload: 'text-forest-300 bg-forest-400/10 border-forest-400/30',
   todo_created: 'text-gold-400 bg-gold-400/10 border-gold-400/30',
   todo_completed: 'text-forest-400 bg-forest-400/10 border-forest-400/30',
   note_created: 'text-parchment-300 bg-parchment-300/10 border-parchment-300/30',
   note_edited: 'text-parchment-400 bg-parchment-400/10 border-parchment-400/30',
-  chat: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/30',
+  chat: 'text-forest-300 bg-forest-400/10 border-forest-400/30',
   ai_reminder: 'text-gold-300 bg-gold-300/10 border-gold-300/30',
 };
 
 const dotColors: Record<string, string> = {
-  file_upload: 'bg-blue-400',
+  file_upload: 'bg-forest-400',
   todo_created: 'bg-gold-400',
   todo_completed: 'bg-forest-400',
   note_created: 'bg-parchment-300',
   note_edited: 'bg-parchment-400',
-  chat: 'bg-cyan-400',
+  chat: 'bg-forest-400',
   ai_reminder: 'bg-gold-300',
 };
 

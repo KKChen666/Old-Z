@@ -1,65 +1,78 @@
 import { getToken, getEffectiveApiBase } from './api';
 
-// 跟踪本地 blob URL 以便清理
-const localBlobUrls: string[] = [];
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+}
 
-// 页面卸载时清理所有本地 blob URL
-if (typeof window !== 'undefined') {
-  window.addEventListener('beforeunload', () => {
-    localBlobUrls.forEach(url => URL.revokeObjectURL(url));
+export interface UploadCallbacks {
+  onProgress?: (progress: UploadProgress) => void;
+}
+
+/**
+ * 上传文件到 OSS（通过后端代理）
+ * 使用 XMLHttpRequest 以支持上传进度追踪。
+ * OSS 未配置时后端直接报错，不再回退到 base64 或本地 blob。
+ */
+export function uploadToOSS(
+  file: File,
+  folder: string = 'uploads',
+  callbacks?: UploadCallbacks
+): Promise<{ url: string; key: string }> {
+  return new Promise((resolve, reject) => {
+    const token = getToken();
+    const apiBase = getEffectiveApiBase();
+    const xhr = new XMLHttpRequest();
+
+    xhr.open('POST', `${apiBase}/files/upload`);
+
+    // 请求头
+    if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+    xhr.setRequestHeader('x-file-name', encodeURIComponent(file.name));
+    xhr.setRequestHeader('x-file-folder', folder);
+
+    // 上传进度
+    xhr.upload.onprogress = (e: ProgressEvent) => {
+      if (e.lengthComputable && callbacks?.onProgress) {
+        callbacks.onProgress({
+          loaded: e.loaded,
+          total: e.total,
+          percent: Math.round((e.loaded / e.total) * 100),
+        });
+      }
+    };
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && data.success) {
+          resolve(data.data);
+        } else {
+          reject(new Error(data.error || `上传失败 (${xhr.status})`));
+        }
+      } catch {
+        reject(new Error(`服务器响应异常 (${xhr.status})`));
+      }
+    };
+
+    xhr.onerror = () => {
+      reject(new Error('网络连接失败，无法上传文件'));
+    };
+
+    xhr.ontimeout = () => {
+      reject(new Error('上传超时，请检查网络状况'));
+    };
+
+    xhr.timeout = 120000; // 2 分钟超时
+
+    xhr.send(file);
   });
 }
 
 /**
- * 上传文件 — 通过后端代理上传到 OSS，凭证不暴露在前端
- * 后端 POST /api/files/upload 接收 raw binary，代传 OSS 后返回 URL
- */
-export async function uploadToOSS(
-  file: File,
-  folder: string = 'uploads'
-): Promise<{ url: string; key: string }> {
-  try {
-    const token = getToken();
-    const apiBase = getEffectiveApiBase();
-
-    const res = await fetch(`${apiBase}/files/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': token ? `Bearer ${token}` : '',
-        'Content-Type': file.type || 'application/octet-stream',
-        'x-file-name': encodeURIComponent(file.name),
-        'x-file-folder': folder,
-      },
-      body: file,
-    });
-
-    if (!res.ok) {
-      let errorMsg = `上传失败 ${res.status}`;
-      try {
-        const errorData = await res.json();
-        if (errorData.error) errorMsg = errorData.error;
-      } catch {}
-      throw new Error(errorMsg);
-    }
-
-    const data = await res.json();
-    if (!data.success) throw new Error(data.error || '上传失败');
-    return data.data;
-  } catch (error: any) {
-    // 网络错误或后端不可用时回退到本地预览
-    console.warn('Upload via backend failed, falling back to local preview:', error.message);
-    const blobUrl = URL.createObjectURL(file);
-    localBlobUrls.push(blobUrl);
-    return {
-      url: blobUrl,
-      key: `local/${file.name}`,
-    };
-  }
-}
-
-/**
- * 检查 OSS 是否已配置（后端配置）
- * 前端无法直接知道，默认返回 true 让上传尝试走后端
+ * OSS 是否已配置（由后端控制）
  */
 export function isOSSConfigured(): boolean {
   return true;

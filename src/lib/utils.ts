@@ -41,6 +41,40 @@ export function getDateLabel(dateStr: string): string {
   return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' });
 }
 
+/** 可通过 FileReader 读取为文本的扩展名 */
+const TEXT_READABLE_EXTENSIONS = new Set([
+  'txt', 'md', 'json', 'xml', 'csv', 'html', 'htm', 'css', 'svg',
+  'js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs',
+  'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'swift', 'kt',
+  'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+  'yml', 'yaml', 'toml', 'ini', 'conf', 'cfg', 'log', 'env',
+  'sql', 'graphql', 'proto',
+  'vue', 'svelte', 'astro',
+]);
+
+/** 判断文件扩展名是否可读取为文本 */
+export function isTextReadable(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return TEXT_READABLE_EXTENSIONS.has(ext);
+}
+
+/** 读取 File 对象的文本内容（限制 500KB，超出截断） */
+export function readFileText(file: File, maxBytes = 500_000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (!isTextReadable(file.name)) {
+      resolve('');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      resolve(text.slice(0, maxBytes));
+    };
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsText(file.slice(0, maxBytes));
+  });
+}
+
 /** 待办是否已过期 */
 export function isOverdue(todo: { dueDate?: string; status: string }): boolean {
   if (!todo.dueDate || todo.status === 'completed') return false;

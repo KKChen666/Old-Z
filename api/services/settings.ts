@@ -197,6 +197,71 @@ function readPath(value: any, path?: string) {
   return path.split('.').filter(Boolean).reduce((current, part) => current?.[part], value);
 }
 
+/** 从余额 API 响应中智能提取余额信息 */
+function extractBalance(parsed: any, rawPath?: string, presetPath?: string): { balance: string | null; currency: string; details: Record<string, string> } {
+  // 1. 优先使用用户配置的 balance_path
+  if (presetPath) {
+    const value = readPath(parsed, presetPath);
+    if (value !== undefined && value !== null) {
+      return {
+        balance: typeof value === 'object' ? JSON.stringify(value) : String(value),
+        currency: '',
+        details: {},
+      };
+    }
+  }
+
+  // 2. 常见格式：{ balance_infos: [{ currency, total_balance }] } — 硅基流动/国产 API 常见
+  if (Array.isArray(parsed?.balance_infos) && parsed.balance_infos.length > 0) {
+    const parts: string[] = [];
+    const details: Record<string, string> = {};
+    for (const info of parsed.balance_infos) {
+      const cur = info.currency || '';
+      const total = info.total_balance ?? info.total ?? info.balance ?? '';
+      const used = info.used_balance ?? info.used ?? info.consumed ?? '';
+      if (total !== '') parts.push(`${cur} ${total}`);
+      if (total !== '') details[`${cur}总额`] = String(total);
+      if (used !== '') details[`${cur}已用`] = String(used);
+      if (info.granted_balance !== undefined) details[`${cur}赠送`] = String(info.granted_balance);
+      if (info.topped_up_balance !== undefined) details[`${cur}充值`] = String(info.topped_up_balance);
+    }
+    return {
+      balance: parts.join(' / '),
+      currency: parsed.balance_infos[0]?.currency || '',
+      details,
+    };
+  }
+
+  // 3. 常见格式：{ total_balance, total_used, total_available } — OpenAI 计费 API 常见
+  if (parsed?.total_available !== undefined || parsed?.total_granted !== undefined) {
+    const granted = parsed.total_granted ?? parsed.total_available ?? '';
+    const used = parsed.total_used ?? '';
+    const remaining = parsed.total_available ?? parsed.total_remaining ?? '';
+    const details: Record<string, string> = {};
+    if (granted !== '') details['总额度'] = typeof granted === 'number' ? `$${granted.toFixed(2)}` : String(granted);
+    if (used !== '') details['已使用'] = typeof used === 'number' ? `$${used.toFixed(2)}` : String(used);
+    if (remaining !== '') details['剩余'] = typeof remaining === 'number' ? `$${remaining.toFixed(2)}` : String(remaining);
+    return {
+      balance: details['剩余'] || details['总额度'] || '',
+      currency: 'USD',
+      details,
+    };
+  }
+
+  // 4. 简单格式：{ balance: xxx } 或 { data: { balance: xxx } }
+  const balanceValue = parsed?.balance ?? parsed?.data?.balance ?? parsed?.credits ?? parsed?.data?.credits;
+  if (balanceValue !== undefined && balanceValue !== null) {
+    return {
+      balance: String(balanceValue),
+      currency: parsed?.currency || '',
+      details: { '余额': String(balanceValue) },
+    };
+  }
+
+  // 5. 无法识别，返回空让前端展示原始 JSON
+  return { balance: null, currency: '', details: {} };
+}
+
 function replaceVars(text: string, preset: LlmPreset) {
   return text
     .split('{apiKey}').join(preset.api_key || '')
@@ -204,14 +269,28 @@ function replaceVars(text: string, preset: LlmPreset) {
     .split('{model}').join(preset.model || '');
 }
 
-export async function fetchLlmBalance(preset: LlmPreset): Promise<any> {
-  const normalized = normalizePreset(preset);
+export async function fetchLlmBalance(rawPreset: any): Promise<any> {
+  const normalized = normalizePreset(rawPreset);
   if (!normalized.balance_url) throw new Error('请先填写余额查询接口');
+
+  // 前端传来的 api_key 可能是脱敏的（sk-***xxxx），需要从数据库取真实 key
+  let apiKey = normalized.api_key || '';
+  if (apiKey.includes('***') && normalized.id) {
+    const [rows] = await pool.execute(
+      'SELECT api_key FROM quantlife_llm_presets WHERE id = ?',
+      [normalized.id]
+    );
+    const dbRow = (rows as any[])[0];
+    if (dbRow?.api_key && !dbRow.api_key.includes('***')) {
+      apiKey = dbRow.api_key;
+    }
+  }
+  const effectivePreset: LlmPreset = { ...normalized, api_key: apiKey };
 
   // SSRF 防护：解析 URL，拒绝私有 IP 和非 HTTP(S) 协议
   let targetUrl: URL;
   try {
-    targetUrl = new URL(replaceVars(normalized.balance_url, normalized));
+    targetUrl = new URL(replaceVars(effectivePreset.balance_url!, effectivePreset));
   } catch {
     throw new Error('余额查询接口 URL 格式无效');
   }
@@ -231,19 +310,19 @@ export async function fetchLlmBalance(preset: LlmPreset): Promise<any> {
   }
 
   let headers: Record<string, string> = {};
-  if (normalized.balance_headers?.trim()) {
+  if (effectivePreset.balance_headers?.trim()) {
     try {
-      headers = JSON.parse(replaceVars(normalized.balance_headers, normalized));
+      headers = JSON.parse(replaceVars(effectivePreset.balance_headers, effectivePreset));
     } catch {
       throw new Error('余额查询 Headers 必须是 JSON 对象');
     }
   }
 
-  const res = await fetch(replaceVars(normalized.balance_url, normalized), {
-    method: normalized.balance_method || 'GET',
+  const res = await fetch(replaceVars(effectivePreset.balance_url!, effectivePreset), {
+    method: effectivePreset.balance_method || 'GET',
     headers,
-    body: normalized.balance_method === 'POST' && normalized.balance_body
-      ? replaceVars(normalized.balance_body, normalized)
+    body: effectivePreset.balance_method === 'POST' && effectivePreset.balance_body
+      ? replaceVars(effectivePreset.balance_body, effectivePreset)
       : undefined,
   });
 
@@ -258,7 +337,7 @@ export async function fetchLlmBalance(preset: LlmPreset): Promise<any> {
   }
 
   return {
-    value: readPath(parsed, normalized.balance_path),
-    raw: parsed,
+    ...extractBalance(parsed, undefined, effectivePreset.balance_path),
+    raw: typeof parsed === 'string' ? { text } : parsed,
   };
 }

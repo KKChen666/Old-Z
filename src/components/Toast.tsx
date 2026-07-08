@@ -85,7 +85,7 @@ function ToastContainer() {
   const typeStyles: Record<ToastType, string> = {
     success: 'bg-forest-900/90 text-parchment-100 border-forest-700',
     error: 'bg-red-900/90 text-parchment-100 border-red-700',
-    warning: 'bg-old-900/90 text-parchment-100 border-old-700',
+    warning: 'bg-gold-900/90 text-parchment-100 border-gold-700',
     info: 'bg-ink-800/90 text-parchment-100 border-ink-700',
   };
 

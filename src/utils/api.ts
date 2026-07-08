@@ -221,6 +221,9 @@ export const api = {
   renameChatConversation: (id: string, title: string) =>
     request<void>(`/chat/conversations/${id}`, { method: 'PATCH', body: JSON.stringify({ title }) }),
   deleteChatConversation: (id: string) => request<void>(`/chat/conversations/${id}`, { method: 'DELETE' }),
+  deleteChatMessage: (id: string) => request<void>(`/chat/messages/${id}`, { method: 'DELETE' }),
+  withdrawChatExchange: (conversationId: string) =>
+    request<{ deleted: number }>('/chat/withdraw', { method: 'POST', body: JSON.stringify({ conversationId }) }),
   chat: {
     send: (content: string, options?: { scope?: 'global' | 'note'; noteId?: string; conversationId?: string; references?: ChatReference[] }) =>
       request<{ conversation: ChatConversation; userMessage: any; aiMessage: any }>('/chat', { method: 'POST', body: JSON.stringify({ content, ...options }) }),

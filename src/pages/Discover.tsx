@@ -44,7 +44,7 @@ export default function Discover() {
       icon: Clock,
       label: '时间轴',
       description: '回顾最近的内容变化',
-      accent: 'text-sky-300 bg-sky-500/15',
+      accent: 'text-forest-300 bg-forest-800/30',
       count: timeline.length,
     },
   ];

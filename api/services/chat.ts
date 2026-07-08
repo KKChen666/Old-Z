@@ -436,6 +436,22 @@ export async function loadNoteMeta(userId: string, noteId: string): Promise<{ id
   return { id: note.id, title: note.title };
 }
 
+/** 可通过 fetch 读取为文本的文件扩展名 */
+const TEXT_READABLE_EXTENSIONS = new Set([
+  'txt', 'md', 'json', 'xml', 'csv', 'html', 'htm', 'css', 'svg',
+  'js', 'ts', 'jsx', 'tsx', 'mjs', 'cjs',
+  'py', 'rb', 'go', 'rs', 'java', 'c', 'cpp', 'h', 'hpp', 'cs', 'swift', 'kt',
+  'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+  'yml', 'yaml', 'toml', 'ini', 'conf', 'cfg', 'log', 'env',
+  'sql', 'graphql', 'proto',
+  'vue', 'svelte', 'astro',
+]);
+
+function isTextReadableFile(filename: string): boolean {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  return TEXT_READABLE_EXTENSIONS.has(ext);
+}
+
 export function normalizeChatReferences(input: any): ChatReferenceInput[] {
   if (!Array.isArray(input)) return [];
   const seen = new Set<string>();
@@ -508,7 +524,34 @@ export async function loadChatReferenceDetails(
        GROUP BY f.id`,
       [userId, ...fileIds]
     );
-    (rows as any[]).forEach((file) => {
+
+    // 对文本类文件，如果 content 为空但有 OSS URL，尝试实时抓取内容
+    const contentFetchPromises = (rows as any[]).map(async (file) => {
+      if (file.content || !file.url) return file;
+      if (!isTextReadableFile(file.name)) return file;
+      try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 8000);
+        const res = await fetch(file.url, { signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) return file;
+        const text = await res.text();
+        const trimmed = text.trim().slice(0, 500_000);
+        if (trimmed) {
+          // 缓存到数据库，下次引用无需再抓取
+          pool.execute('UPDATE files SET content = ? WHERE id = ?', [trimmed, file.id])
+            .catch(() => { /* 静默失败，不阻塞主流程 */ });
+          return { ...file, content: trimmed };
+        }
+      } catch (e: any) {
+        console.error(`[chat] Failed to fetch file content for ${file.name}:`, e?.message || e);
+      }
+      return file;
+    });
+
+    const filesWithContent = await Promise.all(contentFetchPromises);
+
+    filesWithContent.forEach((file) => {
       const tags = file.tags ? `；标签：${file.tags}` : '';
       const content = file.content ? `\n内容：${String(file.content).slice(0, 6000)}` : '';
       details.set(`file:${file.id}`, {
@@ -570,6 +613,37 @@ export async function saveAiMessage(
     [msgId, 'assistant', content, now, userId, options.scope || 'global', options.noteId || null, options.conversationId || null]
   );
   return now;
+}
+
+export async function deleteChatMessage(userId: string, messageId: string): Promise<boolean> {
+  const [result] = await pool.execute(
+    'DELETE FROM chat_messages WHERE id = ? AND user_id = ?',
+    [messageId, userId]
+  );
+  return (result as any).affectedRows > 0;
+}
+
+export async function deleteLastExchange(userId: string, conversationId: string): Promise<number> {
+  // 找到该对话最后一条用户消息和 AI 回复，一并删除
+  const [userMsgs] = await pool.execute(
+    `SELECT id FROM chat_messages
+     WHERE user_id = ? AND conversation_id = ? AND role = 'user'
+     ORDER BY timestamp DESC LIMIT 1`,
+    [userId, conversationId]
+  );
+  const [aiMsgs] = await pool.execute(
+    `SELECT id FROM chat_messages
+     WHERE user_id = ? AND conversation_id = ? AND role = 'assistant'
+     ORDER BY timestamp DESC LIMIT 1`,
+    [userId, conversationId]
+  );
+
+  let deleted = 0;
+  for (const row of [...(userMsgs as any[]), ...(aiMsgs as any[])]) {
+    const [r] = await pool.execute('DELETE FROM chat_messages WHERE id = ? AND user_id = ?', [row.id, userId]);
+    deleted += (r as any).affectedRows;
+  }
+  return deleted;
 }
 
 export async function createChatTimelineEvent(userId: string): Promise<void> {

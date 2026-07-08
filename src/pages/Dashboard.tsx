@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useAppStore } from '@/stores/useAppStore';
 import { uploadToOSS } from '@/utils/oss';
+import type { UploadProgress } from '@/utils/oss';
 import {
   CheckCircle2,
   Circle,
@@ -17,7 +18,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import type { Todo } from '@/types';
-import { getFileType, getDateLabel, isOverdue } from '@/lib/utils';
+import { getFileType, getDateLabel, isOverdue, readFileText } from '@/lib/utils';
 import { toast } from '@/components/Toast';
 
 function todayStr(): string {
@@ -44,6 +45,9 @@ export default function Dashboard() {
   const [isDragging, setIsDragging] = useState(false);
   const [dropMessage, setDropMessage] = useState('');
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadTotal, setUploadTotal] = useState(0);
+  const [uploadCompleted, setUploadCompleted] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -114,15 +118,23 @@ export default function Dashboard() {
       const droppedText = e.dataTransfer.getData('text/plain');
 
       if (droppedFiles.length > 0) {
-        setDropMessage(`正在上传 ${droppedFiles.length} 个文件到云端...`);
+        setUploadProgress(0);
+        setUploadTotal(droppedFiles.length);
+        setUploadCompleted(0);
+        setDropMessage(`正在上传 ${droppedFiles.length} 个文件...`);
         try {
-          await Promise.all(droppedFiles.map(async (file) => {
+          for (let i = 0; i < droppedFiles.length; i++) {
+            const file = droppedFiles[i];
             const fileType = getFileType(file.name);
-            const { url } = await uploadToOSS(file);
+            const { url } = await uploadToOSS(file, 'uploads', {
+              onProgress: (p: UploadProgress) => setUploadProgress(p.percent),
+            });
+            const content = await readFileText(file);
             const newFile = {
               id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
               name: file.name, type: fileType, size: file.size,
               tags: ['拖拽上传'], url,
+              content: content || undefined,
               createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
             };
             addFile(newFile);
@@ -131,12 +143,14 @@ export default function Dashboard() {
               type: 'file_upload', title: `上传了 ${file.name}`,
               relatedId: newFile.id, timestamp: new Date().toISOString(),
             });
-          }));
+            setUploadCompleted(i + 1);
+            setUploadProgress(100);
+          }
           setDropMessage(`已成功上传 ${droppedFiles.length} 个文件`);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Upload error:', error);
-          setDropMessage('上传失败，请检查OSS配置');
-          toast.error('文件上传失败，请检查 OSS 配置');
+          setDropMessage('上传失败');
+          toast.error(error?.message || '文件上传失败，请检查网络或 OSS 配置');
         }
       } else if (droppedText) {
         const newFile = {
@@ -158,16 +172,25 @@ export default function Dashboard() {
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const selectedFiles = e.target.files;
       if (!selectedFiles || selectedFiles.length === 0) return;
+      const filesArr = Array.from(selectedFiles);
       setUploading(true);
-      setDropMessage(`正在上传 ${selectedFiles.length} 个文件到云端...`);
+      setUploadProgress(0);
+      setUploadTotal(filesArr.length);
+      setUploadCompleted(0);
+      setDropMessage(`正在上传 ${filesArr.length} 个文件...`);
       try {
-        await Promise.all(Array.from(selectedFiles).map(async (file) => {
+        for (let i = 0; i < filesArr.length; i++) {
+          const file = filesArr[i];
           const fileType = getFileType(file.name);
-          const { url } = await uploadToOSS(file);
+          const { url } = await uploadToOSS(file, 'uploads', {
+            onProgress: (p: UploadProgress) => setUploadProgress(p.percent),
+          });
+          const content = await readFileText(file);
           const newFile = {
             id: `f-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             name: file.name, type: fileType, size: file.size,
             tags: ['本地上传'], url,
+            content: content || undefined,
             createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
           };
           addFile(newFile);
@@ -176,12 +199,14 @@ export default function Dashboard() {
             type: 'file_upload', title: `上传了 ${file.name}`,
             relatedId: newFile.id, timestamp: new Date().toISOString(),
           });
-        }));
-        setDropMessage(`已成功上传 ${selectedFiles.length} 个文件`);
-      } catch (error) {
+          setUploadCompleted(i + 1);
+          setUploadProgress(100);
+        }
+        setDropMessage(`已成功上传 ${filesArr.length} 个文件`);
+      } catch (error: any) {
         console.error('Upload error:', error);
-        setDropMessage('上传失败，请检查网络或OSS配置');
-        toast.error('文件上传失败，请检查网络或 OSS 配置');
+        setDropMessage('上传失败');
+        toast.error(error?.message || '文件上传失败，请检查网络或 OSS 配置');
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
@@ -257,6 +282,24 @@ export default function Dashboard() {
         {dropMessage && (
           <div className="mt-2 px-4 py-1.5 bg-forest-800/40 rounded-lg text-forest-200 text-xs animate-fade-in">
             {dropMessage}
+          </div>
+        )}
+        {uploading && (
+          <div className="mt-2 space-y-1">
+            <div className="flex items-center justify-between text-xs text-parchment-400">
+              <span>
+                {uploadTotal > 1
+                  ? `${uploadCompleted + 1}/${uploadTotal}`
+                  : '上传中'}
+              </span>
+              <span>{uploadProgress}%</span>
+            </div>
+            <div className="h-1.5 rounded-full bg-ink-800 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-gold-400 to-forest-400 transition-all duration-300 ease-out"
+                style={{ width: `${uploadProgress}%` }}
+              />
+            </div>
           </div>
         )}
       </div>
