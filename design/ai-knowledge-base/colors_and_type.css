@@ -1,0 +1,162 @@
+/* Apple Copy Design Tokens */
+:root {
+  /* Brand */
+  --apple-brand-50: #e8f2ff;
+  --apple-brand-100: #cfe5ff;
+  --apple-brand-200: #9fcbff;
+  --apple-brand-300: #66abff;
+  --apple-brand-400: #2e8dff;
+  --apple-brand-500: #007aff;
+  --apple-brand-600: #0064d6;
+  --apple-brand-700: #004fad;
+  --apple-brand-800: #003b82;
+  --apple-brand-900: #00275a;
+
+  /* Background */
+  --apple-bg-50: #ffffff;
+  --apple-bg-100: #f7f7fa;
+  --apple-bg-200: #f2f2f7;
+  --apple-bg-300: #e5e5ea;
+  --apple-bg-400: #d1d1d6;
+  --apple-bg-500: #aeaeb2;
+  --apple-bg-600: #8e8e93;
+  --apple-bg-700: #3a3a3c;
+  --apple-bg-800: #1c1c1e;
+  --apple-bg-900: #000000;
+
+  /* Text */
+  --apple-text-50: #f5f5f7;
+  --apple-text-100: #e3e3e8;
+  --apple-text-200: #c7c7cc;
+  --apple-text-300: #aeaeb2;
+  --apple-text-400: #8e8e93;
+  --apple-text-500: #6e6e73;
+  --apple-text-600: #48484a;
+  --apple-text-700: #3c3c43;
+  --apple-text-800: #1d1d1f;
+  --apple-text-900: #000000;
+
+  /* Icon */
+  --apple-icon-50: #f5f5f7;
+  --apple-icon-100: #e5e5ea;
+  --apple-icon-200: #d1d1d6;
+  --apple-icon-300: #c7c7cc;
+  --apple-icon-400: #aeaeb2;
+  --apple-icon-500: #8e8e93;
+  --apple-icon-600: #6e6e73;
+  --apple-icon-700: #48484a;
+  --apple-icon-800: #2c2c2e;
+  --apple-icon-900: #1d1d1f;
+
+  /* State */
+  --apple-success: #34c759;
+  --apple-success-dark: #30d158;
+  --apple-success-surface: #e9f9ee;
+  --apple-success-foreground: #ffffff;
+  --apple-error: #ff3b30;
+  --apple-error-dark: #ff453a;
+  --apple-error-surface: #ffecea;
+  --apple-error-foreground: #ffffff;
+
+  /* Sidebar */
+  --apple-sidebar: #f2f2f7;
+  --apple-sidebar-foreground: #1d1d1f;
+  --apple-sidebar-border: #e5e5ea;
+  --apple-sidebar-accent: #e5e5ea;
+  --apple-sidebar-accent-foreground: #1d1d1f;
+  --apple-sidebar-primary: #007aff;
+  --apple-sidebar-primary-foreground: #ffffff;
+  --apple-sidebar-ring: #007aff;
+
+  /* Semantic */
+  --apple-primary: var(--apple-brand-500);
+  --apple-primary-hover: var(--apple-brand-600);
+  --apple-primary-active: var(--apple-brand-700);
+  --apple-primary-light: var(--apple-brand-50);
+  --apple-background: var(--apple-bg-50);
+  --apple-background-secondary: var(--apple-bg-200);
+  --apple-surface: var(--apple-bg-50);
+  --apple-surface-hover: var(--apple-bg-100);
+  --apple-border: var(--apple-bg-300);
+  --apple-border-light: var(--apple-bg-200);
+  --apple-foreground: var(--apple-text-800);
+  --apple-foreground-secondary: var(--apple-text-500);
+  --apple-foreground-muted: var(--apple-text-400);
+  --apple-foreground-placeholder: var(--apple-text-300);
+
+  /* Chart */
+  --apple-chart-1: #30d158;
+  --apple-chart-2: #2e8dff;
+  --apple-chart-3: #ff9f0a;
+  --apple-chart-4: #5e5ce6;
+  --apple-chart-5: #bf5af2;
+
+  /* Radius */
+  --apple-radius-sm: 6px;
+  --apple-radius-md: 12px;
+  --apple-radius-lg: 16px;
+  --apple-radius-xl: 19.2px;
+  --apple-radius-full: 9999px;
+
+  /* Shadow */
+  --apple-shadow-hairline: 0 1px 2px -1px rgba(0,0,0,0.04);
+  --apple-shadow-subtle: 0 1px 2px rgba(0,0,0,0.04);
+  --apple-shadow-card: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px -1px rgba(0,0,0,0.05);
+  --apple-shadow-raised: 0 2px 4px -1px rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.05);
+  --apple-shadow-hover: 0 4px 8px -2px rgba(0,0,0,0.06), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --apple-shadow-float: 0 8px 24px -8px rgba(0,0,0,0.08), 0 4px 8px -4px rgba(0,0,0,0.05);
+  --apple-shadow-overlay: 0 16px 40px -10px rgba(0,0,0,0.10), 0 8px 16px -8px rgba(0,0,0,0.06);
+  --apple-shadow-modal: 0 24px 64px -12px rgba(0,0,0,0.12);
+
+  /* Spacing */
+  --apple-spacing-1: 3.84px;
+  --apple-spacing-2: 7.68px;
+  --apple-spacing-3: 11.52px;
+  --apple-spacing-4: 15.36px;
+  --apple-spacing-5: 19.2px;
+  --apple-spacing-6: 23.04px;
+  --apple-spacing-8: 30.72px;
+  --apple-spacing-10: 38.4px;
+  --apple-spacing-12: 46.08px;
+  --apple-spacing-16: 61.44px;
+  --apple-spacing-20: 76.8px;
+
+  /* Typography */
+  --apple-font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --apple-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  /* Type Scale */
+  --apple-text-xs: 0.75rem;
+  --apple-text-sm: 0.8125rem;
+  --apple-text-base: 0.9375rem;
+  --apple-text-lg: 1.0625rem;
+  --apple-text-xl: 1.25rem;
+  --apple-text-2xl: 1.5rem;
+  --apple-text-3xl: 1.875rem;
+  --apple-text-4xl: 2.25rem;
+
+  /* Density */
+  --apple-control-height: 36px;
+  --apple-control-height-lg: 44px;
+}
+
+/* Dark Mode */
+.dark {
+  --apple-background: #000000;
+  --apple-background-secondary: #1c1c1e;
+  --apple-surface: #1c1c1e;
+  --apple-surface-hover: #2c2c2e;
+  --apple-border: #3a3a3c;
+  --apple-border-light: #2c2c2e;
+  --apple-foreground: #f5f5f7;
+  --apple-foreground-secondary: #8e8e93;
+  --apple-foreground-muted: #6e6e73;
+  --apple-foreground-placeholder: #48484a;
+  --apple-primary: #2e8dff;
+
+  --apple-sidebar: #0d0d0d;
+  --apple-sidebar-foreground: #f5f5f7;
+  --apple-sidebar-border: #2c2c2e;
+  --apple-sidebar-accent: #1c1c1e;
+  --apple-sidebar-accent-foreground: #f5f5f7;
+}

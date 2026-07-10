@@ -1,0 +1,20 @@
+{
+  "root": {
+    "nodeId": "gen-project-shell",
+    "kind": "project-shell",
+    "pageIds": ["page-workspace","page-files","page-todos","page-note-editor","page-ai-chat","page-timeline"],
+    "output": "partials/project-shell.html",
+    "sharedRegions": ["sidebar", "top-bar"],
+    "privateRegions": [],
+    "mutableSlots": ["activeNavItem", "pageTitle"],
+    "status": "generated",
+    "children": [
+      { "nodeId": "gen-page-workspace", "kind": "page-leaf", "pageIds": ["page-workspace"], "output": "pages/workspace.html", "sharedRegions": [], "privateRegions": ["workspace content"], "mutableSlots": ["activeNavItem", "pageTitle"], "status": "planned", "children": [] },
+      { "nodeId": "gen-page-files", "kind": "page-leaf", "pageIds": ["page-files"], "output": "pages/files.html", "sharedRegions": [], "privateRegions": ["files content"], "mutableSlots": ["activeNavItem", "pageTitle"], "status": "planned", "children": [] },
+      { "nodeId": "gen-page-todos", "kind": "page-leaf", "pageIds": ["page-todos"], "output": "pages/todos.html", "sharedRegions": [], "privateRegions": ["todos content"], "mutableSlots": ["activeNavItem", "pageTitle"], "status": "planned", "children": [] },
+      { "nodeId": "gen-page-note-editor", "kind": "page-leaf", "pageIds": ["page-note-editor"], "output": "pages/note-editor.html", "sharedRegions": [], "privateRegions": ["editor content"], "mutableSlots": ["activeNavItem", "pageTitle"], "status": "planned", "children": [] },
+      { "nodeId": "gen-page-ai-chat", "kind": "page-leaf", "pageIds": ["page-ai-chat"], "output": "pages/ai-chat.html", "sharedRegions": [], "privateRegions": ["chat content"], "mutableSlots": ["activeNavItem", "pageTitle"], "status": "planned", "children": [] },
+      { "nodeId": "gen-page-timeline", "kind": "page-leaf", "pageIds": ["page-timeline"], "output": "pages/timeline.html", "sharedRegions": [], "privateRegions": ["timeline content"], "mutableSlots": ["activeNavItem", "pageTitle"], "status": "planned", "children": [] }
+    ]
+  }
+}

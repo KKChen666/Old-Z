@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html class="light" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>待办管理</title>
+    <style id="theme-vars">
+/* Apple Copy Design Tokens */
+:root {
+  /* Brand */
+  --apple-brand-50: #e8f2ff;
+  --apple-brand-100: #cfe5ff;
+  --apple-brand-200: #9fcbff;
+  --apple-brand-300: #66abff;
+  --apple-brand-400: #2e8dff;
+  --apple-brand-500: #007aff;
+  --apple-brand-600: #0064d6;
+  --apple-brand-700: #004fad;
+  --apple-brand-800: #003b82;
+  --apple-brand-900: #00275a;
+
+  /* Background */
+  --apple-bg-50: #ffffff;
+  --apple-bg-100: #f7f7fa;
+  --apple-bg-200: #f2f2f7;
+  --apple-bg-300: #e5e5ea;
+  --apple-bg-400: #d1d1d6;
+  --apple-bg-500: #aeaeb2;
+  --apple-bg-600: #8e8e93;
+  --apple-bg-700: #3a3a3c;
+  --apple-bg-800: #1c1c1e;
+  --apple-bg-900: #000000;
+
+  /* Text */
+  --apple-text-50: #f5f5f7;
+  --apple-text-100: #e3e3e8;
+  --apple-text-200: #c7c7cc;
+  --apple-text-300: #aeaeb2;
+  --apple-text-400: #8e8e93;
+  --apple-text-500: #6e6e73;
+  --apple-text-600: #48484a;
+  --apple-text-700: #3c3c43;
+  --apple-text-800: #1d1d1f;
+  --apple-text-900: #000000;
+
+  /* Icon */
+  --apple-icon-50: #f5f5f7;
+  --apple-icon-100: #e5e5ea;
+  --apple-icon-200: #d1d1d6;
+  --apple-icon-300: #c7c7cc;
+  --apple-icon-400: #aeaeb2;
+  --apple-icon-500: #8e8e93;
+  --apple-icon-600: #6e6e73;
+  --apple-icon-700: #48484a;
+  --apple-icon-800: #2c2c2e;
+  --apple-icon-900: #1d1d1f;
+
+  /* State */
+  --apple-success: #34c759;
+  --apple-success-dark: #30d158;
+  --apple-success-surface: #e9f9ee;
+  --apple-success-foreground: #ffffff;
+  --apple-error: #ff3b30;
+  --apple-error-dark: #ff453a;
+  --apple-error-surface: #ffecea;
+  --apple-error-foreground: #ffffff;
+
+  /* Sidebar */
+  --apple-sidebar: #f2f2f7;
+  --apple-sidebar-foreground: #1d1d1f;
+  --apple-sidebar-border: #e5e5ea;
+  --apple-sidebar-accent: #e5e5ea;
+  --apple-sidebar-accent-foreground: #1d1d1f;
+  --apple-sidebar-primary: #007aff;
+  --apple-sidebar-primary-foreground: #ffffff;
+  --apple-sidebar-ring: #007aff;
+
+  /* Semantic */
+  --apple-primary: var(--apple-brand-500);
+  --apple-primary-hover: var(--apple-brand-600);
+  --apple-primary-active: var(--apple-brand-700);
+  --apple-primary-light: var(--apple-brand-50);
+  --apple-background: var(--apple-bg-50);
+  --apple-background-secondary: var(--apple-bg-200);
+  --apple-surface: var(--apple-bg-50);
+  --apple-surface-hover: var(--apple-bg-100);
+  --apple-border: var(--apple-bg-300);
+  --apple-border-light: var(--apple-bg-200);
+  --apple-foreground: var(--apple-text-800);
+  --apple-foreground-secondary: var(--apple-text-500);
+  --apple-foreground-muted: var(--apple-text-400);
+  --apple-foreground-placeholder: var(--apple-text-300);
+
+  /* Chart */
+  --apple-chart-1: #30d158;
+  --apple-chart-2: #2e8dff;
+  --apple-chart-3: #ff9f0a;
+  --apple-chart-4: #5e5ce6;
+  --apple-chart-5: #bf5af2;
+
+  /* Radius */
+  --apple-radius-sm: 6px;
+  --apple-radius-md: 12px;
+  --apple-radius-lg: 16px;
+  --apple-radius-xl: 19.2px;
+  --apple-radius-full: 9999px;
+
+  /* Shadow */
+  --apple-shadow-hairline: 0 1px 2px -1px rgba(0,0,0,0.04);
+  --apple-shadow-subtle: 0 1px 2px rgba(0,0,0,0.04);
+  --apple-shadow-card: 0 1px 2px rgba(0,0,0,0.05), 0 1px 3px -1px rgba(0,0,0,0.05);
+  --apple-shadow-raised: 0 2px 4px -1px rgba(0,0,0,0.06), 0 1px 2px -1px rgba(0,0,0,0.05);
+  --apple-shadow-hover: 0 4px 8px -2px rgba(0,0,0,0.06), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --apple-shadow-float: 0 8px 24px -8px rgba(0,0,0,0.08), 0 4px 8px -4px rgba(0,0,0,0.05);
+  --apple-shadow-overlay: 0 16px 40px -10px rgba(0,0,0,0.10), 0 8px 16px -8px rgba(0,0,0,0.06);
+  --apple-shadow-modal: 0 24px 64px -12px rgba(0,0,0,0.12);
+
+  /* Spacing */
+  --apple-spacing-1: 3.84px;
+  --apple-spacing-2: 7.68px;
+  --apple-spacing-3: 11.52px;
+  --apple-spacing-4: 15.36px;
+  --apple-spacing-5: 19.2px;
+  --apple-spacing-6: 23.04px;
+  --apple-spacing-8: 30.72px;
+  --apple-spacing-10: 38.4px;
+  --apple-spacing-12: 46.08px;
+  --apple-spacing-16: 61.44px;
+  --apple-spacing-20: 76.8px;
+
+  /* Typography */
+  --apple-font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', system-ui, sans-serif;
+  --apple-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+
+  /* Type Scale */
+  --apple-text-xs: 0.75rem;
+  --apple-text-sm: 0.8125rem;
+  --apple-text-base: 0.9375rem;
+  --apple-text-lg: 1.0625rem;
+  --apple-text-xl: 1.25rem;
+  --apple-text-2xl: 1.5rem;
+  --apple-text-3xl: 1.875rem;
+  --apple-text-4xl: 2.25rem;
+
+  /* Density */
+  --apple-control-height: 36px;
+  --apple-control-height-lg: 44px;
+}
+
+/* Dark Mode */
+.dark {
+  --apple-background: #000000;
+  --apple-background-secondary: #1c1c1e;
+  --apple-surface: #1c1c1e;
+  --apple-surface-hover: #2c2c2e;
+  --apple-border: #3a3a3c;
+  --apple-border-light: #2c2c2e;
+  --apple-foreground: #f5f5f7;
+  --apple-foreground-secondary: #8e8e93;
+  --apple-foreground-muted: #6e6e73;
+  --apple-foreground-placeholder: #48484a;
+  --apple-primary: #2e8dff;
+
+  --apple-sidebar: #0d0d0d;
+  --apple-sidebar-foreground: #f5f5f7;
+  --apple-sidebar-border: #2c2c2e;
+  --apple-sidebar-accent: #1c1c1e;
+  --apple-sidebar-accent-foreground: #f5f5f7;
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-background: var(--apple-background);
+    --color-foreground: var(--apple-foreground);
+    --color-primary: var(--apple-primary);
+    --color-border: var(--apple-border);
+    --color-chart-1: var(--apple-chart-1);
+    --color-chart-2: var(--apple-chart-2);
+    --color-chart-3: var(--apple-chart-3);
+    --color-chart-4: var(--apple-chart-4);
+    --color-chart-5: var(--apple-chart-5);
+    --color-sidebar: var(--apple-sidebar);
+    --color-sidebar-foreground: var(--apple-sidebar-foreground);
+    --color-sidebar-primary: var(--apple-sidebar-primary);
+    --color-sidebar-primary-foreground: var(--apple-sidebar-primary-foreground);
+    --color-sidebar-accent: var(--apple-sidebar-accent);
+    --color-sidebar-accent-foreground: var(--apple-sidebar-accent-foreground);
+  }
+  @layer base {
+    body { background: var(--apple-background); color: var(--apple-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body>
+<div class="flex h-screen w-full overflow-hidden"
+     style="background-color: var(--apple-background); font-family: var(--apple-font-sans); color: var(--apple-foreground);">
+
+  <!-- ===================== PRIVATE REGION: sidebar ===================== -->
+  <aside class="flex flex-col shrink-0 w-16 lg:w-60 h-full border-r"
+         style="background-color: var(--apple-sidebar); border-color: var(--apple-sidebar-border);">
+
+    <!-- Brand mark -->
+    <div class="flex items-center gap-2.5 h-16 shrink-0 px-3 lg:px-5">
+      <span class="flex items-center justify-center w-9 h-9 shrink-0 rounded-[var(--apple-radius-md)]"
+            style="background-color: var(--apple-primary);">
+        <i data-lucide="book-open-text" class="w-[18px] h-[18px]" style="color: var(--apple-surface);"></i>
+      </span>
+      <span class="hidden lg:block text-[15px] font-semibold truncate"
+            style="color: var(--apple-sidebar-foreground);">知识工作台</span>
+    </div>
+
+    <!-- Primary navigation -->
+    <nav class="flex flex-col gap-1 px-2 lg:px-3 mt-2" aria-label="主导航">
+      <a id="sidebar-workspace" data-dom-id="sidebar-workspace" data-nav-key="workspace" tabindex="0"
+         class="nav-item flex items-center justify-center lg:justify-start gap-3 h-10 px-0 lg:px-3 cursor-pointer rounded-[var(--apple-radius-md)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+         style="color: var(--apple-sidebar-foreground);" title="工作台">
+        <i data-lucide="layout-grid" class="w-[18px] h-[18px] shrink-0"></i>
+        <span class="hidden lg:block text-[14px] font-medium truncate">工作台</span>
+      </a>
+
+      <a id="sidebar-files" data-dom-id="sidebar-files" data-nav-key="files" tabindex="0"
+         class="nav-item flex items-center justify-center lg:justify-start gap-3 h-10 px-0 lg:px-3 cursor-pointer rounded-[var(--apple-radius-md)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+         style="color: var(--apple-sidebar-foreground);" title="文件中心">
+        <i data-lucide="folder-open" class="w-[18px] h-[18px] shrink-0"></i>
+        <span class="hidden lg:block text-[14px] font-medium truncate">文件中心</span>
+      </a>
+
+      <a id="sidebar-todos" data-dom-id="sidebar-todos" data-nav-key="todos" data-active="true" tabindex="0"
+         class="nav-item flex items-center justify-center lg:justify-start gap-3 h-10 px-0 lg:px-3 cursor-pointer rounded-[var(--apple-radius-md)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+         style="color: var(--apple-sidebar-foreground);" title="待办">
+        <i data-lucide="square-check-big" class="w-[18px] h-[18px] shrink-0"></i>
+        <span class="hidden lg:block text-[14px] font-medium truncate">待办</span>
+      </a>
+
+      <a id="sidebar-note-editor" data-dom-id="sidebar-note-editor" data-nav-key="note-editor" tabindex="0"
+         class="nav-item flex items-center justify-center lg:justify-start gap-3 h-10 px-0 lg:px-3 cursor-pointer rounded-[var(--apple-radius-md)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+         style="color: var(--apple-sidebar-foreground);" title="笔记">
+        <i data-lucide="square-pen" class="w-[18px] h-[18px] shrink-0"></i>
+        <span class="hidden lg:block text-[14px] font-medium truncate">笔记</span>
+      </a>
+
+      <a id="sidebar-ai-chat" data-dom-id="sidebar-ai-chat" data-nav-key="ai-chat" tabindex="0"
+         class="nav-item flex items-center justify-center lg:justify-start gap-3 h-10 px-0 lg:px-3 cursor-pointer rounded-[var(--apple-radius-md)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+         style="color: var(--apple-sidebar-foreground);" title="AI 对话">
+        <i data-lucide="messages-square" class="w-[18px] h-[18px] shrink-0"></i>
+        <span class="hidden lg:block text-[14px] font-medium truncate">AI 对话</span>
+      </a>
+
+      <a id="sidebar-timeline" data-dom-id="sidebar-timeline" data-nav-key="timeline" tabindex="0"
+         class="nav-item flex items-center justify-center lg:justify-start gap-3 h-10 px-0 lg:px-3 cursor-pointer rounded-[var(--apple-radius-md)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+         style="color: var(--apple-sidebar-foreground);" title="时间轴">
+        <i data-lucide="clock" class="w-[18px] h-[18px] shrink-0"></i>
+        <span class="hidden lg:block text-[14px] font-medium truncate">时间轴</span>
+      </a>
+      <!-- SLOT: activeNavItem -->
+    </nav>
+
+    <!-- Sidebar footer utility (bottom-aligned) -->
+    <div class="mt-auto px-2 lg:px-3 pb-3 pt-2 border-t" style="border-color: var(--apple-sidebar-border);">
+      <a tabindex="0"
+         class="nav-item flex items-center justify-center lg:justify-start gap-3 h-10 px-0 lg:px-3 cursor-pointer rounded-[var(--apple-radius-md)] outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+         style="color: var(--apple-foreground-secondary);" title="设置">
+        <i data-lucide="settings" class="w-[18px] h-[18px] shrink-0"></i>
+        <span class="hidden lg:block text-[14px] font-medium truncate">设置</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ===================== main column ===================== -->
+  <div class="flex flex-col flex-1 min-w-0 h-full">
+
+    <!-- ===================== PRIVATE REGION: top-bar ===================== -->
+    <header class="flex items-center gap-3 lg:gap-4 h-16 shrink-0 px-4 lg:px-6 border-b"
+            style="background-color: var(--apple-background); border-color: var(--apple-border-light);">
+
+      <!-- Page title (flexible, truncates) -->
+      <div class="flex items-center min-w-0 flex-1">
+        <h1 class="text-[17px] lg:text-[19px] font-semibold leading-[1.25] truncate"
+            style="color: var(--apple-foreground);">待办管理</h1>
+      </div>
+
+      <!-- Search (desktop) -->
+      <div class="relative hidden md:block w-56 lg:w-72 shrink-0">
+        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+           style="color: var(--apple-foreground-muted);"></i>
+        <input id="topbar-search" type="search" placeholder="搜索任务、标签..."
+               class="w-full h-9 pl-9 pr-3 text-[14px] rounded-[var(--apple-radius-md)] border outline-none transition-colors duration-150 focus:ring-2 focus:ring-[var(--apple-primary)]"
+               style="background-color: var(--apple-background-secondary); border-color: var(--apple-border); color: var(--apple-foreground);">
+      </div>
+
+      <!-- Search (compact) -->
+      <button type="button" aria-label="搜索"
+              class="md:hidden flex items-center justify-center w-9 h-9 shrink-0 rounded-[var(--apple-radius-md)] cursor-pointer outline-none transition-colors duration-150 hover:bg-[var(--apple-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+              style="color: var(--apple-foreground-secondary);">
+        <i data-lucide="search" class="w-[18px] h-[18px]"></i>
+      </button>
+
+      <!-- User avatar placeholder (32px) -->
+      <button id="user-avatar" data-dom-id="user-avatar" type="button" aria-label="用户菜单"
+              class="flex items-center justify-center w-8 h-8 shrink-0 rounded-full cursor-pointer text-[13px] font-semibold outline-none transition-shadow duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+              style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">明</button>
+    </header>
+
+    <!-- ===================== content region ===================== -->
+    <div class="flex-1 min-h-0 overflow-y-auto" style="background-color: var(--apple-background);">
+      <!-- SLOT: pageContent -->
+      <main class="mx-auto w-full max-w-[960px] px-4 lg:px-6 py-6 lg:py-8">
+
+        <!-- ===== Toolbar: title + add + today toggle + filter ===== -->
+        <section class="mb-6">
+          <div class="flex items-start justify-between gap-4 mb-4">
+            <div class="min-w-0">
+              <h2 class="text-[22px] lg:text-[26px] font-semibold leading-[1.25] truncate"
+                  style="color: var(--apple-foreground); word-break: keep-all;">我的待办</h2>
+              <p class="text-[13px] mt-1 truncate" style="color: var(--apple-foreground-muted);">共 8 项任务 · 3 项今日到期</p>
+            </div>
+            <button id="add-todo" data-dom-id="add-todo" type="button"
+                    class="cta-primary group flex items-center gap-2 h-10 px-4 shrink-0 rounded-[var(--apple-radius-md)] text-[14px] font-semibold cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)] focus-visible:ring-offset-2"
+                    style="background-color: var(--apple-primary); color: var(--apple-surface);">
+              <i data-lucide="plus" class="w-4 h-4 shrink-0 transition-transform duration-150 group-hover:rotate-90"></i>
+              <span class="whitespace-nowrap">添加任务</span>
+            </button>
+          </div>
+
+          <!-- Controls row: today toggle + filter tabs -->
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="toggle-today" data-dom-id="toggle-today" type="button" role="switch" aria-checked="true"
+                    class="chip-toggle inline-flex items-center gap-2 h-9 px-3 rounded-[var(--apple-radius-md)] text-[13px] font-medium cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                    data-on="true"
+                    style="background-color: var(--apple-primary-light); color: var(--apple-primary);">
+              <i data-lucide="star" class="w-4 h-4 shrink-0"></i>
+              <span class="whitespace-nowrap">今日待办置顶</span>
+            </button>
+
+            <span class="hidden sm:block w-px h-5 mx-1 shrink-0" style="background-color: var(--apple-border);"></span>
+
+            <!-- Filter tabs -->
+            <div class="flex items-center gap-1 p-1 rounded-[var(--apple-radius-md)]" style="background-color: var(--apple-background-secondary);" role="tablist" aria-label="任务筛选">
+              <button type="button" role="tab" aria-selected="true" data-filter="all"
+                      class="filter-tab h-7 px-3 rounded-[var(--apple-radius-sm)] text-[13px] font-medium whitespace-nowrap cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                      data-active="true"
+                      style="color: var(--apple-foreground);">全部</button>
+              <button type="button" role="tab" aria-selected="false" data-filter="high"
+                      class="filter-tab h-7 px-3 rounded-[var(--apple-radius-sm)] text-[13px] font-medium whitespace-nowrap cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                      style="color: var(--apple-foreground-secondary);">高优先级</button>
+              <button type="button" role="tab" aria-selected="false" data-filter="today"
+                      class="filter-tab h-7 px-3 rounded-[var(--apple-radius-sm)] text-[13px] font-medium whitespace-nowrap cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                      style="color: var(--apple-foreground-secondary);">今天</button>
+              <button type="button" role="tab" aria-selected="false" data-filter="due"
+                      class="filter-tab h-7 px-3 rounded-[var(--apple-radius-sm)] text-[13px] font-medium whitespace-nowrap cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                      style="color: var(--apple-foreground-secondary);">有截止日期</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Today section (highlighted) ===== -->
+        <section class="mb-6 rounded-[var(--apple-radius-lg)] border overflow-hidden"
+                 style="background-color: var(--apple-primary-light); border-color: var(--apple-primary);">
+          <div class="flex items-center justify-between gap-3 px-4 lg:px-5 h-12 shrink-0">
+            <div class="flex items-center gap-2 min-w-0">
+              <i data-lucide="star" class="w-[18px] h-[18px] shrink-0" style="color: var(--apple-primary);"></i>
+              <h3 class="text-[15px] font-semibold truncate" style="color: var(--apple-primary);">今日待办</h3>
+            </div>
+            <span class="inline-flex items-center justify-center h-6 min-w-6 px-2 rounded-[var(--apple-radius-full)] text-[12px] font-semibold shrink-0 whitespace-nowrap"
+                  style="background-color: var(--apple-primary); color: var(--apple-surface); font-variant-numeric: tabular-nums;">3</span>
+          </div>
+
+          <ul class="flex flex-col rounded-[var(--apple-radius-md)] m-2 mt-0 overflow-hidden" style="background-color: var(--apple-surface);">
+            <!-- Today item 1: 紧急 -->
+            <li class="todo-row flex items-start gap-3 px-4 py-3.5 border-b transition-colors duration-150" style="border-color: var(--apple-border-light);">
+              <button type="button" role="checkbox" aria-checked="false" aria-label="标记完成"
+                      class="todo-check mt-0.5 flex items-center justify-center w-5 h-5 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                      style="border-color: var(--apple-border);"></button>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <p class="text-[14px] font-semibold truncate flex-1 min-w-0" style="color: var(--apple-foreground);">提交 RAG 架构评审文档</p>
+                  <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                        style="background-color: var(--apple-error-surface); color: var(--apple-error);">紧急</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-error); font-variant-numeric: tabular-nums;">
+                    <i data-lucide="calendar-clock" class="w-3.5 h-3.5"></i>今天 18:00
+                  </span>
+                  <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-muted);">
+                    <i data-lucide="paperclip" class="w-3.5 h-3.5"></i>关联 2 个文件
+                  </span>
+                  <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                        style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">工作</span>
+                </div>
+              </div>
+            </li>
+
+            <!-- Today item 2: 高 -->
+            <li class="todo-row flex items-start gap-3 px-4 py-3.5 border-b transition-colors duration-150" style="border-color: var(--apple-border-light);">
+              <button type="button" role="checkbox" aria-checked="false" aria-label="标记完成"
+                      class="todo-check mt-0.5 flex items-center justify-center w-5 h-5 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                      style="border-color: var(--apple-border);"></button>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <p class="text-[14px] font-semibold truncate flex-1 min-w-0" style="color: var(--apple-foreground);">整理本周产品复盘笔记</p>
+                  <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                        style="background-color: color-mix(in srgb, var(--apple-chart-3) 16%, var(--apple-surface)); color: color-mix(in srgb, var(--apple-chart-3) 82%, var(--apple-foreground));">高</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-secondary); font-variant-numeric: tabular-nums;">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>今天
+                  </span>
+                  <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-muted);">
+                    <i data-lucide="file-text" class="w-3.5 h-3.5"></i>关联 1 篇笔记
+                  </span>
+                  <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                        style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">复盘</span>
+                </div>
+              </div>
+            </li>
+
+            <!-- Today item 3: 中 -->
+            <li class="todo-row flex items-start gap-3 px-4 py-3.5 transition-colors duration-150">
+              <button type="button" role="checkbox" aria-checked="false" aria-label="标记完成"
+                      class="todo-check mt-0.5 flex items-center justify-center w-5 h-5 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                      style="border-color: var(--apple-border);"></button>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2 mb-1.5">
+                  <p class="text-[14px] font-semibold truncate flex-1 min-w-0" style="color: var(--apple-foreground);">回复知识库协作邀请</p>
+                  <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                        style="background-color: var(--apple-primary-light); color: var(--apple-primary);">中</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                  <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-secondary); font-variant-numeric: tabular-nums;">
+                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i>今天
+                  </span>
+                  <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                        style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">协作</span>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </section>
+
+        <!-- ===== All tasks section ===== -->
+        <section class="rounded-[var(--apple-radius-lg)] border overflow-hidden"
+                 style="background-color: var(--apple-surface); border-color: var(--apple-border-light);">
+          <div class="flex items-center justify-between gap-3 px-4 lg:px-5 h-12 shrink-0 border-b" style="border-color: var(--apple-border-light);">
+            <div class="flex items-center gap-2 min-w-0">
+              <i data-lucide="list-todo" class="w-[18px] h-[18px] shrink-0" style="color: var(--apple-foreground-secondary);"></i>
+              <h3 class="text-[15px] font-semibold truncate" style="color: var(--apple-foreground);">所有任务</h3>
+            </div>
+            <span class="inline-flex items-center justify-center h-6 min-w-6 px-2 rounded-[var(--apple-radius-full)] text-[12px] font-semibold shrink-0 whitespace-nowrap"
+                  style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary); font-variant-numeric: tabular-nums;">5</span>
+          </div>
+
+          <ul class="flex flex-col">
+            <!-- All item 1: EXPANDED with subtasks (高) -->
+            <li class="border-b" style="border-color: var(--apple-border-light);">
+              <div class="todo-row flex items-start gap-3 px-4 lg:px-5 py-3.5 transition-colors duration-150">
+                <button type="button" role="checkbox" aria-checked="false" aria-label="标记完成"
+                        class="todo-check mt-0.5 flex items-center justify-center w-5 h-5 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="border-color: var(--apple-border);"></button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <p class="text-[14px] font-semibold truncate flex-1 min-w-0" style="color: var(--apple-foreground);">搭建向量检索评测流程</p>
+                    <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                          style="background-color: color-mix(in srgb, var(--apple-chart-3) 16%, var(--apple-surface)); color: color-mix(in srgb, var(--apple-chart-3) 82%, var(--apple-foreground));">高</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-secondary); font-variant-numeric: tabular-nums;">
+                      <i data-lucide="calendar" class="w-3.5 h-3.5"></i>7月12日
+                    </span>
+                    <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-muted);">
+                      <i data-lucide="list-checks" class="w-3.5 h-3.5"></i>子任务 1/2
+                    </span>
+                    <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                          style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">技术</span>
+                  </div>
+                </div>
+                <button type="button" aria-expanded="true" aria-label="收起子任务"
+                        class="expand-btn mt-0.5 flex items-center justify-center w-7 h-7 shrink-0 rounded-[var(--apple-radius-sm)] cursor-pointer outline-none transition-colors duration-150 hover:bg-[var(--apple-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="color: var(--apple-foreground-muted);">
+                  <i data-lucide="chevron-down" class="w-4 h-4"></i>
+                </button>
+              </div>
+              <!-- Subtasks (expanded) -->
+              <ul class="flex flex-col gap-0.5 pl-12 lg:pl-14 pr-4 lg:pr-5 pb-3">
+                <li class="subtask-row flex items-center gap-2.5 py-2 px-2 rounded-[var(--apple-radius-sm)] transition-colors duration-150">
+                  <button type="button" role="checkbox" aria-checked="true" aria-label="子任务已完成"
+                          class="flex items-center justify-center w-4 h-4 shrink-0 rounded-[var(--apple-radius-full)] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                          style="background-color: var(--apple-success); color: var(--apple-success-foreground);">
+                    <i data-lucide="check" class="w-3 h-3"></i>
+                  </button>
+                  <span class="text-[13px] line-through truncate min-w-0 flex-1" style="color: var(--apple-foreground-muted);">整理评测数据集与指标口径</span>
+                </li>
+                <li class="subtask-row flex items-center gap-2.5 py-2 px-2 rounded-[var(--apple-radius-sm)] transition-colors duration-150">
+                  <button type="button" role="checkbox" aria-checked="false" aria-label="标记子任务完成"
+                          class="flex items-center justify-center w-4 h-4 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                          style="border-color: var(--apple-border);"></button>
+                  <span class="text-[13px] truncate min-w-0 flex-1" style="color: var(--apple-foreground);">编写自动化评测脚本并跑通基线</span>
+                </li>
+              </ul>
+            </li>
+
+            <!-- All item 2: 中 (collapsed) -->
+            <li class="border-b" style="border-color: var(--apple-border-light);">
+              <div class="todo-row flex items-start gap-3 px-4 lg:px-5 py-3.5 transition-colors duration-150">
+                <button type="button" role="checkbox" aria-checked="false" aria-label="标记完成"
+                        class="todo-check mt-0.5 flex items-center justify-center w-5 h-5 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="border-color: var(--apple-border);"></button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <p class="text-[14px] font-semibold truncate flex-1 min-w-0" style="color: var(--apple-foreground);">整理竞品功能地图</p>
+                    <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                          style="background-color: var(--apple-primary-light); color: var(--apple-primary);">中</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-secondary); font-variant-numeric: tabular-nums;">
+                      <i data-lucide="calendar" class="w-3.5 h-3.5"></i>7月15日
+                    </span>
+                    <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                          style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">调研</span>
+                  </div>
+                </div>
+                <button type="button" aria-expanded="false" aria-label="展开子任务"
+                        class="expand-btn mt-0.5 flex items-center justify-center w-7 h-7 shrink-0 rounded-[var(--apple-radius-sm)] cursor-pointer outline-none transition-colors duration-150 hover:bg-[var(--apple-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="color: var(--apple-foreground-muted);">
+                  <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </li>
+
+            <!-- All item 3: 紧急 overdue (collapsed) -->
+            <li class="border-b" style="border-color: var(--apple-border-light);">
+              <div class="todo-row flex items-start gap-3 px-4 lg:px-5 py-3.5 transition-colors duration-150">
+                <button type="button" role="checkbox" aria-checked="false" aria-label="标记完成"
+                        class="todo-check mt-0.5 flex items-center justify-center w-5 h-5 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="border-color: var(--apple-border);"></button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <p class="text-[14px] font-semibold truncate flex-1 min-w-0" style="color: var(--apple-foreground);">修复知识库同步异常</p>
+                    <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                          style="background-color: var(--apple-error-surface); color: var(--apple-error);">紧急</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span class="inline-flex items-center gap-1 text-[12px] font-medium whitespace-nowrap" style="color: var(--apple-error); font-variant-numeric: tabular-nums;">
+                      <i data-lucide="calendar-x" class="w-3.5 h-3.5"></i>已逾期 · 7月8日
+                    </span>
+                    <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                          style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">故障</span>
+                  </div>
+                </div>
+                <button type="button" aria-expanded="false" aria-label="展开子任务"
+                        class="expand-btn mt-0.5 flex items-center justify-center w-7 h-7 shrink-0 rounded-[var(--apple-radius-sm)] cursor-pointer outline-none transition-colors duration-150 hover:bg-[var(--apple-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="color: var(--apple-foreground-muted);">
+                  <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </li>
+
+            <!-- All item 4: 低 (collapsed) -->
+            <li class="border-b" style="border-color: var(--apple-border-light);">
+              <div class="todo-row flex items-start gap-3 px-4 lg:px-5 py-3.5 transition-colors duration-150">
+                <button type="button" role="checkbox" aria-checked="false" aria-label="标记完成"
+                        class="todo-check mt-0.5 flex items-center justify-center w-5 h-5 shrink-0 rounded-[var(--apple-radius-full)] border-2 cursor-pointer outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="border-color: var(--apple-border);"></button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <p class="text-[14px] font-semibold truncate flex-1 min-w-0" style="color: var(--apple-foreground);">补充 Prompt 模式速查表</p>
+                    <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                          style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">低</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-muted);">
+                      <i data-lucide="calendar-off" class="w-3.5 h-3.5"></i>无截止日期
+                    </span>
+                    <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                          style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-secondary);">笔记</span>
+                  </div>
+                </div>
+                <button type="button" aria-expanded="false" aria-label="展开子任务"
+                        class="expand-btn mt-0.5 flex items-center justify-center w-7 h-7 shrink-0 rounded-[var(--apple-radius-sm)] cursor-pointer outline-none transition-colors duration-150 hover:bg-[var(--apple-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="color: var(--apple-foreground-muted);">
+                  <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </li>
+
+            <!-- All item 5: 完成 (低, completed) -->
+            <li>
+              <div class="todo-row flex items-start gap-3 px-4 lg:px-5 py-3.5 transition-colors duration-150">
+                <button type="button" role="checkbox" aria-checked="true" aria-label="取消完成"
+                        class="flex items-center justify-center w-5 h-5 shrink-0 mt-0.5 rounded-[var(--apple-radius-full)] cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                        style="background-color: var(--apple-success); color: var(--apple-success-foreground);">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                </button>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <p class="text-[14px] font-medium line-through truncate flex-1 min-w-0" style="color: var(--apple-foreground-muted);">导出上月阅读清单</p>
+                    <span class="prio-badge inline-flex items-center h-5 px-2 shrink-0 rounded-[var(--apple-radius-sm)] text-[11px] font-semibold whitespace-nowrap"
+                          style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-muted);">低</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span class="inline-flex items-center gap-1 text-[12px] whitespace-nowrap" style="color: var(--apple-foreground-muted); font-variant-numeric: tabular-nums;">
+                      <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>已于 7月9日完成
+                    </span>
+                    <span class="tag inline-flex items-center h-5 px-2 rounded-[var(--apple-radius-sm)] text-[11px] whitespace-nowrap"
+                          style="background-color: var(--apple-background-secondary); color: var(--apple-foreground-muted);">整理</span>
+                  </div>
+                </div>
+              </div>
+            </li>
+          </ul>
+
+          <!-- Empty state hint (subtle footer prompt) -->
+          <div class="flex flex-col items-center justify-center gap-2 px-4 py-8 border-t" style="border-color: var(--apple-border-light);">
+            <span class="flex items-center justify-center w-11 h-11 rounded-[var(--apple-radius-full)]" style="background-color: var(--apple-background-secondary);">
+              <i data-lucide="check-check" class="w-5 h-5" style="color: var(--apple-foreground-muted);"></i>
+            </span>
+            <p class="text-[13px] text-center" style="color: var(--apple-foreground-secondary);">已展示全部任务，暂无更多待办</p>
+            <button type="button"
+                    class="link-add inline-flex items-center gap-1 mt-1 text-[13px] font-medium cursor-pointer outline-none rounded-[var(--apple-radius-sm)] transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-[var(--apple-primary)]"
+                    style="color: var(--apple-primary);">
+              <i data-lucide="plus" class="w-4 h-4"></i>
+              <span class="whitespace-nowrap">添加新任务</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- ===== Footer ===== -->
+        <footer class="mt-8 pt-6 border-t flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                style="border-color: var(--apple-border-light);">
+          <p class="text-[12px]" style="color: var(--apple-foreground-muted);">待办管理 · 最近同步于 5 分钟前</p>
+          <nav class="flex items-center gap-4" aria-label="页脚导航">
+            <a id="nav-workspace" data-dom-id="nav-workspace" href="workspace.html" class="text-[12px] transition-colors duration-150 hover:underline" style="color: var(--apple-foreground-secondary);">返回工作台</a>
+            <a href="note-editor.html" class="text-[12px] transition-colors duration-150 hover:underline" style="color: var(--apple-foreground-secondary);">笔记</a>
+            <a href="ai-chat.html" class="text-[12px] transition-colors duration-150 hover:underline" style="color: var(--apple-foreground-secondary);">AI 对话</a>
+          </nav>
+        </footer>
+
+      </main>
+    </div>
+  </div>
+</div>
+
+<!-- Shell-owned state styling: active nav (set by leaf via activeNavItem slot) + hover -->
+<style>
+  .nav-item { -webkit-tap-highlight-color: transparent; }
+  .nav-item:hover:not([data-active="true"]) { background-color: var(--apple-sidebar-accent); }
+  .nav-item[data-active="true"] { background-color: var(--apple-primary); color: var(--apple-surface); }
+
+  .cta-primary:hover { background-color: var(--apple-primary-hover); }
+  .cta-primary:active { background-color: var(--apple-primary-active); }
+  .todo-row:hover { background-color: var(--apple-surface-hover); }
+  .subtask-row:hover { background-color: var(--apple-surface-hover); }
+  .todo-check:hover { border-color: var(--apple-primary); }
+  .filter-tab[data-active="true"] { background-color: var(--apple-surface); color: var(--apple-foreground); box-shadow: var(--apple-shadow-subtle); }
+  .filter-tab:not([data-active="true"]):hover { color: var(--apple-foreground); }
+  .chip-toggle:hover { filter: brightness(0.97); }
+  .link-add:hover { color: var(--apple-primary-hover); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .nav-item, #topbar-search, #user-avatar,
+    .cta-primary, .cta-primary i, .todo-row, .subtask-row,
+    .todo-check, .filter-tab, .chip-toggle, .expand-btn, .link-add { transition-duration: 0.01ms !important; }
+    .cta-primary:hover i { transform: none !important; }
+  }
+</style>
+<script>
+  if (window.lucide) { lucide.createIcons(); }
+  // Toggle "今日待办置顶" chip on/off (style class swap only, no DOM mutation)
+  (function () {
+    var toggle = document.getElementById('toggle-today');
+    if (!toggle) return;
+    toggle.addEventListener('click', function () {
+      var on = toggle.getAttribute('data-on') === 'true';
+      var next = !on;
+      toggle.setAttribute('data-on', String(next));
+      toggle.setAttribute('aria-checked', String(next));
+      if (next) {
+        toggle.style.backgroundColor = 'var(--apple-primary-light)';
+        toggle.style.color = 'var(--apple-primary)';
+      } else {
+        toggle.style.backgroundColor = 'var(--apple-background-secondary)';
+        toggle.style.color = 'var(--apple-foreground-secondary)';
+      }
+    });
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,394 @@
+{
+  "data": [
+    {
+      "id": "page-workspace",
+      "title": "工作台",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752117200000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/workspace.html",
+        "interactions": [
+          {
+            "domId": "nav-files",
+            "targetPageId": "page-files",
+            "transitionLabel": "查看文件"
+          },
+          {
+            "domId": "nav-note-editor",
+            "targetPageId": "page-note-editor",
+            "transitionLabel": "新建笔记"
+          },
+          {
+            "domId": "nav-ai-chat",
+            "targetPageId": "page-ai-chat",
+            "transitionLabel": "AI 对话"
+          },
+          {
+            "domId": "sidebar-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-files",
+            "targetPageId": "page-files",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-todos",
+            "targetPageId": "page-todos",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-note-editor",
+            "targetPageId": "page-note-editor",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-ai-chat",
+            "targetPageId": "page-ai-chat",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-timeline",
+            "targetPageId": "page-timeline",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-files",
+      "title": "文件中心",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752180000000,
+      "canvasData": {
+        "x": 620,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/files.html",
+        "interactions": [
+          {
+            "domId": "nav-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "返回工作台"
+          },
+          {
+            "domId": "sidebar-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-files",
+            "targetPageId": "page-files",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-todos",
+            "targetPageId": "page-todos",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-note-editor",
+            "targetPageId": "page-note-editor",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-ai-chat",
+            "targetPageId": "page-ai-chat",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-timeline",
+            "targetPageId": "page-timeline",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-todos",
+      "title": "待办管理",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752180000000,
+      "canvasData": {
+        "x": 0,
+        "y": 1131,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/todos.html",
+        "interactions": [
+          {
+            "domId": "nav-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "返回工作台"
+          },
+          {
+            "domId": "sidebar-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-files",
+            "targetPageId": "page-files",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-todos",
+            "targetPageId": "page-todos",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-note-editor",
+            "targetPageId": "page-note-editor",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-ai-chat",
+            "targetPageId": "page-ai-chat",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-timeline",
+            "targetPageId": "page-timeline",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-note-editor",
+      "title": "笔记编辑",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752117200000,
+      "canvasData": {
+        "x": 620,
+        "y": 377,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/note-editor.html",
+        "interactions": [
+          {
+            "domId": "nav-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "返回工作台"
+          },
+          {
+            "domId": "sidebar-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-files",
+            "targetPageId": "page-files",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-todos",
+            "targetPageId": "page-todos",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-note-editor",
+            "targetPageId": "page-note-editor",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-ai-chat",
+            "targetPageId": "page-ai-chat",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-timeline",
+            "targetPageId": "page-timeline",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-ai-chat",
+      "title": "AI 对话",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752117200000,
+      "canvasData": {
+        "x": 620,
+        "y": 754,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/ai-chat.html",
+        "interactions": [
+          {
+            "domId": "nav-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "返回工作台"
+          },
+          {
+            "domId": "sidebar-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-files",
+            "targetPageId": "page-files",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-todos",
+            "targetPageId": "page-todos",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-note-editor",
+            "targetPageId": "page-note-editor",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-ai-chat",
+            "targetPageId": "page-ai-chat",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-timeline",
+            "targetPageId": "page-timeline",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-timeline",
+      "title": "时间轴",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752180000000,
+      "canvasData": {
+        "x": 620,
+        "y": 1131,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/timeline.html",
+        "interactions": [
+          {
+            "domId": "nav-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "返回工作台"
+          },
+          {
+            "domId": "sidebar-workspace",
+            "targetPageId": "page-workspace",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-files",
+            "targetPageId": "page-files",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-todos",
+            "targetPageId": "page-todos",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-note-editor",
+            "targetPageId": "page-note-editor",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-ai-chat",
+            "targetPageId": "page-ai-chat",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          },
+          {
+            "domId": "sidebar-timeline",
+            "targetPageId": "page-timeline",
+            "hideEdge": true,
+            "transitionLabel": "侧栏导航"
+          }
+        ]
+      }
+    },
+    {
+      "id": "image-001",
+      "title": "知识工作台品牌插图",
+      "type": "image",
+      "version": 1,
+      "createdAt": 1752117200000,
+      "canvasData": {
+        "x": 0,
+        "y": 1508
+      },
+      "devMetadata": {
+        "imageSrc": "assets/workspace-hero.jpg"
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "Old Z 个人知识工作台",
+    "designLibrary": {
+      "name": "Apple Copy",
+      "id": "-W0CDJ_O6VNRP.",
+      "version": "1",
+      "scope": "custom-global",
+      "path": "c:\\Users\\Leonard\\.trae-cn\\design_libraries\\-W0CDJ_O6VNRP",
+      "versionSource": "metadata.json"
+    }
+  }
+}
