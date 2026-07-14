@@ -1,7 +1,7 @@
 ﻿import { Router, type Request, type Response } from 'express'
 import bcrypt from 'bcryptjs'
 import crypto from 'node:crypto'
-import pool from '../config/database.js'
+import db, { executeForUsername, executeOnSQLite, executeOnMySQL } from '../config/db.js'
 import { generateToken, authMiddleware, type AuthRequest } from '../middleware/auth.js'
 
 const router = Router()
@@ -36,7 +36,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     }
 
     // 检查用户名是否已存在
-    const [existing] = await pool.execute('SELECT id FROM users WHERE username = ?', [username])
+    const [existing] = await executeForUsername(username, 'SELECT id FROM users WHERE username = ?', [username])
     if ((existing as any[]).length > 0) {
       res.status(409).json({ success: false, error: '用户名已存在' })
       return
@@ -45,7 +45,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
     const id = crypto.randomUUID()
     const passwordHash = await bcrypt.hash(password, 10)
 
-    await pool.execute(
+    await executeForUsername(username,
       'INSERT INTO users (id, username, password_hash, display_name) VALUES (?, ?, ?, ?)',
       [id, username, passwordHash, displayName || username]
     )
@@ -89,7 +89,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    const [rows] = await pool.execute('SELECT * FROM users WHERE username = ?', [username])
+    const [rows] = await executeForUsername(username, 'SELECT * FROM users WHERE username = ?', [username])
     const users = rows as any[]
 
     if (users.length === 0) {
@@ -154,7 +154,7 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
     }
 
     // 检查用户是否存在（需要取 password_hash 来验证旧密码）
-    const [rows] = await pool.execute('SELECT id, username, password_hash, display_name FROM users WHERE username = ?', [username])
+    const [rows] = await executeForUsername(username, 'SELECT id, username, password_hash, display_name FROM users WHERE username = ?', [username])
     const users = rows as any[]
 
     if (users.length === 0) {
@@ -173,7 +173,7 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
     const passwordHash = await bcrypt.hash(newPassword, 10)
 
     // 更新密码
-    await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id])
+    await executeForUsername(username, 'UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id])
 
     // 生成新 token 并自动登录
     const token = generateToken(user.id)
@@ -205,7 +205,7 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
  */
 router.get('/me', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const [rows] = await pool.execute('SELECT id, username, display_name, created_at FROM users WHERE id = ?', [req.userId!])
+    const [rows] = await db.execute('SELECT id, username, display_name, created_at FROM users WHERE id = ?', [req.userId!])
     const users = rows as any[]
 
     if (users.length === 0) {
@@ -248,7 +248,7 @@ router.patch('/profile', authMiddleware, async (req: AuthRequest, res: Response)
         return;
       }
       // 检查唯一性
-      const [existing] = await pool.execute(
+      const [existing] = await db.execute(
         'SELECT id FROM users WHERE username = ? AND id != ?',
         [username, req.userId!]
       );
@@ -256,14 +256,14 @@ router.patch('/profile', authMiddleware, async (req: AuthRequest, res: Response)
         res.status(409).json({ success: false, error: '用户名已被占用' });
         return;
       }
-      await pool.execute('UPDATE users SET username = ? WHERE id = ?', [username, req.userId!]);
+      await db.execute('UPDATE users SET username = ? WHERE id = ?', [username, req.userId!]);
     }
 
     if (displayName !== undefined) {
-      await pool.execute('UPDATE users SET display_name = ? WHERE id = ?', [displayName, req.userId!]);
+      await db.execute('UPDATE users SET display_name = ? WHERE id = ?', [displayName, req.userId!]);
     }
 
-    const [rows] = await pool.execute('SELECT id, username, display_name, created_at FROM users WHERE id = ?', [req.userId!]);
+    const [rows] = await db.execute('SELECT id, username, display_name, created_at FROM users WHERE id = ?', [req.userId!]);
     const user = (rows as any[])[0];
 
     res.json({
@@ -300,7 +300,7 @@ router.post('/change-password', authMiddleware, async (req: AuthRequest, res: Re
     }
 
     // 验证旧密码
-    const [rows] = await pool.execute('SELECT password_hash FROM users WHERE id = ?', [req.userId!]);
+    const [rows] = await db.execute('SELECT password_hash FROM users WHERE id = ?', [req.userId!]);
     const users = rows as any[];
     if (users.length === 0) {
       res.status(404).json({ success: false, error: '用户不存在' });
@@ -315,12 +315,87 @@ router.post('/change-password', authMiddleware, async (req: AuthRequest, res: Re
 
     // 更新密码
     const passwordHash = await bcrypt.hash(newPassword, 10);
-    await pool.execute('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, req.userId!]);
+    await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, req.userId!]);
 
     res.json({ success: true, data: { message: '密码修改成功' } });
   } catch (error) {
     console.error('POST /auth/change-password error:', error);
     res.status(500).json({ success: false, error: '密码修改失败' });
+  }
+});
+
+/**
+ * 合并本地用户数据到当前登录账户
+ * POST /api/auth/merge-local
+ */
+router.post('/merge-local', authMiddleware, async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const targetUserId = req.userId!;
+    let merged = 0;
+    let skipped = 0;
+
+    // 查找 local-user
+    // local-user 只在 SQLite 中存在
+    const [localUsers] = await executeOnSQLite("SELECT id FROM users WHERE username = 'local-user'");
+    const localUser = (localUsers as any[])[0];
+    if (!localUser) {
+      res.json({ success: true, data: { merged: 0, skipped: 0, message: '没有本地数据需要合并' } });
+      return;
+    }
+
+    const localId = localUser.id;
+    if (localId === targetUserId) {
+      res.json({ success: true, data: { merged: 0, skipped: 0, message: '已经是当前账户' } });
+      return;
+    }
+
+    // 需要合并的表（有 user_id 列 + id 主键的业务表）
+    const tables = ['files', 'todos', 'notes', 'note_snapshots', 'daily_reports',
+      'chat_messages', 'chat_conversations', 'timeline_events'];
+
+    for (const table of tables) {
+      try {
+        // 从 SQLite 查出本地用户的记录
+        const [localRows] = await executeOnSQLite(
+          `SELECT * FROM ${table} WHERE user_id = ?`, [localId]
+        );
+        for (const row of localRows as any[]) {
+          try {
+            // 检查 MySQL 中目标账户是否已有同名记录
+            const [existing] = await executeOnMySQL(
+              `SELECT id FROM ${table} WHERE id = ? AND user_id = ?`,
+              [row.id, targetUserId]
+            );
+            if ((existing as any[]).length > 0) {
+              skipped++;
+              continue;
+            }
+          } catch { /* MySQL 不可用时跳过冲突检查 */ }
+
+          // 插入到 MySQL（迁移数据到云端）
+          const cols = Object.keys(row).filter((k) => k !== 'user_id');
+          const vals = cols.map((k) => row[k]);
+          try {
+            await executeOnMySQL(
+              `INSERT INTO ${table} (${cols.join(',')}, user_id) VALUES (${cols.map(() => '?').join(',')}, ?)`,
+              [...vals, targetUserId]
+            );
+            merged++;
+          } catch { skipped++; }
+        }
+      } catch {
+        // 表可能不存在，跳过
+      }
+    }
+
+    const msg = skipped > 0
+      ? `已合并 ${merged} 条数据，跳过 ${skipped} 条（云端已有同名记录，保留为两份独立数据）`
+      : `已将 ${merged} 条本地数据合并到当前账户`;
+
+    res.json({ success: true, data: { merged, skipped, message: msg } });
+  } catch (error: any) {
+    console.error('POST /auth/merge-local error:', error);
+    res.status(500).json({ success: false, error: '数据合并失败' });
   }
 });
 

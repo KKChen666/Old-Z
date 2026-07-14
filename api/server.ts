@@ -3,6 +3,7 @@
  */
 import app from './app.js';
 import initDB from './database/init.js';
+import { generateMissingReports } from './services/report-generation.js';
 
 /**
  * 启动前校验必需的环境变量
@@ -40,6 +41,25 @@ initDB()
   .then(() => {
     server = app.listen(PORT, () => {
       console.log(`Server ready on port ${PORT}`);
+
+      // 自动生成缺失的周报/月报（延迟5秒避免阻塞启动）
+      if (process.env.AUTO_REPORT_GENERATION !== 'false') {
+        setTimeout(async () => {
+          try {
+            // 为所有用户生成报告
+            const { default: db } = await import('./config/db.js');
+            const [users] = await db.execute('SELECT id FROM users');
+            for (const user of users as any[]) {
+              const reports = await generateMissingReports(user.id);
+              if (reports.length > 0) {
+                console.log(`[Startup] Auto-generated ${reports.length} reports for user ${user.id}`);
+              }
+            }
+          } catch (e: any) {
+            console.warn('[Startup] Auto report generation failed:', e?.message || e);
+          }
+        }, 5000);
+      }
     });
   })
   .catch((err) => {

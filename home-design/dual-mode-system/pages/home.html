@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系统首页</title>
+    <style id="theme-vars">
+/* Source: structured-spec */
+/* Brand profile: google / dashboard / clean / analytical / modern */
+/* Theme mode: light-dark */
+/* Alias layer: enabled */
+
+/* Light mode source tokens */
+:root {
+  /* Core surface colors */
+  --background: #ffffff;
+  --foreground: #0e1115;
+  --card: #ffffff;
+  --card-foreground: #0e1115;
+  --popover: #f9f9fa;
+  --popover-foreground: #0e1115;
+
+  /* Semantic action colors */
+  --primary: #4285f4;
+  --primary-foreground: #ffffff;
+  --secondary: #dbeafe;
+  --secondary-foreground: #333942;
+  --muted: #eff1f4;
+  --muted-foreground: #7f8d9f;
+  --accent: #dbeafe;
+  --accent-foreground: #003e8f;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  /* Borders, inputs, focus */
+  --border: #ebebeb;
+  --input: #e2e3e4;
+  --ring: #4285f4;
+
+  /* Data visualization */
+  --chart-1: #4285f4;
+  --chart-2: #ea4335;
+  --chart-3: #fbbc05;
+  --chart-4: #0043ad;
+  --chart-5: #34a853;
+
+  /* Sidebar */
+  --sidebar: #f0f6ff;
+  --sidebar-foreground: #0e1115;
+  --sidebar-primary: #4285f4;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #dbeafe;
+  --sidebar-accent-foreground: #003e8f;
+  --sidebar-border: #e7eaef;
+  --sidebar-ring: #4285f4;
+
+  /* Typography */
+  --font-sans: DM Sans, ui-sans-serif, sans-serif, system-ui;
+  --font-serif: DM Sans, ui-sans-serif, sans-serif, system-ui;
+  --font-mono: JetBrains Mono, monospace;
+
+  /* Radius */
+  --radius: 0.5rem;
+
+  /* Shadow primitives */
+  --shadow-x: 0;
+  --shadow-y: 3px;
+  --shadow-blur: 0px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0;
+  --shadow-color: #0e1115;
+
+  /* Elevation */
+  --shadow-2xs: 0 3px 0px 0px rgba(14, 17, 21, 0);
+  --shadow-xs: 0 3px 0px 0px rgba(14, 17, 21, 0);
+  --shadow-sm: 0 3px 0px 0px rgba(14, 17, 21, 0), 0 1px 2px -1px rgba(14, 17, 21, 0);
+  --shadow: 0 3px 0px 0px rgba(14, 17, 21, 0), 0 1px 2px -1px rgba(14, 17, 21, 0);
+  --shadow-md: 0 3px 0px 0px rgba(14, 17, 21, 0), 0 2px 4px -1px rgba(14, 17, 21, 0);
+  --shadow-lg: 0 3px 0px 0px rgba(14, 17, 21, 0), 0 4px 6px -1px rgba(14, 17, 21, 0);
+  --shadow-xl: 0 3px 0px 0px rgba(14, 17, 21, 0), 0 8px 10px -1px rgba(14, 17, 21, 0);
+  --shadow-2xl: 0 3px 0px 0px rgba(14, 17, 21, 0);
+
+  /* Rhythm */
+  --tracking-normal: 0em;
+  --spacing: 0.24rem;
+}
+
+/* Dark mode source tokens */
+.dark {
+  /* Core surface colors */
+  --background: #161616;
+  --foreground: #eff1f4;
+  --card: #1d1d1c;
+  --card-foreground: #eff1f4;
+  --popover: #2e2e2e;
+  --popover-foreground: #e5e5e5;
+
+  /* Semantic action colors */
+  --primary: #fc2c50;
+  --primary-foreground: #ffffff;
+  --secondary: #383838;
+  --secondary-foreground: #e5e5e5;
+  --muted: #383838;
+  --muted-foreground: #949494;
+  --accent: #4a2026;
+  --accent-foreground: #fc2c50;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  /* Borders, inputs, focus */
+  --border: #1d1d1c;
+  --input: #000000;
+  --ring: #ffffff;
+
+  /* Data visualization */
+  --chart-1: #2dccd3;
+  --chart-2: #f1204a;
+  --chart-3: #edbbe8;
+  --chart-4: #fbeb35;
+  --chart-5: #baf6f0;
+
+  /* Sidebar */
+  --sidebar: #171717;
+  --sidebar-foreground: #e5e5e5;
+  --sidebar-primary: #0065fd;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #00266b;
+  --sidebar-accent-foreground: #bfdbfe;
+  --sidebar-border: #404040;
+  --sidebar-ring: #00266b;
+
+  /* Typography */
+  --font-sans: DM Sans, ui-sans-serif, sans-serif, system-ui;
+  --font-serif: DM Sans, ui-sans-serif, sans-serif, system-ui;
+  --font-mono: JetBrains Mono, monospace;
+
+  /* Radius */
+  --radius: 0.5rem;
+
+  /* Shadow primitives */
+  --shadow-x: 0;
+  --shadow-y: 3px;
+  --shadow-blur: 0px;
+  --shadow-spread: 0px;
+  --shadow-opacity: 0;
+  --shadow-color: #000000;
+
+  /* Elevation */
+  --shadow-2xs: 0 3px 0px 0px rgba(0, 0, 0, 0);
+  --shadow-xs: 0 3px 0px 0px rgba(0, 0, 0, 0);
+  --shadow-sm: 0 3px 0px 0px rgba(0, 0, 0, 0), 0 1px 2px -1px rgba(0, 0, 0, 0);
+  --shadow: 0 3px 0px 0px rgba(0, 0, 0, 0), 0 1px 2px -1px rgba(0, 0, 0, 0);
+  --shadow-md: 0 3px 0px 0px rgba(0, 0, 0, 0), 0 2px 4px -1px rgba(0, 0, 0, 0);
+  --shadow-lg: 0 3px 0px 0px rgba(0, 0, 0, 0), 0 4px 6px -1px rgba(0, 0, 0, 0);
+  --shadow-xl: 0 3px 0px 0px rgba(0, 0, 0, 0), 0 8px 10px -1px rgba(0, 0, 0, 0);
+  --shadow-2xl: 0 3px 0px 0px rgba(0, 0, 0, 0);
+}
+
+/* Alias layer */
+@theme inline {
+  /* Color aliases */
+  --google-color-background: var(--background);
+  --google-color-foreground: var(--foreground);
+  --google-color-card: var(--card);
+  --google-color-card-foreground: var(--card-foreground);
+  --google-color-popover: var(--popover);
+  --google-color-popover-foreground: var(--popover-foreground);
+  --google-color-primary: var(--primary);
+  --google-color-primary-foreground: var(--primary-foreground);
+  --google-color-secondary: var(--secondary);
+  --google-color-secondary-foreground: var(--secondary-foreground);
+  --google-color-muted: var(--muted);
+  --google-color-muted-foreground: var(--muted-foreground);
+  --google-color-accent: var(--accent);
+  --google-color-accent-foreground: var(--accent-foreground);
+  --google-color-destructive: var(--destructive);
+  --google-color-destructive-foreground: var(--destructive-foreground);
+  --google-color-border: var(--border);
+  --google-color-input: var(--input);
+  --google-color-ring: var(--ring);
+  --google-color-chart-1: var(--chart-1);
+  --google-color-chart-2: var(--chart-2);
+  --google-color-chart-3: var(--chart-3);
+  --google-color-chart-4: var(--chart-4);
+  --google-color-chart-5: var(--chart-5);
+  --google-color-sidebar: var(--sidebar);
+  --google-color-sidebar-foreground: var(--sidebar-foreground);
+  --google-color-sidebar-primary: var(--sidebar-primary);
+  --google-color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --google-color-sidebar-accent: var(--sidebar-accent);
+  --google-color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --google-color-sidebar-border: var(--sidebar-border);
+  --google-color-sidebar-ring: var(--sidebar-ring);
+
+  /* Typography aliases */
+  --google-font-sans: var(--font-sans);
+  --google-font-serif: var(--font-serif);
+  --google-font-mono: var(--font-mono);
+
+  /* Radius aliases */
+  --google-radius: var(--radius);
+  --google-radius-sm: calc(var(--radius) - 4px);
+  --google-radius-md: calc(var(--radius) - 2px);
+  --google-radius-lg: var(--radius);
+  --google-radius-xl: calc(var(--radius) + 4px);
+
+  /* Shadow aliases */
+  --google-shadow-x: var(--shadow-x);
+  --google-shadow-y: var(--shadow-y);
+  --google-shadow-blur: var(--shadow-blur);
+  --google-shadow-spread: var(--shadow-spread);
+  --google-shadow-opacity: var(--shadow-opacity);
+  --google-shadow-color: var(--shadow-color);
+  --google-shadow-2xs: var(--shadow-2xs);
+  --google-shadow-xs: var(--shadow-xs);
+  --google-shadow-sm: var(--shadow-sm);
+  --google-shadow: var(--shadow);
+  --google-shadow-md: var(--shadow-md);
+  --google-shadow-lg: var(--shadow-lg);
+  --google-shadow-xl: var(--shadow-xl);
+  --google-shadow-2xl: var(--shadow-2xl);
+
+  /* Rhythm aliases */
+  --google-tracking-normal: var(--tracking-normal);
+  --google-spacing: var(--spacing);
+}
+
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.3.1/dist/index.global.js"></script>
+    <script src="https://unpkg.com/lucide@1.8.0/dist/umd/lucide.min.js"></script>
+    <style type="text/tailwindcss">
+  @theme inline {
+    --color-foreground: var(--card-foreground);
+  }
+  @layer base {
+    body { background: var(--card-background); color: var(--card-foreground); }
+    td, th { @apply break-words; word-break: break-all; word-break: auto-phrase; }
+    th { @apply whitespace-nowrap; }
+  }
+    </style>
+    <style>
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      [data-icon] {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-mask-size: contain;
+        mask-size: contain;
+        -webkit-mask-repeat: no-repeat;
+        mask-repeat: no-repeat;
+        -webkit-mask-position: center;
+        mask-position: center;
+        background-color: currentColor;
+      }
+    </style>
+</head>
+<body class="min-h-screen font-sans antialiased">
+    <main class="flex min-h-screen" style="background:var(--background)">
+        <!-- Sidebar -->
+        <aside class="flex flex-col shrink-0 sidebar-resp" style="width:220px; background:var(--sidebar); color:var(--sidebar-foreground); border-right:1px solid var(--sidebar-border)">
+            <!-- Brand -->
+            <div class="flex items-center gap-3 px-6 py-5">
+                <div class="flex items-center justify-center shrink-0" style="width:36px; height:36px; border-radius:calc(var(--radius) + 4px); background:var(--sidebar-primary); color:var(--sidebar-primary-foreground); font-weight:700; font-size:1rem">
+                    <span>L</span>
+                </div>
+                <div class="flex flex-col min-w-0 brand-copy-area">
+                    <span class="font-semibold text-sm truncate" style="color:var(--sidebar-foreground)">本地模式</span>
+                    <span class="text-xs truncate" style="color:var(--muted-foreground)">数据管理中心</span>
+                </div>
+            </div>
+
+            <!-- Nav -->
+            <nav class="flex flex-col gap-1 px-3 py-2">
+                <a href="#" class="flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg no-underline transition-all duration-200 active:scale-[0.97]" style="background:var(--sidebar-primary); color:var(--sidebar-primary-foreground); font-weight:600; font-size:0.9rem">
+                    <i data-lucide="layout-dashboard" class="w-5 h-5 shrink-0"></i>
+                    <span class="truncate nav-label">概览</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg no-underline transition-all duration-200 active:scale-[0.97]" style="color:var(--sidebar-foreground); font-size:0.9rem" onmouseover="this.style.background='var(--sidebar-accent)'; this.style.color='var(--sidebar-accent-foreground)'" onmouseout="this.style.background='transparent'; this.style.color='var(--sidebar-foreground)'">
+                    <i data-lucide="database" class="w-5 h-5 shrink-0"></i>
+                    <span class="truncate nav-label">数据管理</span>
+                </a>
+                <a href="#" class="flex items-center gap-3 w-full text-left px-4 py-3 rounded-lg no-underline transition-all duration-200 active:scale-[0.97]" style="color:var(--sidebar-foreground); font-size:0.9rem" onmouseover="this.style.background='var(--sidebar-accent)'; this.style.color='var(--sidebar-accent-foreground)'" onmouseout="this.style.background='transparent'; this.style.color='var(--sidebar-foreground)'">
+                    <i data-lucide="settings" class="w-5 h-5 shrink-0"></i>
+                    <span class="truncate nav-label">设置</span>
+                </a>
+            </nav>
+
+            <!-- Footer -->
+            <div class="mt-auto mx-4 mb-5 pt-4 text-xs sidebar-footer-text" style="border-top:1px solid var(--sidebar-border); color:var(--muted-foreground)">
+                <span>v1.0.0 · 本地运行中</span>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <div class="flex flex-col flex-1 min-w-0">
+            <!-- Top Bar -->
+            <header class="flex items-center justify-between shrink-0 px-6 gap-4" style="height:64px; border-bottom:1px solid var(--border); background:var(--background)">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="text-sm font-medium truncate" style="color:var(--muted-foreground)">首页 / 概览</span>
+                </div>
+                <div class="flex items-center gap-3 shrink-0">
+                    <button class="flex items-center justify-center shrink-0 border rounded-lg transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 active:scale-[0.97]" style="width:36px; height:36px; background:var(--card); border-color:var(--border); color:var(--foreground); outline-color:var(--ring)" onmouseover="this.style.background='var(--muted)'" onmouseout="this.style.background='var(--card)'" aria-label="通知">
+                        <i data-lucide="bell" class="w-4 h-4"></i>
+                    </button>
+                    <div class="flex items-center justify-center shrink-0 rounded-full font-bold text-sm" style="width:36px; height:36px; background:var(--primary); color:var(--primary-foreground)">A</div>
+                </div>
+            </header>
+
+            <!-- Content -->
+            <div class="flex-1 overflow-y-auto">
+                <div class="flex flex-col gap-6 p-6">
+                    <!-- Welcome Header -->
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div class="min-w-0">
+                            <h1 class="text-2xl font-bold m-0 truncate" style="color:var(--foreground)">欢迎使用本地模式</h1>
+                            <p class="text-sm mt-1.5" style="color:var(--muted-foreground)">本地数据安全可靠，即开即用</p>
+                        </div>
+                    </div>
+
+                    <!-- Metric Cards Row -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Card 1 -->
+                        <div class="flex flex-col p-5 rounded-lg border transition-all duration-200" style="background:var(--card); border-color:var(--border)" onmouseover="this.style.borderColor='var(--ring)'" onmouseout="this.style.borderColor='var(--border)'">
+                            <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--muted-foreground)">总数据量</span>
+                            <span class="text-2xl font-bold mt-1.5 whitespace-nowrap" style="color:var(--foreground)">1,284<span class="text-base font-normal" style="color:var(--muted-foreground)"> 条</span></span>
+                            <span class="text-xs mt-2 flex items-center gap-1 whitespace-nowrap" style="color:var(--chart-5)">
+                                <i data-lucide="trending-up" class="w-3.5 h-3.5"></i>较上周 +12%
+                            </span>
+                        </div>
+
+                        <!-- Card 2 -->
+                        <div class="flex flex-col p-5 rounded-lg border transition-all duration-200" style="background:var(--card); border-color:var(--border)" onmouseover="this.style.borderColor='var(--ring)'" onmouseout="this.style.borderColor='var(--border)'">
+                            <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--muted-foreground)">今日处理</span>
+                            <span class="text-2xl font-bold mt-1.5 whitespace-nowrap" style="color:var(--foreground)">47<span class="text-base font-normal" style="color:var(--muted-foreground)"> 次</span></span>
+                            <span class="text-xs mt-2 flex items-center gap-1 whitespace-nowrap" style="color:var(--chart-1)">
+                                <i data-lucide="activity" class="w-3.5 h-3.5"></i>处理中 3 项
+                            </span>
+                        </div>
+
+                        <!-- Card 3 -->
+                        <div class="flex flex-col p-5 rounded-lg border transition-all duration-200" style="background:var(--card); border-color:var(--border)" onmouseover="this.style.borderColor='var(--ring)'" onmouseout="this.style.borderColor='var(--border)'">
+                            <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--muted-foreground)">存储空间</span>
+                            <span class="text-2xl font-bold mt-1.5 whitespace-nowrap" style="color:var(--foreground)">2.1<span class="text-base font-normal" style="color:var(--muted-foreground)"> GB</span></span>
+                            <div class="mt-2 flex flex-col gap-1">
+                                <div class="w-full rounded-full overflow-hidden" style="height:4px; background:var(--muted)">
+                                    <div class="h-full rounded-full" style="width:21%; background:var(--primary)"></div>
+                                </div>
+                                <span class="text-xs whitespace-nowrap" style="color:var(--muted-foreground)">已用 21% · 剩余 7.9 GB</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activity -->
+                    <div class="flex flex-col rounded-lg border" style="background:var(--card); border-color:var(--border)">
+                        <!-- Card Header -->
+                        <div class="flex items-center justify-between px-5 py-4" style="border-bottom:1px solid var(--border)">
+                            <div class="min-w-0">
+                                <span class="text-xs font-medium uppercase tracking-wider" style="color:var(--muted-foreground)">活动记录</span>
+                                <h2 class="text-base font-semibold m-0 mt-0.5 truncate" style="color:var(--foreground)">最近活动</h2>
+                            </div>
+                            <span class="text-xs px-2.5 py-1 rounded-full whitespace-nowrap shrink-0" style="background:var(--muted); color:var(--foreground)">共 28 条</span>
+                        </div>
+
+                        <!-- Table Header -->
+                        <div class="grid gap-3 px-5 py-2.5 text-xs font-medium uppercase tracking-wider" style="grid-template-columns:1.2fr .6fr .8fr .6fr; color:var(--muted-foreground)">
+                            <span class="truncate">操作描述</span>
+                            <span class="truncate">时间</span>
+                            <span class="truncate">操作人</span>
+                            <span class="truncate">状态</span>
+                        </div>
+
+                        <!-- Table Rows -->
+                        <div class="flex flex-col">
+                            <div class="grid gap-3 px-5 py-3.5 text-sm border-t items-center transition-all duration-200" style="grid-template-columns:1.2fr .6fr .8fr .6fr; border-color:var(--border)" onmouseover="this.style.background='var(--muted)'" onmouseout="this.style.background='transparent'">
+                                <span class="truncate font-medium" style="color:var(--foreground)">批量导入客户数据</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">10:32</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">张三</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center justify-center w-fit" style="background:var(--muted); color:var(--foreground)">成功</span>
+                            </div>
+                            <div class="grid gap-3 px-5 py-3.5 text-sm border-t items-center transition-all duration-200" style="grid-template-columns:1.2fr .6fr .8fr .6fr; border-color:var(--border)" onmouseover="this.style.background='var(--muted)'" onmouseout="this.style.background='transparent'">
+                                <span class="truncate font-medium" style="color:var(--foreground)">生成月度报表</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">09:15</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">李四</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center justify-center w-fit" style="background:var(--muted); color:var(--foreground)">成功</span>
+                            </div>
+                            <div class="grid gap-3 px-5 py-3.5 text-sm border-t items-center transition-all duration-200" style="grid-template-columns:1.2fr .6fr .8fr .6fr; border-color:var(--border)" onmouseover="this.style.background='var(--muted)'" onmouseout="this.style.background='transparent'">
+                                <span class="truncate font-medium" style="color:var(--foreground)">数据备份至本地存储</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">昨天 18:42</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">系统</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center justify-center w-fit" style="background:var(--muted); color:var(--foreground)">成功</span>
+                            </div>
+                            <div class="grid gap-3 px-5 py-3.5 text-sm border-t items-center transition-all duration-200" style="grid-template-columns:1.2fr .6fr .8fr .6fr; border-color:var(--border)" onmouseover="this.style.background='var(--muted)'" onmouseout="this.style.background='transparent'">
+                                <span class="truncate font-medium" style="color:var(--foreground)">清理过期缓存文件</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">昨天 14:20</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">王五</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center justify-center w-fit" style="background:var(--accent); color:var(--accent-foreground)">处理中</span>
+                            </div>
+                            <div class="grid gap-3 px-5 py-3.5 text-sm border-t items-center transition-all duration-200" style="grid-template-columns:1.2fr .6fr .8fr .6fr; border-color:var(--border)" onmouseover="this.style.background='var(--muted)'" onmouseout="this.style.background='transparent'">
+                                <span class="truncate font-medium" style="color:var(--foreground)">更新系统配置文件</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">昨天 11:05</span>
+                                <span class="truncate" style="color:var(--muted-foreground)">张三</span>
+                                <span class="text-xs px-2 py-0.5 rounded-full whitespace-nowrap inline-flex items-center justify-center w-fit" style="background:var(--muted); color:var(--foreground)">成功</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+    <style>
+        @media (max-width:960px) {
+            .sidebar-resp { width: 72px !important; padding-left: 12px; padding-right: 12px; }
+            .sidebar-resp .brand-copy-area { display: none; }
+            .sidebar-resp .nav-label { display: none; }
+            .sidebar-resp .sidebar-footer-text { display: none; }
+        }
+    </style>
+    <script>lucide.createIcons();</script>
+</body>
+</html>

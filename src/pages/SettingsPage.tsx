@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { api } from '@/utils/api';
-import { Settings, Zap, Check, Loader2, User, Lock, LogOut, Palette, Moon, Sun, Plus, Trash2, Cloud, HardDrive, Wallet } from 'lucide-react';
+import { Settings, Zap, Check, Loader2, User, Lock, LogOut, Palette, Moon, Sun, Plus, Trash2, Cloud, HardDrive, Wallet, Key, Copy, Eye, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type Theme, useTheme } from '@/hooks/useTheme';
 import AdvancedLlmSettings from '@/components/settings/LlmSettings';
 
-type SettingsTab = 'user' | 'llm';
+type SettingsTab = 'user' | 'llm' | 'sync';
 
 type LlmStorage = 'cloud' | 'local';
 type LlmProvider = 'openai' | 'anthropic';
@@ -34,7 +34,9 @@ interface LlmPreset {
 }
 
 export default function SettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>('user');
+  const user = useAppStore((s) => s.user);
+  const isLocalUser = user?.username === 'local-user';
+  const [activeTab, setActiveTab] = useState<SettingsTab>(isLocalUser ? 'llm' : 'user');
   const [saved, setSaved] = useState(false);
 
   const flashSaved = () => {
@@ -43,7 +45,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="space-y-5 max-w-3xl mx-auto p-4 sm:p-6">
+    <div className="space-y-5 p-4 sm:p-6">
       <div className="flex items-center gap-2">
         <Settings className="w-5 h-5 text-gold-400" />
         <h2 className="text-lg font-serif font-bold text-parchment-100">设置</h2>
@@ -56,33 +58,30 @@ export default function SettingsPage() {
 
       {/* Tab 切换 */}
       <div className="flex gap-2 border-b border-ink-800/50 pb-0">
-        <button
-          onClick={() => setActiveTab('user')}
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-[1px] transition-all',
-            activeTab === 'user'
-              ? 'border-gold-400 text-gold-400'
-              : 'border-transparent text-parchment-400 hover:text-parchment-200'
-          )}
-        >
-          <User className="w-3.5 h-3.5" />
-          用户设置
+        {!isLocalUser && (
+          <button onClick={() => setActiveTab('user')}
+            className={cn('flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-[1px] transition-all',
+              activeTab === 'user' ? 'border-gold-400 text-gold-400' : 'border-transparent text-parchment-400 hover:text-parchment-200')}>
+            <User className="w-3.5 h-3.5" /> 用户设置
+          </button>
+        )}
+        <button onClick={() => setActiveTab('llm')}
+          className={cn('flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-[1px] transition-all',
+            activeTab === 'llm' ? 'border-gold-400 text-gold-400' : 'border-transparent text-parchment-400 hover:text-parchment-200')}>
+          <Zap className="w-3.5 h-3.5" /> AI 配置
         </button>
-        <button
-          onClick={() => setActiveTab('llm')}
-          className={cn(
-            'flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-[1px] transition-all',
-            activeTab === 'llm'
-              ? 'border-gold-400 text-gold-400'
-              : 'border-transparent text-parchment-400 hover:text-parchment-200'
-          )}
-        >
-          <Zap className="w-3.5 h-3.5" />
-          AI 配置
-        </button>
+        {!isLocalUser && (
+          <button onClick={() => setActiveTab('sync')}
+            className={cn('flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-[1px] transition-all',
+              activeTab === 'sync' ? 'border-gold-400 text-gold-400' : 'border-transparent text-parchment-400 hover:text-parchment-200')}>
+            <Cloud className="w-3.5 h-3.5" /> 远端密钥
+          </button>
+        )}
       </div>
 
-      {activeTab === 'user' ? <UserSettings flashSaved={flashSaved} /> : <AdvancedLlmSettings flashSaved={flashSaved} />}
+      {activeTab === 'user' && !isLocalUser && <UserSettings flashSaved={flashSaved} />}
+      {activeTab === 'llm' && <AdvancedLlmSettings flashSaved={flashSaved} localOnly={isLocalUser} />}
+      {activeTab === 'sync' && !isLocalUser && <SyncKeySettings flashSaved={flashSaved} />}
     </div>
   );
 }
@@ -480,6 +479,115 @@ function LlmSettings({ flashSaved }: { flashSaved: () => void }) {
       {testResult && (
         <div className={cn('text-sm p-3 rounded-lg', testResult.startsWith('✅') ? 'bg-forest-800/20 text-forest-400' : 'bg-red-500/10 text-red-400')}>
           {testResult}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============ 同步密钥管理 ============
+
+function SyncKeySettings({ flashSaved }: { flashSaved: () => void }) {
+  const [keys, setKeys] = useState<any[]>([]);
+  const [newKey, setNewKey] = useState('');
+  const [label, setLabel] = useState('');
+  const [showKey, setShowKey] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const loadKeys = async () => {
+    try {
+      const data = await (api.settings as any).getSyncKeys();
+      setKeys(Array.isArray(data) ? data : data?.data || []);
+    } catch {}
+  };
+
+  useEffect(() => { loadKeys(); }, []);
+
+  const generateKey = async () => {
+    setLoading(true);
+    try {
+      const result = await (api.settings as any).generateSyncKey(label);
+      setNewKey(result.key);
+      flashSaved();
+      loadKeys();
+    } catch (e: any) {
+      alert('生成失败：' + (e.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteKey = async (id: string) => {
+    if (!confirm('确定删除此密钥？使用该密钥的本地设备将无法同步。')) return;
+    try {
+      await (api.settings as any).deleteSyncKey(id);
+      loadKeys();
+    } catch {}
+  };
+
+  const copyKey = () => {
+    navigator.clipboard.writeText(newKey).then(() => alert('已复制到剪贴板'));
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="p-4 rounded-xl border border-ink-800/50 bg-ink-900/60">
+        <h3 className="text-sm font-medium text-parchment-100 mb-3">生成同步密钥</h3>
+        <p className="text-xs text-parchment-400 mb-4">
+          生成后把密钥发给本地设备，在本地模式中填入即可同步笔记。
+        </p>
+        <div className="flex gap-2 mb-3">
+          <input
+            type="text" value={label}
+            onChange={e => setLabel(e.target.value)}
+            placeholder="密钥标签（如：笔记本、手机）"
+            className="flex-1 px-3 py-2 bg-ink-950/80 border border-ink-700/50 rounded-lg text-parchment-100 text-sm placeholder-ink-500 outline-none focus:border-gold-400/60"
+          />
+          <button
+            onClick={generateKey} disabled={loading}
+            className="flex items-center gap-1.5 px-4 py-2 bg-amber-500/20 border border-amber-500/30 text-amber-300 hover:bg-amber-500/30 rounded-lg text-sm transition-colors disabled:opacity-50"
+          >
+            <Key className="w-4 h-4" />
+            生成
+          </button>
+        </div>
+
+        {newKey && (
+          <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs text-amber-400 font-medium">新密钥（仅显示一次，请立即复制）</span>
+              <button onClick={() => setShowKey(!showKey)} className="text-ink-500 hover:text-parchment-300">
+                {showKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs text-parchment-100 bg-ink-950/80 px-3 py-2 rounded break-all select-all">
+                {showKey ? newKey : newKey.slice(0, 20) + '••••••••••••••••'}
+              </code>
+              <button onClick={copyKey} className="p-2 text-ink-500 hover:text-parchment-200 rounded-lg hover:bg-ink-800/50">
+                <Copy className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {keys.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium text-parchment-100">已有密钥</h3>
+          {keys.map((k: any) => (
+            <div key={k.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border border-ink-800/50 bg-ink-900/60">
+              <Key className="w-4 h-4 text-ink-500" />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-parchment-100">{k.label}</p>
+                <p className="text-[10px] text-ink-500">创建于 {new Date(k.created_at).toLocaleString()}</p>
+              </div>
+              <button onClick={() => deleteKey(k.id)}
+                className="p-1.5 text-ink-500 hover:text-red-400 rounded-lg hover:bg-red-500/10 transition-colors">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

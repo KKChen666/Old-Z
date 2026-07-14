@@ -18,6 +18,7 @@ const Chat = lazy(() => import("@/pages/Chat"));
 const Timeline = lazy(() => import("@/pages/Timeline"));
 const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
 const Discover = lazy(() => import("@/pages/Discover"));
+const SyncStatus = lazy(() => import("@/pages/SyncStatus"));
 
 function PageLoader() {
   return (
@@ -41,9 +42,16 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       setLoading(false);
       return;
     }
+    // 本地模式和正常模式都尝试恢复 token
     api.getMe()
       .then(u => { setUser(u); })
-      .catch(() => { clearAuth(); })
+      .catch(() => {
+        clearAuth();
+        // 本地模式下 token 失效，清除标记让用户重新点击"本地使用"
+        if (localStorage.getItem('old-z-local-mode') === 'true') {
+          localStorage.removeItem('old-z-local-mode');
+        }
+      })
       .finally(() => { setLoading(false); });
   }, []);
 
@@ -55,6 +63,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // 未登录 → 去登录页
   if (!user) {
     return <Navigate to="/login" replace />;
   }
@@ -103,7 +112,7 @@ export default function App() {
         <Router>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login />} />
+              <Route path="/login" element={(user && localStorage.getItem('old-z-local-mode') !== 'true') ? <Navigate to="/" replace /> : <Login />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/files" element={<Files />} />
@@ -113,6 +122,7 @@ export default function App() {
                 <Route path="/discover" element={<Discover />} />
                 <Route path="/timeline" element={<Timeline />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/sync" element={<SyncStatus />} />
               </Route>
             </Routes>
           </Suspense>

@@ -1,0 +1,323 @@
+{
+  "project": {
+    "name": "双模式系统",
+    "path": "d:\\code\\oldz\\home-design\\dual-mode-system",
+    "operation": "create",
+    "deviceType": "desktop",
+    "language": "zh-CN",
+    "dashboardMode": false,
+    "replicationMode": null,
+    "sourceUrl": null,
+    "visualSpecExcerpt": null,
+    "styleDefinitionBrief": null,
+    "designRead": "System mode selection / general users / clean analytical dashboard tone / medium-low density / avoid decorative fluff, keep utility-first",
+    "designDials": {
+      "layoutVariance": 2,
+      "motionIntensity": 3,
+      "visualDensity": 3
+    },
+    "styleContinuityAnchors": {
+      "colorSystem": {
+        "primaryColorRole": "#4285f4 as primary CTA and selected states",
+        "brandHuePolicy": "single primary hue; no secondary/accent brand hue",
+        "stateColors": "default semantic states"
+      },
+      "shapeSystem": "8px baseline radius, flat surfaces with thin borders",
+      "typographySystem": "DM Sans for UI copy, JetBrains Mono for labels",
+      "spacingSystem": "compact 3.84px micro-unit rhythm",
+      "componentLanguage": "flat buttons with color emphasis, bordered cards, clean separators",
+      "surfaceAndDepth": "border-driven hierarchy, no shadows",
+      "imageryAndIconography": "simple geometric icons, flat style",
+      "interactionTone": "subtle opacity/color transitions, border highlight on hover"
+    },
+    "specsConstraints": null,
+    "sharedProjectShellContract": {
+      "navigationShell": "no shared nav shell; each page type has independent layout",
+      "primaryColorSystem": "#4285f4 single primary brand hue",
+      "typographySystem": "DM Sans font stack, clean product voice",
+      "radiusScale": "8px baseline, 4px sm, 12px xl",
+      "surfaceDepthModel": "flat borders, no shadows, border: #ebebeb, background: #ffffff",
+      "ctaStyle": "flat filled primary button #4285f4, white text, 8px radius, compact",
+      "alignmentRules": "centered layouts for splash/selection, left-aligned for content pages"
+    },
+    "generationTree": {
+      "root": {
+        "nodeId": "gen-project-shell",
+        "kind": "project-shell",
+        "pageIds": ["page-mode-select", "page-mode-select-local", "page-mode-select-online", "page-home", "page-login"],
+        "output": "partials/project-shell.html",
+        "sharedRegions": [],
+        "privateRegions": [],
+        "mutableSlots": [],
+        "status": "planned",
+        "children": [
+          {
+            "nodeId": "gen-mode-select-base",
+            "kind": "shared-branch",
+            "pageIds": ["page-mode-select", "page-mode-select-local", "page-mode-select-online"],
+            "output": "pages/mode-select.html",
+            "sharedRegions": ["full-page-shell"],
+            "privateRegions": [],
+            "mutableSlots": ["selectedMode", "cardProportions", "confirmButton"],
+            "status": "planned",
+            "children": [
+              {
+                "nodeId": "gen-mode-select-local",
+                "kind": "page-leaf",
+                "pageIds": ["page-mode-select-local"],
+                "output": "pages/mode-select-local.html",
+                "sharedRegions": ["full-page-shell"],
+                "privateRegions": [],
+                "mutableSlots": ["selectedMode", "cardProportions", "confirmButton"],
+                "status": "planned",
+                "children": []
+              },
+              {
+                "nodeId": "gen-mode-select-online",
+                "kind": "page-leaf",
+                "pageIds": ["page-mode-select-online"],
+                "output": "pages/mode-select-online.html",
+                "sharedRegions": ["full-page-shell"],
+                "privateRegions": [],
+                "mutableSlots": ["selectedMode", "cardProportions", "confirmButton"],
+                "status": "planned",
+                "children": []
+              }
+            ]
+          },
+          {
+            "nodeId": "gen-page-home",
+            "kind": "page-leaf",
+            "pageIds": ["page-home"],
+            "output": "pages/home.html",
+            "sharedRegions": [],
+            "privateRegions": ["full-page"],
+            "mutableSlots": [],
+            "status": "planned",
+            "children": []
+          },
+          {
+            "nodeId": "gen-page-login",
+            "kind": "page-leaf",
+            "pageIds": ["page-login"],
+            "output": "pages/login.html",
+            "sharedRegions": [],
+            "privateRegions": ["full-page"],
+            "mutableSlots": [],
+            "status": "planned",
+            "children": []
+          }
+        ]
+      }
+    }
+  },
+  "designSource": {
+    "operatingMode": "library-bound",
+    "libraryIdentity": {
+      "name": "谷歌",
+      "id": "dl_builtin_google",
+      "version": null,
+      "scope": "built-in-global",
+      "path": "c:\\Users\\Leonard\\.trae-cn\\design_libraries\\dl_builtin_google",
+      "versionSource": null
+    },
+    "tokenSource": "google-design-library",
+    "brandPrefix": "google",
+    "libraryRestraintMode": false,
+    "styleConstraints": {},
+    "iconAssets": null,
+    "forbiddenInventedComponents": [],
+    "allowedComponents": [],
+    "componentContractKind": "compact-json"
+  },
+  "pages": [
+    {
+      "nodeId": "page-mode-select",
+      "title": "模式选择",
+      "htmlSrc": "pages/mode-select.html",
+      "pageIndex": 1,
+      "pageType": "showcase",
+      "stateGroupId": "mode-selection-group",
+      "stateRole": "base",
+      "baseStatePageId": null,
+      "sharedShellContract": {},
+      "mutableRegions": ["selectedMode", "cardProportions", "confirmButton"],
+      "visualNorthStar": "Centered dual-card comparison layout with equal 50/50 split, clean Google aesthetic",
+      "compositionPattern": "symmetrical-split",
+      "continuityAnchors": {
+        "colorSystem": "#4285f4 primary, #ffffff background, #ebebeb borders",
+        "typographySystem": "DM Sans, clean product labels",
+        "shapeSystem": "8px radius cards, flat borders",
+        "surfaceAndDepth": "border-driven, no shadows",
+        "componentLanguage": "bordered cards with icon + title + description",
+        "ctaStyle": "flat #4285f4 filled button",
+        "interactionTone": "subtle border color transition on hover, smooth width animation on selection"
+      },
+      "componentPlan": [],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false
+    },
+    {
+      "nodeId": "page-mode-select-local",
+      "title": "模式选择 - 本地已选",
+      "htmlSrc": "pages/mode-select-local.html",
+      "pageIndex": 2,
+      "pageType": "showcase",
+      "stateGroupId": "mode-selection-group",
+      "stateRole": "derived",
+      "baseStatePageId": "page-mode-select",
+      "sharedShellContract": {
+        "immutableRegions": ["page-background", "layout-center-wrapper", "unselected-card-shell"],
+        "mutableRegions": ["card-width-ratio", "selected-card-styling", "confirm-button-visibility"]
+      },
+      "mutableRegions": ["selectedMode", "cardProportions", "confirmButton"],
+      "visualNorthStar": "Local mode card expands to 65%, online shrinks to 35%, smooth CSS transition",
+      "compositionPattern": "asymmetric-split",
+      "continuityAnchors": {
+        "colorSystem": "#4285f4 primary, #ffffff background, #ebebeb borders",
+        "typographySystem": "DM Sans, clean product labels",
+        "shapeSystem": "8px radius cards, flat borders",
+        "surfaceAndDepth": "border-driven, no shadows",
+        "componentLanguage": "selected card gets primary accent border and background tint",
+        "ctaStyle": "flat #4285f4 filled button appears in selected card",
+        "interactionTone": "0.4s ease width transition, color fade on selection"
+      },
+      "componentPlan": [],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false
+    },
+    {
+      "nodeId": "page-mode-select-online",
+      "title": "模式选择 - 在线已选",
+      "htmlSrc": "pages/mode-select-online.html",
+      "pageIndex": 3,
+      "pageType": "showcase",
+      "stateGroupId": "mode-selection-group",
+      "stateRole": "derived",
+      "baseStatePageId": "page-mode-select",
+      "sharedShellContract": {
+        "immutableRegions": ["page-background", "layout-center-wrapper", "unselected-card-shell"],
+        "mutableRegions": ["card-width-ratio", "selected-card-styling", "confirm-button-visibility"]
+      },
+      "mutableRegions": ["selectedMode", "cardProportions", "confirmButton"],
+      "visualNorthStar": "Online mode card expands to 65%, local shrinks to 35%, smooth CSS transition",
+      "compositionPattern": "asymmetric-split",
+      "continuityAnchors": {
+        "colorSystem": "#4285f4 primary, #ffffff background, #ebebeb borders",
+        "typographySystem": "DM Sans, clean product labels",
+        "shapeSystem": "8px radius cards, flat borders",
+        "surfaceAndDepth": "border-driven, no shadows",
+        "componentLanguage": "selected card gets primary accent border and background tint",
+        "ctaStyle": "flat #4285f4 filled button appears in selected card",
+        "interactionTone": "0.4s ease width transition, color fade on selection"
+      },
+      "componentPlan": [],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false
+    },
+    {
+      "nodeId": "page-home",
+      "title": "系统首页",
+      "htmlSrc": "pages/home.html",
+      "pageIndex": 4,
+      "pageType": "information-dense",
+      "stateGroupId": null,
+      "stateRole": null,
+      "baseStatePageId": null,
+      "sharedShellContract": null,
+      "mutableRegions": null,
+      "visualNorthStar": "Clean dashboard-style homepage with sidebar navigation and metric cards, Google aesthetic",
+      "compositionPattern": "sidebar-dashboard",
+      "continuityAnchors": {
+        "colorSystem": "#4285f4 primary, #ffffff background, sidebar #f0f6ff",
+        "typographySystem": "DM Sans, clean product labels",
+        "shapeSystem": "8px radius cards, flat borders",
+        "surfaceAndDepth": "border-driven, no shadows",
+        "componentLanguage": "sidebar nav + metric cards + data table section",
+        "ctaStyle": "flat #4285f4 filled button",
+        "interactionTone": "hover border highlight, subtle opacity transitions"
+      },
+      "componentPlan": [],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false
+    },
+    {
+      "nodeId": "page-login",
+      "title": "登录页",
+      "htmlSrc": "pages/login.html",
+      "pageIndex": 5,
+      "pageType": "task-driven",
+      "stateGroupId": null,
+      "stateRole": null,
+      "baseStatePageId": null,
+      "sharedShellContract": null,
+      "mutableRegions": null,
+      "visualNorthStar": "Clean centered login form with Google aesthetic, brand header and simple fields",
+      "compositionPattern": "centered-form",
+      "continuityAnchors": {
+        "colorSystem": "#4285f4 primary, #ffffff background",
+        "typographySystem": "DM Sans, clean product labels",
+        "shapeSystem": "8px radius inputs and button",
+        "surfaceAndDepth": "border-driven inputs, no shadows",
+        "componentLanguage": "centered card with form fields",
+        "ctaStyle": "flat #4285f4 filled button, full width in form",
+        "interactionTone": "input border color change on focus, button hover opacity"
+      },
+      "componentPlan": [],
+      "imagePlan": [],
+      "chartsRequired": false,
+      "miniProgramStyle": false
+    }
+  ],
+  "assets": [],
+  "wiringPlan": [
+    {
+      "sourcePageId": "page-mode-select",
+      "domId": "card-local",
+      "targetPageId": "page-mode-select-local",
+      "hideEdge": true,
+      "transitionLabel": "选择本地模式"
+    },
+    {
+      "sourcePageId": "page-mode-select",
+      "domId": "card-online",
+      "targetPageId": "page-mode-select-online",
+      "hideEdge": true,
+      "transitionLabel": "选择在线模式"
+    },
+    {
+      "sourcePageId": "page-mode-select-local",
+      "domId": "btn-enter-local",
+      "targetPageId": "page-home",
+      "hideEdge": false,
+      "transitionLabel": "进入系统"
+    },
+    {
+      "sourcePageId": "page-mode-select-online",
+      "domId": "btn-enter-online",
+      "targetPageId": "page-login",
+      "hideEdge": false,
+      "transitionLabel": "去登录"
+    }
+  ],
+  "hiddenInteractionPlan": [
+    {
+      "sourcePageId": "page-mode-select-local",
+      "domId": "card-online-shrunk",
+      "targetPageId": "page-mode-select-online",
+      "hideEdge": true,
+      "transitionLabel": "切换到在线模式"
+    },
+    {
+      "sourcePageId": "page-mode-select-online",
+      "domId": "card-local-shrunk",
+      "targetPageId": "page-mode-select-local",
+      "hideEdge": true,
+      "transitionLabel": "切换到本地模式"
+    }
+  ]
+}

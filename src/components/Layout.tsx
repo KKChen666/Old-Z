@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
+import { api } from '@/utils/api';
 import {
   ArrowLeft,
   LayoutDashboard,
@@ -17,6 +18,9 @@ import {
   LogOut,
   User,
   Settings,
+  Lock,
+  LogIn,
+  RefreshCw,
 } from 'lucide-react';
 
 const navItems = [
@@ -27,6 +31,11 @@ const navItems = [
   { to: '/chat', icon: MessageCircle, label: 'AI 助手' },
   { to: '/timeline', icon: Clock, label: '时间轴' },
   { to: '/settings', icon: Settings, label: '设置' },
+];
+
+// 本地模式专属导航项
+const localOnlyNavItems = [
+  { to: '/sync', icon: RefreshCw, label: '同步' },
 ];
 
 /** 手机端底部导航栏 - 浏览器端精简为5个核心项 */
@@ -55,15 +64,24 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const mobileBackTitle = discoverRoutes[location.pathname];
+  const isLocalMode = localStorage.getItem('old-z-local-mode') === 'true';
+  // 需要登录才能使用的功能
+  // 本地模式无锁：功能全开，数据存 SQLite
+  const lockedRoutes: string[] = [];
 
-  // 所有受保护页面统一加载数据（解决在非 Dashboard 页面刷新导致数据丢失的问题）
+  // 所有受保护页面统一加载数据（含本地模式）
   useEffect(() => {
     if (user) loadData();
   }, [user, loadData]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    if (isLocalMode) {
+      localStorage.removeItem('old-z-local-mode');
+      navigate('/login');
+    } else {
+      logout();
+      navigate('/login');
+    }
   };
 
   return (
@@ -88,52 +106,85 @@ export default function Layout() {
 
         {/* Navigation */}
         <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
-                  isActive
-                    ? 'bg-forest-800/40 text-gold-400 border-l-2 border-gold-400'
-                    : 'text-parchment-400 hover:bg-ink-800/60 hover:text-parchment-200'
-                }`
-              }
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              {!sidebarCollapsed && (
-                <span className="text-sm font-medium">{item.label}</span>
-              )}
-            </NavLink>
-          ))}
+          {[
+            ...(isLocalMode ? navItems.filter(i => i.to !== '/files') : navItems),
+            ...(isLocalMode ? localOnlyNavItems : []),
+          ].map((item) => {
+            const locked = isLocalMode && lockedRoutes.includes(item.to);
+            return locked ? (
+              <button
+                key={item.to}
+                onClick={() => navigate('/login')}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-ink-600 hover:bg-ink-800/60 hover:text-parchment-400"
+                title="需要登录后使用"
+              >
+                <Lock className="w-4 h-4 flex-shrink-0" />
+                {!sidebarCollapsed && (
+                  <span className="text-sm font-medium">{item.label}</span>
+                )}
+              </button>
+            ) : (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.to === '/'}
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 group ${
+                    isActive
+                      ? 'bg-forest-800/40 text-gold-400 border-l-2 border-gold-400'
+                      : 'text-parchment-400 hover:bg-ink-800/60 hover:text-parchment-200'
+                  }`
+                }
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && (
+                  <span className="text-sm font-medium">{item.label}</span>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {/* User info & logout */}
-        {user && (
+        {(user || isLocalMode) && (
           <div className="px-2 py-2 border-t border-ink-800/50">
             <div className={`flex items-center gap-3 px-3 py-2 rounded-lg ${sidebarCollapsed ? 'justify-center' : ''}`}>
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-gold-400 to-forest-500 flex items-center justify-center flex-shrink-0">
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${user ? 'bg-gradient-to-br from-gold-400 to-forest-500' : 'bg-ink-800/60'}`}>
                 <User className="w-4 h-4 text-ink-950" />
               </div>
               {!sidebarCollapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-parchment-100 truncate">
-                    {user.displayName || user.username}
+                    {user ? (user.displayName || user.username) : '本地模式'}
                   </p>
+                  {!user && <p className="text-[10px] text-ink-500">离线使用</p>}
                 </div>
               )}
             </div>
             <button
               onClick={handleLogout}
               className={`w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-parchment-400 hover:bg-red-500/10 hover:text-red-400 transition-colors ${sidebarCollapsed ? 'justify-center' : ''}`}
-              title="退出登录"
+              title={isLocalMode ? '登录账户' : '退出登录'}
             >
-              <LogOut className="w-4 h-4 flex-shrink-0" />
+              {isLocalMode ? <LogIn className="w-4 h-4 flex-shrink-0" /> : <LogOut className="w-4 h-4 flex-shrink-0" />}
               {!sidebarCollapsed && (
-                <span className="text-sm">退出登录</span>
+                <span className="text-sm">{isLocalMode ? '登录账户' : '退出登录'}</span>
               )}
             </button>
+          </div>
+        )}
+
+        {/* 数据库模式指示器 */}
+        {user && (
+          <div className="px-3 py-2 border-t border-ink-800/50">
+            <div className={`flex items-center gap-2 ${sidebarCollapsed ? 'justify-center' : ''}`}>
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${user.username === 'local-user' ? 'bg-green-400 shadow-sm shadow-green-400/50' : 'bg-cyan-400 shadow-sm shadow-cyan-400/50'}`} />
+              {!sidebarCollapsed && (
+                <span className="text-[11px] text-ink-500">
+                  {user.username === 'local-user' ? '本地数据库 (SQLite)' : '云端数据库 (MySQL)'}
+                </span>
+              )}
+            </div>
           </div>
         )}
 

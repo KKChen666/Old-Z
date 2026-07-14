@@ -65,7 +65,7 @@ export default function Discover() {
         <h1 className="text-xl font-serif font-bold text-parchment-100 text-center">更多</h1>
       </div>
 
-      <div className="mx-auto max-w-2xl p-4 sm:p-6 space-y-5">
+      <div className="p-4 sm:p-6 space-y-5">
         <div className="hidden md:block">
           <h1 className="font-serif text-2xl font-bold text-parchment-100">更多</h1>
           <p className="mt-1 text-sm text-parchment-400">集中放置低频工具，保持移动端底栏清爽。</p>

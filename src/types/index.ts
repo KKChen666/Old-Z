@@ -121,3 +121,62 @@ export type ViewMode = 'grid' | 'list';
 export type FileFilter = 'all' | 'document' | 'image' | 'pdf' | 'link' | 'email';
 export type TodoFilter = 'all' | 'pending' | 'in_progress' | 'completed';
 export type PriorityFilter = 'all' | 'low' | 'medium' | 'high' | 'urgent';
+
+// ============ 全文搜索 ============
+export interface SearchResult {
+  entityType: 'note' | 'todo' | 'file';
+  entityId: string;
+  title: string;
+  preview: string;
+  score?: number;
+}
+
+export interface SearchResponse {
+  success: boolean;
+  results: SearchResult[];
+  query: string;
+  kind?: string;
+  total: number;
+}
+
+// ============ 同步状态 ============
+export interface SyncStatus {
+  pendingCount: number;
+  lastPushTime: number | null;
+  lastPullTime: number | null;
+  isOnline: boolean;
+}
+
+export interface SyncOverview {
+  total: number;
+  localOnly: number;
+  remoteOnly: number;
+  synced: number;
+  localAhead: number;
+  remoteAhead: number;
+  conflicted: number;
+  items: SyncFileItem[];
+}
+
+export interface SyncFileItem {
+  id: string;
+  title: string;
+  kind: 'note' | 'todo' | 'file';
+  status: 'local-only' | 'remote-only' | 'synced' | 'local-ahead' | 'remote-ahead' | 'conflict';
+  localUpdatedAt: string | null;
+  remoteUpdatedAt: string | null;
+}
+
+// ============ 报告生成 ============
+export interface GeneratedReport {
+  kind: 'weekly' | 'monthly';
+  date: string;
+}
+
+export interface ReportGenerationResponse {
+  success: boolean;
+  data: {
+    generated: number;
+    reports: GeneratedReport[];
+  };
+}

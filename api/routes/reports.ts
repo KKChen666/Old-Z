@@ -1,6 +1,7 @@
 import { Router, type Response } from 'express';
-import pool from '../config/database.js';
+import db, { upsert } from '../config/db.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
+import { generateMissingReports } from '../services/report-generation.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -23,7 +24,7 @@ router.get('/daily', async (req: AuthRequest, res: Response) => {
     }
 
     if (date) {
-      const [rows] = await pool.execute(
+      const [rows] = await db.execute(
         'SELECT * FROM daily_reports WHERE user_id = ? AND report_date = ? LIMIT 1',
         [req.userId!, date]
       );
@@ -42,10 +43,10 @@ router.get('/daily', async (req: AuthRequest, res: Response) => {
     }
 
     if (month) {
-      const [rows] = await pool.execute(
+      const [rows] = await db.execute(
         `SELECT *
          FROM daily_reports
-         WHERE user_id = ? AND DATE_FORMAT(report_date, '%Y-%m') = ?
+         WHERE user_id = ? AND substr(report_date, 1, 7) = ?
          ORDER BY report_date ASC`,
         [req.userId!, month]
       );
@@ -81,17 +82,33 @@ router.put('/daily', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    await pool.execute(
-      `INSERT INTO daily_reports (id, user_id, report_date, content)
-       VALUES (?, ?, ?, ?)
-       ON DUPLICATE KEY UPDATE content = VALUES(content), updated_at = CURRENT_TIMESTAMP`,
-      [reportId(), req.userId!, date, content]
+    await upsert('daily_reports',
+      ['id', 'user_id', 'report_date', 'content', 'updated_at'],
+      [reportId(), req.userId!, date, content, new Date().toISOString().slice(0, 19).replace('T', ' ')],
+      ['user_id', 'report_date']
     );
 
     res.json({ success: true, data: { date, content } });
   } catch (error) {
     console.error('PUT /reports/daily error:', error);
     res.status(500).json({ success: false, error: 'Failed to save daily report' });
+  }
+});
+
+// ============ 手动触发报告生成 ============
+router.post('/generate', async (req: AuthRequest, res: Response) => {
+  try {
+    const reports = await generateMissingReports(req.userId!);
+    res.json({
+      success: true,
+      data: {
+        generated: reports.length,
+        reports: reports.map((r) => ({ kind: r.kind, date: r.reportDate })),
+      },
+    });
+  } catch (error: any) {
+    console.error('POST /reports/generate error:', error);
+    res.status(500).json({ success: false, error: error.message || '报告生成失败' });
   }
 });
 

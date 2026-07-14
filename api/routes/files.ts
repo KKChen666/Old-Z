@@ -1,5 +1,5 @@
 import express, { Router, type Response } from 'express';
-import pool from '../config/database.js';
+import db from '../config/db.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import OSS from 'ali-oss';
 
@@ -62,8 +62,8 @@ router.post('/upload', express.raw({ type: '*/*', limit: '50mb' }), async (req: 
 // 获取所有文件
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [files] = await pool.execute('SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC', [req.userId!]);
-    const [tags] = await pool.execute('SELECT ft.* FROM file_tags ft JOIN files f ON ft.file_id = f.id WHERE f.user_id = ?', [req.userId!]);
+    const [files] = await db.execute('SELECT * FROM files WHERE user_id = ? ORDER BY created_at DESC', [req.userId!]);
+    const [tags] = await db.execute('SELECT ft.* FROM file_tags ft JOIN files f ON ft.file_id = f.id WHERE f.user_id = ?', [req.userId!]);
 
     const tagMap = new Map<string, string[]>();
     (tags as any[]).forEach((t) => {
@@ -109,7 +109,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     const now = new Date();
 
-    await pool.execute(
+    await db.execute(
       'INSERT INTO files (id, name, type, size, content, thumbnail, url, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       [id, name, type || 'other', size || 0, content || null, thumbnail || null, url || null, now, now, req.userId]
     );
@@ -117,7 +117,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
     if (tags && tags.length > 0) {
       const tagValues = tags.map((t: string) => [id, t]);
       for (const [fid, tag] of tagValues) {
-        await pool.execute('INSERT IGNORE INTO file_tags (file_id, tag) VALUES (?, ?)', [fid, tag]);
+        await db.execute('INSERT OR IGNORE INTO file_tags (file_id, tag) VALUES (?, ?)', [fid, tag]);
       }
     }
 
@@ -131,7 +131,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 // 删除文件
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
-    const [result] = await pool.execute('DELETE FROM files WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
+    const [result] = await db.execute('DELETE FROM files WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
     if (result.affectedRows === 0) {
       res.status(404).json({ success: false, error: '文件不存在' });
       return;

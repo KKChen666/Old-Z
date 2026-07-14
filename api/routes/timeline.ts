@@ -1,5 +1,5 @@
 import { Router, type Response } from 'express';
-import pool from '../config/database.js';
+import db from '../config/db.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 
 const router = Router();
@@ -8,7 +8,7 @@ router.use(authMiddleware);
 // 获取所有时间轴事件
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [events] = await pool.execute('SELECT * FROM timeline_events WHERE user_id = ? ORDER BY timestamp DESC', [req.userId!]);
+    const [events] = await db.execute('SELECT * FROM timeline_events WHERE user_id = ? ORDER BY timestamp DESC', [req.userId!]);
 
     const result = (events as any[]).map((e) => ({
       id: e.id,
@@ -44,7 +44,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     const now = new Date();
 
-    await pool.execute(
+    await db.execute(
       'INSERT INTO timeline_events (id, type, title, description, related_id, timestamp, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [id, type, title, description || null, relatedId || null, now, req.userId!]
     );

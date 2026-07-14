@@ -1,4 +1,14 @@
-import pool from '../config/database.js';
+/**
+ * 数据库初始化入口。
+ *
+ * 根据 DB_PROVIDER 环境变量选择初始化策略：
+ *   - "mysql"  → 使用 MySQL（保持旧逻辑兼容）
+ *   - "sqlite" → 使用 SQLite（新逻辑）
+ *   - 默认 → sqlite
+ */
+
+import { MySQLProvider } from '../config/mysql-provider.js';
+import { initSQLite } from './sqlite-schema.js';
 
 const APP_TIME_ZONE = process.env.APP_TIME_ZONE || 'Asia/Shanghai';
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
@@ -19,8 +29,9 @@ function ignoreMysqlError(error: any, errno: number) {
   if (error.errno !== errno) throw error;
 }
 
-const initDB = async () => {
-  const conn = await pool.getConnection();
+async function initMySQL(): Promise<void> {
+  const mysqlProvider = new MySQLProvider();
+  const conn = await mysqlProvider.getConnection();
   try {
     // 文件表
     await conn.execute(`
@@ -82,7 +93,7 @@ const initDB = async () => {
       )
     `);
 
-    // 待办-文件关联表
+    // 待办-文件关联
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS todo_files (
         todo_id VARCHAR(64) NOT NULL,
@@ -114,7 +125,7 @@ const initDB = async () => {
       )
     `);
 
-    // 笔记-文件关联表
+    // 笔记-文件关联
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS note_files (
         note_id VARCHAR(64) NOT NULL,
@@ -125,7 +136,7 @@ const initDB = async () => {
       )
     `);
 
-    // 笔记-待办关联表
+    // 笔记-待办关联
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS note_todos (
         note_id VARCHAR(64) NOT NULL,
@@ -136,7 +147,7 @@ const initDB = async () => {
       )
     `);
 
-    // 笔记快照表：用于按日期追踪同一篇笔记的新增/修改内容
+    // 笔记快照表
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS note_snapshots (
         id VARCHAR(64) PRIMARY KEY,
@@ -153,6 +164,8 @@ const initDB = async () => {
         FOREIGN KEY (note_id) REFERENCES notes(id) ON DELETE CASCADE
       )
     `);
+
+    // 兼容旧快照表结构
     try {
       await conn.execute('ALTER TABLE note_snapshots ADD COLUMN snapshot_date DATE NULL AFTER content');
     } catch (e: any) {
@@ -180,7 +193,7 @@ const initDB = async () => {
     }
     await conn.execute('DELETE FROM note_snapshots WHERE snapshot_date < ?', [appDateString(-6)]);
 
-    // 日报表：月报只基于当月已生成的日报进行总结
+    // 日报表
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS daily_reports (
         id VARCHAR(64) PRIMARY KEY,
@@ -194,7 +207,7 @@ const initDB = async () => {
       )
     `);
 
-    // 待办-笔记关联表
+    // 待办-笔记关联
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS todo_notes (
         todo_id VARCHAR(64) NOT NULL,
@@ -262,7 +275,7 @@ const initDB = async () => {
       )
     `);
 
-    // QuantLife 核心进度数据表
+    // QuantLife 表
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS quantlife_progress (
         id INT PRIMARY KEY AUTO_INCREMENT,
@@ -274,7 +287,19 @@ const initDB = async () => {
       )
     `);
 
-    // QuantLife LLM 配置表
+    // 同步密钥表
+    await conn.execute(`
+      CREATE TABLE IF NOT EXISTS quantlife_sync_keys (
+        id VARCHAR(64) NOT NULL,
+        user_id VARCHAR(64) NOT NULL,
+        key_hash VARCHAR(64) NOT NULL,
+        label VARCHAR(100) NOT NULL DEFAULT '默认密钥',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id, user_id),
+        INDEX idx_sync_keys_hash (key_hash)
+      )
+    `);
+
     await conn.execute(`
       CREATE TABLE IF NOT EXISTS quantlife_llm_config (
         user_id VARCHAR(64) PRIMARY KEY,
@@ -310,7 +335,7 @@ const initDB = async () => {
       )
     `);
 
-    // 为现有表添加 user_id 列（忽略已存在的列）
+    // 为现有表添加 user_id 列
     const tablesWithUserId = ['files', 'todos', 'notes', 'chat_messages', 'timeline_events'];
     for (const table of tablesWithUserId) {
       try {
@@ -325,7 +350,7 @@ const initDB = async () => {
       }
     }
 
-    // 为 todos 表添加 is_today_todo 列（兼容旧数据库）
+    // 兼容旧表结构
     try {
       await conn.execute('ALTER TABLE todos ADD COLUMN is_today_todo BOOLEAN NOT NULL DEFAULT FALSE');
     } catch (e: any) {
@@ -358,13 +383,35 @@ const initDB = async () => {
       if (e.errno !== 1061) throw e;
     }
 
-    console.log('Database tables initialized successfully!');
+    console.log('[MySQL] Database tables initialized successfully!');
   } catch (error) {
-    console.error('Database init error:', error);
+    console.error('[MySQL] Database init error:', error);
     throw error;
   } finally {
     conn.release();
   }
+}
+
+const initDB = async () => {
+  const mode = (process.env.DB_PROVIDER || '').toLowerCase();
+
+  if (mode === 'sqlite') {
+    console.log('[DB] Initializing SQLite database...');
+    await initSQLite();
+  } else if (mode === 'mysql' || process.env.DB_HOST) {
+    // MySQL 显式设置或有凭据 → 初始化 MySQL；SQLite 作为 schema 备份也初始化
+    console.log('[DB] Initializing MySQL database...');
+    await initMySQL().catch((e) => console.warn('[DB] MySQL init failed (may be unavailable), continuing with SQLite:', e?.message || e));
+    if (mode !== 'mysql') {
+      console.log('[DB] Initializing SQLite database (as fallback)...');
+      await initSQLite();
+    }
+  } else {
+    console.log('[DB] Initializing SQLite database...');
+    await initSQLite();
+  }
+
+  console.log('[DB] Database initialization complete');
 };
 
 export default initDB;

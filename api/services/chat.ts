@@ -1,13 +1,18 @@
-import pool from '../config/database.js';
+import db from '../config/db.js';
 import {
   ACTION_SUGGESTION_SYSTEM_PROMPT,
   CHAT_SYSTEM_PROMPT,
+  TOOL_CHAT_SYSTEM_PROMPT,
   buildActionSuggestionUserMessage,
   buildChatContextMessage,
   callLLM,
   callLLMStream,
+  callLLMWithTools,
+  callLLMStreamWithTools,
   safeJsonParse,
 } from './ai.js';
+import type { ChatMessage, ToolCallResult } from './ai.js';
+import { getToolDefinitions, executeToolCall } from './tools.js';
 import type { AiActionSuggestion } from './ai.js';
 import type { ChatContext } from './ai.js';
 import { getUserLlmConfig } from './settings.js';
@@ -195,7 +200,7 @@ export async function createChatConversation(
   const now = new Date();
   const scope = options.scope || 'global';
   const title = (options.title || '新对话').trim().slice(0, 200) || '新对话';
-  await pool.execute(
+  await db.execute(
     'INSERT INTO chat_conversations (id, user_id, title, scope, note_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
     [id, userId, title, scope, options.noteId || null, now, now]
   );
@@ -207,7 +212,7 @@ export async function ensureChatConversation(
   options: ChatConversationOptions & { conversationId?: string } = {}
 ): Promise<any> {
   if (options.conversationId) {
-    const [rows] = await pool.execute(
+    const [rows] = await db.execute(
       'SELECT * FROM chat_conversations WHERE id = ? AND user_id = ? LIMIT 1',
       [options.conversationId, userId]
     );
@@ -226,7 +231,7 @@ export async function ensureChatConversation(
 
   const scope = options.scope || 'global';
   const noteId = scope === 'note' ? options.noteId || null : null;
-  const [rows] = await pool.execute(
+  const [rows] = await db.execute(
     `SELECT * FROM chat_conversations
      WHERE user_id = ? AND scope = ? AND ${noteId ? 'note_id = ?' : 'note_id IS NULL'}
      ORDER BY updated_at DESC
@@ -250,7 +255,7 @@ export async function ensureChatConversation(
 
 export async function loadChatConversations(userId: string): Promise<any[]> {
   await ensureLegacyDefaultConversation(userId);
-  const [rows] = await pool.execute(
+  const [rows] = await db.execute(
     `SELECT c.*, COUNT(cm.id) AS message_count, MAX(cm.timestamp) AS last_message_at
      FROM chat_conversations c
      LEFT JOIN chat_messages cm ON cm.conversation_id = c.id AND cm.user_id = c.user_id
@@ -273,14 +278,14 @@ export async function loadChatConversations(userId: string): Promise<any[]> {
 }
 
 async function ensureLegacyDefaultConversation(userId: string): Promise<void> {
-  const [orphans] = await pool.execute(
+  const [orphans] = await db.execute(
     'SELECT COUNT(*) AS count FROM chat_messages WHERE user_id = ? AND conversation_id IS NULL',
     [userId]
   );
   const count = Number((orphans as any[])[0]?.count || 0);
   if (count === 0) return;
 
-  const [existingRows] = await pool.execute(
+  const [existingRows] = await db.execute(
     `SELECT * FROM chat_conversations
      WHERE user_id = ? AND title = ? AND scope = 'global'
      ORDER BY created_at ASC
@@ -291,32 +296,32 @@ async function ensureLegacyDefaultConversation(userId: string): Promise<void> {
   if (!conversation) {
     conversation = await createChatConversation(userId, { title: '默认对话', scope: 'global' });
   }
-  await pool.execute(
+  await db.execute(
     'UPDATE chat_messages SET conversation_id = ? WHERE user_id = ? AND conversation_id IS NULL',
     [conversation.id, userId]
   );
 }
 
 export async function renameChatConversation(userId: string, id: string, title: string): Promise<void> {
-  await pool.execute(
+  await db.execute(
     'UPDATE chat_conversations SET title = ?, updated_at = ? WHERE id = ? AND user_id = ?',
     [title.trim().slice(0, 200) || '未命名对话', new Date(), id, userId]
   );
 }
 
 export async function deleteChatConversation(userId: string, id: string): Promise<void> {
-  await pool.execute('DELETE FROM chat_messages WHERE conversation_id = ? AND user_id = ?', [id, userId]);
-  await pool.execute('DELETE FROM chat_conversations WHERE id = ? AND user_id = ?', [id, userId]);
+  await db.execute('DELETE FROM chat_messages WHERE conversation_id = ? AND user_id = ?', [id, userId]);
+  await db.execute('DELETE FROM chat_conversations WHERE id = ? AND user_id = ?', [id, userId]);
 }
 
 export async function touchChatConversation(userId: string, id: string, firstUserMessage?: string): Promise<void> {
-  const [rows] = await pool.execute(
+  const [rows] = await db.execute(
     'SELECT title FROM chat_conversations WHERE id = ? AND user_id = ? LIMIT 1',
     [id, userId]
   );
   const conversation = (rows as any[])[0];
   const shouldTitle = conversation && conversation.title === '新对话' && firstUserMessage;
-  await pool.execute(
+  await db.execute(
     `UPDATE chat_conversations
      SET updated_at = ?${shouldTitle ? ', title = ?' : ''}
      WHERE id = ? AND user_id = ?`,
@@ -345,7 +350,7 @@ export async function loadChatHistory(userId: string, options: ChatHistoryOption
     }
   }
 
-  const [messages] = await pool.execute(
+  const [messages] = await db.execute(
     `SELECT cm.*, n.title AS note_title
      FROM chat_messages cm
      LEFT JOIN notes n ON cm.note_id = n.id AND n.user_id = cm.user_id
@@ -353,7 +358,7 @@ export async function loadChatHistory(userId: string, options: ChatHistoryOption
      ORDER BY cm.timestamp ASC`,
     params
   );
-  const [refs] = await pool.execute(
+  const [refs] = await db.execute(
     `SELECT cr.*,
       COALESCE(n.title, t.title, f.name, cr.ref_id) AS ref_title
      FROM chat_references cr
@@ -385,17 +390,17 @@ export async function loadChatHistory(userId: string, options: ChatHistoryOption
 }
 
 export async function loadUserContext(userId: string): Promise<ChatContext> {
-  const [files] = await pool.execute(`
+  const [files] = await db.execute(`
     SELECT f.name, f.type, GROUP_CONCAT(ft.tag) as tags
     FROM files f LEFT JOIN file_tags ft ON f.id = ft.file_id
     WHERE f.user_id = ?
     GROUP BY f.id
   `, [userId]);
-  const [todos] = await pool.execute(
+  const [todos] = await db.execute(
     'SELECT title, status, priority, due_date FROM todos WHERE user_id = ?',
     [userId]
   );
-  const [notes] = await pool.execute(
+  const [notes] = await db.execute(
     'SELECT title, content FROM notes WHERE user_id = ?',
     [userId]
   );
@@ -408,7 +413,7 @@ export async function loadUserContext(userId: string): Promise<ChatContext> {
 }
 
 export async function loadNoteContext(userId: string, noteId: string): Promise<ChatContext> {
-  const [notes] = await pool.execute(
+  const [notes] = await db.execute(
     'SELECT title, content FROM notes WHERE id = ? AND user_id = ?',
     [noteId, userId]
   );
@@ -425,7 +430,7 @@ export async function loadNoteContext(userId: string, noteId: string): Promise<C
 }
 
 export async function loadNoteMeta(userId: string, noteId: string): Promise<{ id: string; title: string }> {
-  const [notes] = await pool.execute(
+  const [notes] = await db.execute(
     'SELECT id, title FROM notes WHERE id = ? AND user_id = ?',
     [noteId, userId]
   );
@@ -480,7 +485,7 @@ export async function loadChatReferenceDetails(
 
   const noteIds = references.filter((ref) => ref.type === 'note').map((ref) => ref.id);
   if (noteIds.length > 0) {
-    const [rows] = await pool.execute(
+    const [rows] = await db.execute(
       `SELECT id, title, content FROM notes WHERE user_id = ? AND id IN (${sqlPlaceholders(noteIds.length)})`,
       [userId, ...noteIds]
     );
@@ -496,7 +501,7 @@ export async function loadChatReferenceDetails(
 
   const todoIds = references.filter((ref) => ref.type === 'todo').map((ref) => ref.id);
   if (todoIds.length > 0) {
-    const [rows] = await pool.execute(
+    const [rows] = await db.execute(
       `SELECT id, title, description, priority, status, due_date FROM todos WHERE user_id = ? AND id IN (${sqlPlaceholders(todoIds.length)})`,
       [userId, ...todoIds]
     );
@@ -516,7 +521,7 @@ export async function loadChatReferenceDetails(
 
   const fileIds = references.filter((ref) => ref.type === 'file').map((ref) => ref.id);
   if (fileIds.length > 0) {
-    const [rows] = await pool.execute(
+    const [rows] = await db.execute(
       `SELECT f.id, f.name, f.type, f.size, f.content, f.url, GROUP_CONCAT(ft.tag) AS tags
        FROM files f
        LEFT JOIN file_tags ft ON ft.file_id = f.id
@@ -539,7 +544,7 @@ export async function loadChatReferenceDetails(
         const trimmed = text.trim().slice(0, 500_000);
         if (trimmed) {
           // 缓存到数据库，下次引用无需再抓取
-          pool.execute('UPDATE files SET content = ? WHERE id = ?', [trimmed, file.id])
+          db.execute('UPDATE files SET content = ? WHERE id = ?', [trimmed, file.id])
             .catch(() => { /* 静默失败，不阻塞主流程 */ });
           return { ...file, content: trimmed };
         }
@@ -581,8 +586,8 @@ export function buildReferencedPrompt(content: string, references: ChatReference
 
 export async function saveChatReferences(messageId: string, references: ChatReferenceDetail[]): Promise<void> {
   if (references.length === 0) return;
-  await Promise.all(references.map((ref) => pool.execute(
-    'INSERT IGNORE INTO chat_references (message_id, ref_type, ref_id) VALUES (?, ?, ?)',
+  await Promise.all(references.map((ref) => db.execute(
+    'INSERT OR IGNORE INTO chat_references (message_id, ref_type, ref_id) VALUES (?, ?, ?)',
     [messageId, ref.type, ref.id]
   )));
 }
@@ -594,7 +599,7 @@ export async function saveUserMessage(
   options: ChatHistoryOptions = {}
 ): Promise<Date> {
   const now = new Date();
-  await pool.execute(
+  await db.execute(
     'INSERT INTO chat_messages (id, role, content, timestamp, user_id, scope, note_id, conversation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     [msgId, 'user', content, now, userId, options.scope || 'global', options.noteId || null, options.conversationId || null]
   );
@@ -608,7 +613,7 @@ export async function saveAiMessage(
   options: ChatHistoryOptions = {}
 ): Promise<Date> {
   const now = new Date();
-  await pool.execute(
+  await db.execute(
     'INSERT INTO chat_messages (id, role, content, timestamp, user_id, scope, note_id, conversation_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     [msgId, 'assistant', content, now, userId, options.scope || 'global', options.noteId || null, options.conversationId || null]
   );
@@ -616,7 +621,7 @@ export async function saveAiMessage(
 }
 
 export async function deleteChatMessage(userId: string, messageId: string): Promise<boolean> {
-  const [result] = await pool.execute(
+  const [result] = await db.execute(
     'DELETE FROM chat_messages WHERE id = ? AND user_id = ?',
     [messageId, userId]
   );
@@ -625,13 +630,13 @@ export async function deleteChatMessage(userId: string, messageId: string): Prom
 
 export async function deleteLastExchange(userId: string, conversationId: string): Promise<number> {
   // 找到该对话最后一条用户消息和 AI 回复，一并删除
-  const [userMsgs] = await pool.execute(
+  const [userMsgs] = await db.execute(
     `SELECT id FROM chat_messages
      WHERE user_id = ? AND conversation_id = ? AND role = 'user'
      ORDER BY timestamp DESC LIMIT 1`,
     [userId, conversationId]
   );
-  const [aiMsgs] = await pool.execute(
+  const [aiMsgs] = await db.execute(
     `SELECT id FROM chat_messages
      WHERE user_id = ? AND conversation_id = ? AND role = 'assistant'
      ORDER BY timestamp DESC LIMIT 1`,
@@ -640,14 +645,14 @@ export async function deleteLastExchange(userId: string, conversationId: string)
 
   let deleted = 0;
   for (const row of [...(userMsgs as any[]), ...(aiMsgs as any[])]) {
-    const [r] = await pool.execute('DELETE FROM chat_messages WHERE id = ? AND user_id = ?', [row.id, userId]);
+    const [r] = await db.execute('DELETE FROM chat_messages WHERE id = ? AND user_id = ?', [row.id, userId]);
     deleted += (r as any).affectedRows;
   }
   return deleted;
 }
 
 export async function createChatTimelineEvent(userId: string): Promise<void> {
-  await pool.execute(
+  await db.execute(
     'INSERT INTO timeline_events (id, type, title, timestamp, user_id) VALUES (?, ?, ?, ?, ?)',
     [`te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, 'chat', '与 AI 助手进行了对话', new Date(), userId]
   );
@@ -712,4 +717,196 @@ export async function planDirection(
     main_line: parsed.main_line || '',
     today_actions: Array.isArray(parsed.today_actions) ? parsed.today_actions : [],
   };
+}
+
+// ============ Tool-Calling AI 聊天 ============
+
+const MAX_TOOL_TURNS = 5;
+
+/**
+ * 带工具的非流式 AI 聊天。
+ * AI 可以自主调用搜索工具来查找用户的知识库。
+ */
+export async function chatWithAIToolMode(
+  userId: string,
+  message: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+  context: ChatContext
+): Promise<string> {
+  const llmConfig = await getUserLlmConfig(userId);
+  if (!llmConfig) {
+    throw new Error('请先在设置中配置 AI 接口');
+  }
+
+  const tools = getToolDefinitions();
+  const contextMessage = buildChatContextMessage(context);
+
+  // 构建消息列表
+  const messages: ChatMessage[] = [
+    { role: 'system', content: TOOL_CHAT_SYSTEM_PROMPT + '\n\n' + contextMessage },
+  ];
+
+  // 添加历史消息
+  for (const h of history.slice(-20)) {
+    messages.push({ role: h.role, content: h.content });
+  }
+
+  // 添加用户消息
+  messages.push({ role: 'user', content: message });
+
+  // Tool loop
+  let turn = 0;
+  while (turn < MAX_TOOL_TURNS) {
+    turn++;
+
+    const result: ToolCallResult = await callLLMWithTools(llmConfig, messages, tools, {
+      temperature: 0.7,
+      maxTokens: 4096,
+      timeoutMs: 30000,
+    });
+
+    // 没有 tool calls → 返回文本回复
+    if (result.toolCalls.length === 0) {
+      return result.content || '抱歉，我暂时无法回答这个问题。';
+    }
+
+    // 添加 AI 消息（含 tool_calls）
+    messages.push({
+      role: 'assistant',
+      content: result.content || '',
+      tool_calls: result.toolCalls.map((tc) => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: { name: tc.name, arguments: tc.arguments },
+      })),
+    });
+
+    // 执行每个 tool call 并添加结果
+    for (const tc of result.toolCalls) {
+      let toolResult: string;
+      try {
+        const args = JSON.parse(tc.arguments);
+        toolResult = await executeToolCall(tc.name, args, userId);
+      } catch (e: any) {
+        toolResult = JSON.stringify({ error: `工具执行失败：${e?.message || '未知错误'}` });
+      }
+
+      messages.push({
+        role: 'tool',
+        tool_call_id: tc.id,
+        name: tc.name,
+        content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+      });
+    }
+  }
+
+  // 超过最大轮数 → 最后请求 AI 总结
+  messages.push({
+    role: 'user',
+    content: '请基于以上工具调用结果，给我一个完整的回答。',
+  });
+
+  const finalResult = await callLLMWithTools(llmConfig, messages, [], {
+    temperature: 0.7,
+    maxTokens: 4096,
+    timeoutMs: 30000,
+  });
+
+  return finalResult.content || '抱歉，我暂时无法回答这个问题。';
+}
+
+/**
+ * 带工具的流式 AI 聊天。
+ * 工具调用在后台执行，流式输出最终回复。
+ */
+export async function chatWithAIToolModeStream(
+  userId: string,
+  message: string,
+  history: { role: 'user' | 'assistant'; content: string }[],
+  context: ChatContext,
+  onChunk: (text: string) => void
+): Promise<string> {
+  const llmConfig = await getUserLlmConfig(userId);
+  if (!llmConfig) {
+    throw new Error('请先在设置中配置 AI 接口');
+  }
+
+  const tools = getToolDefinitions();
+  const contextMessage = buildChatContextMessage(context);
+
+  // 构建消息列表
+  const messages: ChatMessage[] = [
+    { role: 'system', content: TOOL_CHAT_SYSTEM_PROMPT + '\n\n' + contextMessage },
+  ];
+
+  for (const h of history.slice(-20)) {
+    messages.push({ role: h.role, content: h.content });
+  }
+
+  messages.push({ role: 'user', content: message });
+
+  // 第一轮：流式获取 AI 回复
+  let turn = 0;
+  let finalContent = '';
+
+  while (turn < MAX_TOOL_TURNS) {
+    turn++;
+
+    const result = await callLLMStreamWithTools(llmConfig, messages, tools, onChunk, {
+      temperature: 0.7,
+      maxTokens: 4096,
+      timeoutMs: 60000,
+    });
+
+    finalContent = result.content;
+
+    // 没有 tool calls → 完成
+    if (result.toolCalls.length === 0) {
+      return finalContent || '抱歉，我暂时无法回答这个问题。';
+    }
+
+    // 有 tool calls → 静默执行，不流式输出中间结果
+    messages.push({
+      role: 'assistant',
+      content: result.content || '',
+      tool_calls: result.toolCalls.map((tc) => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: { name: tc.name, arguments: tc.arguments },
+      })),
+    });
+
+    for (const tc of result.toolCalls) {
+      let toolResult: string;
+      try {
+        const args = JSON.parse(tc.arguments);
+        toolResult = await executeToolCall(tc.name, args, userId);
+      } catch (e: any) {
+        toolResult = JSON.stringify({ error: `工具执行失败：${e?.message || '未知错误'}` });
+      }
+      messages.push({
+        role: 'tool',
+        tool_call_id: tc.id,
+        name: tc.name,
+        content: typeof toolResult === 'string' ? toolResult : JSON.stringify(toolResult),
+      });
+    }
+
+    // 通知前端工具执行完成
+    onChunk('\n\n---\n*正在搜索知识库...*\n\n');
+  }
+
+  // 达到最大轮数 → 最后无工具流式输出
+  messages.push({
+    role: 'user',
+    content: '请基于以上工具调用结果，给我一个完整的回答。',
+  });
+
+  const finalResult = await callLLMStreamWithTools(llmConfig, messages, [], onChunk, {
+    temperature: 0.7,
+    maxTokens: 4096,
+    timeoutMs: 60000,
+  });
+
+  return finalResult.content || '抱歉，我暂时无法回答这个问题。';
 }

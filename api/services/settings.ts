@@ -1,4 +1,4 @@
-import pool from '../config/database.js';
+import db from '../config/db.js';
 import type { LlmProviderConfig } from './ai.js';
 import { getLocalLlmConfigOverride } from './llmRequestContext.js';
 
@@ -98,7 +98,7 @@ function maskPreset(preset: LlmPreset): LlmPreset {
 }
 
 async function getLegacyConfig(userId: string): Promise<any | null> {
-  const [rows] = await pool.execute('SELECT * FROM quantlife_llm_config WHERE user_id = ?', [userId]);
+  const [rows] = await db.execute('SELECT * FROM quantlife_llm_config WHERE user_id = ?', [userId]);
   return (rows as any[])[0] || null;
 }
 
@@ -106,7 +106,7 @@ export async function getUserLlmConfig(userId: string): Promise<LlmProviderConfi
   const localOverride = getLocalLlmConfigOverride();
   if (localOverride) return localOverride;
 
-  const [rows] = await pool.execute(
+  const [rows] = await db.execute(
     'SELECT * FROM quantlife_llm_presets WHERE user_id = ? ORDER BY is_active DESC, updated_at DESC',
     [userId]
   );
@@ -118,7 +118,7 @@ export async function getUserLlmConfig(userId: string): Promise<LlmProviderConfi
 }
 
 export async function getUserLlmSettings(userId: string): Promise<any> {
-  const [rows] = await pool.execute(
+  const [rows] = await db.execute(
     'SELECT * FROM quantlife_llm_presets WHERE user_id = ? ORDER BY is_active DESC, updated_at DESC',
     [userId]
   );
@@ -151,7 +151,7 @@ export async function saveUserLlmConfig(userId: string, data: any): Promise<void
     })];
 
   const activeCloudId = String(data?.activeCloudId || cloudPresets.find((preset: LlmPreset) => preset.is_active)?.id || cloudPresets[0]?.id || '');
-  const conn = await pool.getConnection();
+  const conn = await db.getConnection();
   try {
     await conn.beginTransaction();
     const [existingRows] = await conn.execute('SELECT id, api_key FROM quantlife_llm_presets WHERE user_id = ?', [userId]);
@@ -276,7 +276,7 @@ export async function fetchLlmBalance(rawPreset: any): Promise<any> {
   // 前端传来的 api_key 可能是脱敏的（sk-***xxxx），需要从数据库取真实 key
   let apiKey = normalized.api_key || '';
   if (apiKey.includes('***') && normalized.id) {
-    const [rows] = await pool.execute(
+    const [rows] = await db.execute(
       'SELECT api_key FROM quantlife_llm_presets WHERE id = ?',
       [normalized.id]
     );

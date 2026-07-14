@@ -1,8 +1,9 @@
 import { Router, type Response } from 'express';
-import pool from '../config/database.js';
+import db, { upsert } from '../config/db.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import { callLLM, safeJsonParse } from '../services/ai.js';
 import { getUserLlmConfig } from '../services/settings.js';
+import { scheduleAutoCommit } from '../services/git.js';
 
 const router = Router();
 router.use(authMiddleware);
@@ -190,20 +191,18 @@ function snapshotId(): string {
 
 async function saveNoteSnapshot(userId: string, noteId: string, title: string, content: string) {
   const snapshotDate = appDateString();
-  await pool.execute(
-    `INSERT INTO note_snapshots (id, note_id, user_id, title, content, snapshot_date, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)
-     ON DUPLICATE KEY UPDATE
-       title = VALUES(title),
-       content = VALUES(content),
-       created_at = VALUES(created_at)`,
-    [snapshotId(), noteId, userId, title, content || '', snapshotDate, new Date()]
+  const sid = snapshotId();
+  const timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+  await upsert('note_snapshots',
+    ['id', 'note_id', 'user_id', 'title', 'content', 'snapshot_date', 'created_at'],
+    [sid, noteId, userId, title, content || '', snapshotDate, timestamp],
+    ['user_id', 'note_id', 'snapshot_date']
   );
   await cleanupOldNoteSnapshots(userId);
 }
 
 async function cleanupOldNoteSnapshots(userId: string) {
-  await pool.execute(
+  await db.execute(
     'DELETE FROM note_snapshots WHERE user_id = ? AND snapshot_date < ?',
     [userId, appDateString(-6)]
   );
@@ -257,10 +256,10 @@ function diffBlocks(previousContent: string, currentContent: string) {
 // 获取所有笔记
 router.get('/', async (req: AuthRequest, res: Response) => {
   try {
-    const [notes] = await pool.execute('SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC', [req.userId!]);
-    const [tags] = await pool.execute('SELECT nt.* FROM note_tags nt JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
-    const [noteFiles] = await pool.execute('SELECT nf.* FROM note_files nf JOIN notes n ON nf.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
-    const [noteTodos] = await pool.execute('SELECT ntd.* FROM note_todos ntd JOIN notes n ON ntd.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
+    const [notes] = await db.execute('SELECT * FROM notes WHERE user_id = ? ORDER BY updated_at DESC', [req.userId!]);
+    const [tags] = await db.execute('SELECT nt.* FROM note_tags nt JOIN notes n ON nt.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
+    const [noteFiles] = await db.execute('SELECT nf.* FROM note_files nf JOIN notes n ON nf.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
+    const [noteTodos] = await db.execute('SELECT ntd.* FROM note_todos ntd JOIN notes n ON ntd.note_id = n.id WHERE n.user_id = ?', [req.userId!]);
 
     const tagMap = new Map<string, string[]>();
     (tags as any[]).forEach((t) => {
@@ -310,17 +309,25 @@ router.post('/', async (req: AuthRequest, res: Response) => {
 
     const now = new Date();
 
-    await pool.execute(
+    await db.execute(
       'INSERT INTO notes (id, title, content, created_at, updated_at, user_id) VALUES (?, ?, ?, ?, ?, ?)',
       [id, title, content || '', now, now, req.userId!]
     );
     await saveNoteSnapshot(req.userId!, id, title, content || '');
+    // Git-like commit
+    await db.execute(
+      "INSERT INTO timeline_events (id, type, title, related_id, timestamp, user_id) VALUES (?, 'note_created', ?, ?, ?, ?)",
+      [`te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, `新建笔记: ${title}`, id, new Date().toISOString().slice(0, 19).replace('T', ' '), req.userId!]
+    );
 
     if (tags && tags.length > 0) {
       for (const tag of tags) {
-        await pool.execute('INSERT IGNORE INTO note_tags (note_id, tag) VALUES (?, ?)', [id, tag]);
+        await db.execute('INSERT OR IGNORE INTO note_tags (note_id, tag) VALUES (?, ?)', [id, tag]);
       }
     }
+
+    // Git auto-commit
+    try { scheduleAutoCommit(`note: create "${title}"`); } catch {}
 
     res.json({ success: true, data: { id } });
   } catch (error) {
@@ -410,7 +417,7 @@ router.get('/changes', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const [snapshots] = await pool.execute(
+    const [snapshots] = await db.execute(
       `SELECT *
        FROM note_snapshots
        WHERE user_id = ? AND snapshot_date = ?
@@ -420,7 +427,7 @@ router.get('/changes', async (req: AuthRequest, res: Response) => {
 
     const changes = [];
     for (const snapshot of snapshots as any[]) {
-      const [previousRows] = await pool.execute(
+      const [previousRows] = await db.execute(
         `SELECT *
          FROM note_snapshots
          WHERE user_id = ? AND note_id = ? AND snapshot_date < ?
@@ -451,10 +458,38 @@ router.get('/changes', async (req: AuthRequest, res: Response) => {
   }
 });
 
+// 单篇笔记的变更历史
+router.get('/:id/changes', async (req: AuthRequest, res: Response) => {
+  try {
+    const [snapshots] = await db.execute(
+      'SELECT id, title, content, snapshot_date, created_at FROM note_snapshots WHERE note_id = ? AND user_id = ? ORDER BY created_at DESC LIMIT 10',
+      [req.params.id, req.userId!]
+    );
+    const rows = snapshots as any[];
+    const changes: any[] = [];
+
+    for (let i = 0; i < rows.length; i++) {
+      const prev = rows[i + 1];
+      changes.push({
+        changedAt: rows[i].created_at,
+        isNew: !prev,
+        title: rows[i].title,
+        added: prev ? diffBlocks(prev.content, rows[i].content).added : rows[i].content.split('\n').slice(0, 20),
+        removed: prev ? diffBlocks(prev.content, rows[i].content).removed : [],
+      });
+    }
+
+    res.json({ success: true, data: changes });
+  } catch (error) {
+    console.error('GET /notes/:id/changes error:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch changes' });
+  }
+});
+
 router.get('/:id/snapshots', async (req: AuthRequest, res: Response) => {
   try {
     await cleanupOldNoteSnapshots(req.userId!);
-    const [snapshots] = await pool.execute(
+    const [snapshots] = await db.execute(
       `SELECT id, note_id, title, content, snapshot_date, created_at
        FROM note_snapshots
        WHERE user_id = ? AND note_id = ? AND snapshot_date >= ?
@@ -488,7 +523,7 @@ router.post('/:id/restore', async (req: AuthRequest, res: Response) => {
       return;
     }
 
-    const [snapshots] = await pool.execute(
+    const [snapshots] = await db.execute(
       `SELECT id, note_id, title, content
        FROM note_snapshots
        WHERE id = ? AND note_id = ? AND user_id = ? AND snapshot_date >= ?
@@ -502,7 +537,7 @@ router.post('/:id/restore', async (req: AuthRequest, res: Response) => {
     }
 
     const now = new Date();
-    await pool.execute(
+    await db.execute(
       'UPDATE notes SET title = ?, content = ?, updated_at = ? WHERE id = ? AND user_id = ?',
       [snapshot.title, snapshot.content, now, req.params.id, req.userId!]
     );
@@ -529,7 +564,7 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
     const fields: string[] = [];
     const values: any[] = [];
 
-    const [existingRows] = await pool.execute(
+    const [existingRows] = await db.execute(
       'SELECT id, title, content FROM notes WHERE id = ? AND user_id = ?',
       [req.params.id, req.userId!]
     );
@@ -544,11 +579,16 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
     if (fields.length > 0) {
       values.push(req.params.id, req.userId!);
-      await pool.execute(`UPDATE notes SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, values);
+      await db.execute(`UPDATE notes SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, values);
       const nextTitle = title !== undefined ? title : existing.title;
       const nextContent = content !== undefined ? content : existing.content;
       if (nextTitle !== existing.title || nextContent !== existing.content) {
         await saveNoteSnapshot(req.userId!, req.params.id, nextTitle, nextContent);
+        // Git-like commit: 在时间轴中记录编辑事件
+        await db.execute(
+          "INSERT INTO timeline_events (id, type, title, related_id, timestamp, user_id) VALUES (?, 'note_edited', ?, ?, datetime('now'), ?)",
+          [`te-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, `编辑笔记: ${nextTitle}`, req.params.id, req.userId!]
+        );
       }
     }
 
@@ -564,18 +604,26 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
       let validIds: string[] = [];
       if (mentionedIds.length > 0) {
         const placeholders = mentionedIds.map(() => '?').join(',');
-        const [owned] = await pool.execute(
+        const [owned] = await db.execute(
           `SELECT id FROM files WHERE user_id = ? AND id IN (${placeholders})`,
           [req.userId!, ...mentionedIds]
         );
         validIds = (owned as any[]).map((r) => r.id);
       }
 
-      await pool.execute('DELETE FROM note_files WHERE note_id = ?', [req.params.id]);
+      await db.execute('DELETE FROM note_files WHERE note_id = ?', [req.params.id]);
       for (const fid of validIds) {
-        await pool.execute('INSERT IGNORE INTO note_files (note_id, file_id) VALUES (?, ?)', [req.params.id, fid]);
+        await db.execute('INSERT OR IGNORE INTO note_files (note_id, file_id) VALUES (?, ?)', [req.params.id, fid]);
       }
     }
+
+    // Git auto-commit
+    try {
+      const nextTitle = title !== undefined ? title : existing.title;
+      const action = title !== undefined && content !== undefined ? 'edit'
+        : title !== undefined ? 'rename' : 'edit';
+      scheduleAutoCommit(`note: ${action} "${nextTitle}"`);
+    } catch {}
 
     res.json({ success: true });
   } catch (error) {
@@ -586,8 +634,15 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 
 // 删除笔记
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
-  const conn = await pool.getConnection();
+  const conn = await db.getConnection();
   try {
+    // 先获取标题用于 Git commit message
+    const [titleRows] = await conn.execute(
+      'SELECT title FROM notes WHERE id = ? AND user_id = ?',
+      [req.params.id, req.userId!]
+    );
+    const noteTitle = (titleRows as any[])[0]?.title || '';
+
     await conn.beginTransaction();
     await conn.execute('DELETE FROM note_snapshots WHERE note_id = ? AND user_id = ?', [req.params.id, req.userId!]);
     const [result] = await conn.execute('DELETE FROM notes WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
@@ -597,6 +652,10 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
       return;
     }
     await conn.commit();
+
+    // Git auto-commit
+    try { scheduleAutoCommit(`note: delete "${noteTitle}"`); } catch {}
+
     res.json({ success: true });
   } catch (error) {
     await conn.rollback();

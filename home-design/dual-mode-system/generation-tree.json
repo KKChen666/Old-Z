@@ -1,0 +1,70 @@
+{
+  "root": {
+    "nodeId": "gen-project-shell",
+    "kind": "project-shell",
+    "pageIds": ["page-mode-select", "page-mode-select-local", "page-mode-select-online", "page-home", "page-login"],
+    "output": null,
+    "sharedRegions": [],
+    "privateRegions": [],
+    "mutableSlots": [],
+    "status": "generated",
+    "children": [
+      {
+        "nodeId": "gen-mode-select-base",
+        "kind": "shared-branch",
+        "pageIds": ["page-mode-select", "page-mode-select-local", "page-mode-select-online"],
+        "output": "pages/mode-select.html",
+        "sharedRegions": ["full-page-shell"],
+        "privateRegions": [],
+        "mutableSlots": ["selectedMode", "cardProportions", "confirmButton"],
+        "status": "generated",
+        "children": [
+          {
+            "nodeId": "gen-mode-select-local",
+            "kind": "page-leaf",
+            "pageIds": ["page-mode-select-local"],
+            "output": "pages/mode-select-local.html",
+            "sharedRegions": ["full-page-shell"],
+            "privateRegions": [],
+            "mutableSlots": ["selectedMode", "cardProportions", "confirmButton"],
+            "status": "planned",
+            "children": []
+          },
+          {
+            "nodeId": "gen-mode-select-online",
+            "kind": "page-leaf",
+            "pageIds": ["page-mode-select-online"],
+            "output": "pages/mode-select-online.html",
+            "sharedRegions": ["full-page-shell"],
+            "privateRegions": [],
+            "mutableSlots": ["selectedMode", "cardProportions", "confirmButton"],
+            "status": "planned",
+            "children": []
+          }
+        ]
+      },
+      {
+        "nodeId": "gen-page-home",
+        "kind": "page-leaf",
+        "pageIds": ["page-home"],
+        "output": "pages/home.html",
+        "sharedRegions": [],
+        "privateRegions": ["full-page"],
+        "mutableSlots": [],
+        "status": "generated",
+        "children": []
+      },
+      {
+        "nodeId": "gen-page-login",
+        "kind": "page-leaf",
+        "pageIds": ["page-login"],
+        "output": "pages/login.html",
+        "sharedRegions": [],
+        "privateRegions": ["full-page"],
+        "mutableSlots": [],
+        "status": "generated",
+        "children": []
+      }
+    ]
+  }
+}

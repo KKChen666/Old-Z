@@ -218,7 +218,7 @@ export default function Dashboard() {
 
   return (
     <div
-      className="p-4 sm:p-6 max-w-7xl mx-auto space-y-4 sm:space-y-6"
+      className="p-4 sm:p-6 space-y-4 sm:space-y-6"
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}

@@ -1,45 +1,60 @@
-import { app, BrowserWindow, shell } from 'electron'
-import path from 'path'
-import fs from 'fs'
-import { spawn, type ChildProcess } from 'child_process'
-import { fileURLToPath } from 'url'
+import { app, BrowserWindow, shell, Tray, Menu, nativeImage, globalShortcut, ipcMain } from 'electron';
+import path from 'path';
+import fs from 'fs';
+import { spawn, type ChildProcess } from 'child_process';
+import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-const isDev = !app.isPackaged
+const isDev = !app.isPackaged;
 
-let mainWindow: BrowserWindow | null = null
-let apiProcess: ChildProcess | null = null
+let mainWindow: BrowserWindow | null = null;
+let apiProcess: ChildProcess | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 
-const API_PORT = 3001
+const API_PORT = 3001;
+const DEFAULT_SHORTCUT = 'CommandOrControl+Shift+O';
 
 function resolveUnpackedPath(...segments: string[]) {
-  // In packaged app, __dirname is inside app.asar
-  // Unpacked files are in app.asar.unpacked/ at the same level
   if (app.isPackaged) {
-    // __dirname = <app>/resources/app.asar/dist-electron
-    const asarDir = path.join(__dirname, '..')  // <app>/resources/app.asar
-    const unpackedDir = asarDir + '.unpacked'     // <app>/resources/app.asar.unpacked
-    return path.join(unpackedDir, ...segments)
+    const asarDir = path.join(__dirname, '..');
+    const unpackedDir = asarDir + '.unpacked';
+    return path.join(unpackedDir, ...segments);
   }
-  // Dev mode: files are at project root
-  return path.join(__dirname, '..', ...segments)
+  return path.join(__dirname, '..', ...segments);
+}
+
+function getAppIcon(): Electron.NativeImage {
+  // 尝试多个路径查找图标
+  const candidates = [
+    path.join(__dirname, '../public/icon.png'),
+    path.join(__dirname, '../public/favicon.svg'),
+    path.join(__dirname, '../../public/icon.png'),
+  ];
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      return nativeImage.createFromPath(candidate);
+    }
+  }
+  // 创建一个简单的 16x16 图标作为回退
+  return nativeImage.createEmpty();
 }
 
 function startApiServer(): Promise<void> {
   return new Promise((resolve, reject) => {
     if (isDev) {
-      resolve()
-      return
+      resolve();
+      return;
     }
 
-    const apiLoaderPath = resolveUnpackedPath('api', 'server-loader.js')
-    const appRoot = resolveUnpackedPath()
+    const apiLoaderPath = resolveUnpackedPath('api', 'server-loader.js');
+    const appRoot = resolveUnpackedPath();
 
-    console.log('[Electron] API loader path:', apiLoaderPath)
-    console.log('[Electron] App root:', appRoot)
-    console.log('[Electron] Loader exists:', fs.existsSync(apiLoaderPath))
+    console.log('[Electron] API loader path:', apiLoaderPath);
+    console.log('[Electron] App root:', appRoot);
+    console.log('[Electron] Loader exists:', fs.existsSync(apiLoaderPath));
 
     apiProcess = spawn('node', [apiLoaderPath], {
       env: {
@@ -47,42 +62,137 @@ function startApiServer(): Promise<void> {
         NODE_ENV: 'production',
         PORT: String(API_PORT),
         NODE_PATH: path.join(appRoot, 'node_modules'),
+        DB_PROVIDER: 'sqlite', // 桌面应用默认使用 SQLite
+        AUTO_REPORT_GENERATION: 'true',
       },
       stdio: 'pipe',
       cwd: appRoot,
-    })
+    });
 
-    let resolved = false
+    let resolved = false;
 
     apiProcess.stdout?.on('data', (data: Buffer) => {
-      const msg = data.toString()
-      console.log(`[API] ${msg}`)
+      const msg = data.toString();
+      console.log(`[API] ${msg}`);
       if (msg.includes('Server ready') && !resolved) {
-        resolved = true
-        resolve()
+        resolved = true;
+        resolve();
       }
-    })
+    });
 
     apiProcess.stderr?.on('data', (data: Buffer) => {
-      console.error(`[API Error] ${data.toString()}`)
-    })
+      console.error(`[API Error] ${data.toString()}`);
+    });
 
     apiProcess.on('error', (err) => {
-      console.error('Failed to start API server:', err)
+      console.error('Failed to start API server:', err);
       if (!resolved) {
-        resolved = true
-        reject(err)
+        resolved = true;
+        reject(err);
       }
-    })
+    });
 
     setTimeout(() => {
       if (!resolved) {
-        resolved = true
-        console.warn('[Electron] API server startup timed out after 8s')
-        resolve() // Still proceed, but warn
+        resolved = true;
+        console.warn('[Electron] API server startup timed out after 8s');
+        resolve();
       }
-    }, 8000)
-  })
+    }, 8000);
+  });
+}
+
+function createTray(): void {
+  const icon = getAppIcon();
+  // 为托盘缩放图标
+  const trayIcon = icon.isEmpty()
+    ? nativeImage.createEmpty()
+    : icon.resize({ width: 16, height: 16 });
+
+  tray = new Tray(trayIcon);
+  tray.setToolTip('Old Z');
+
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示/隐藏 Old Z',
+      click: () => toggleWindow(),
+    },
+    { type: 'separator' },
+    {
+      label: '退出',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      },
+    },
+  ]);
+
+  tray.setContextMenu(contextMenu);
+
+  // 双击托盘图标显示窗口
+  tray.on('double-click', () => {
+    toggleWindow();
+  });
+}
+
+function toggleWindow(): void {
+  if (!mainWindow) return;
+
+  if (mainWindow.isVisible()) {
+    mainWindow.hide();
+  } else {
+    mainWindow.show();
+    mainWindow.focus();
+  }
+}
+
+function registerGlobalShortcut(): void {
+  // 读取保存的快捷键（如果有），默认 Ctrl+Shift+O
+  const shortcut = DEFAULT_SHORTCUT;
+
+  const registered = globalShortcut.register(shortcut, () => {
+    toggleWindow();
+  });
+
+  if (registered) {
+    console.log(`[Electron] Global shortcut registered: ${shortcut}`);
+  } else {
+    console.warn(`[Electron] Failed to register global shortcut: ${shortcut}`);
+  }
+}
+
+function setupAutoStart(): void {
+  // 默认开机自启
+  app.setLoginItemSettings({
+    openAtLogin: true,
+    path: process.execPath,
+  });
+}
+
+function setupIPC(): void {
+  // 设置开机自启
+  ipcMain.handle('set-auto-start', (_event, enabled: boolean) => {
+    app.setLoginItemSettings({
+      openAtLogin: enabled,
+      path: process.execPath,
+    });
+    return enabled;
+  });
+
+  // 获取开机自启状态
+  ipcMain.handle('get-auto-start', () => {
+    return app.getLoginItemSettings().openAtLogin;
+  });
+
+  // 设置全局快捷键
+  ipcMain.handle('set-global-shortcut', (_event, shortcut: string | null) => {
+    globalShortcut.unregisterAll();
+    if (shortcut) {
+      const ok = globalShortcut.register(shortcut, () => toggleWindow());
+      return ok;
+    }
+    return false;
+  });
 }
 
 function createWindow() {
@@ -92,72 +202,97 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'Old Z',
+    icon: getAppIcon(),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
     },
-  })
+  });
 
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    // Only allow http/https URLs to be opened externally
     try {
-      const parsed = new URL(url)
+      const parsed = new URL(url);
       if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
-        shell.openExternal(url)
+        shell.openExternal(url);
       }
     } catch {
       // Invalid URL, ignore
     }
-    return { action: 'deny' }
-  })
+    return { action: 'deny' };
+  });
 
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5173')
-    mainWindow.webContents.openDevTools()
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   }
 
+  // 最小化到托盘：关闭窗口时隐藏而非退出
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow?.hide();
+    }
+  });
+
   mainWindow.on('closed', () => {
-    mainWindow = null
-  })
+    mainWindow = null;
+  });
 }
 
 app.whenReady().then(async () => {
   try {
-    await startApiServer()
+    await startApiServer();
   } catch (err) {
-    console.error('API server failed to start:', err)
+    console.error('API server failed to start:', err);
   }
-  createWindow()
+
+  setupIPC();
+  createWindow();
+  createTray();
+  registerGlobalShortcut();
+  setupAutoStart();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createWindow()
+      createWindow();
+    } else {
+      mainWindow?.show();
     }
-  })
-})
+  });
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
-    app.quit()
+    app.quit();
   }
-})
+});
 
 app.on('before-quit', () => {
+  isQuitting = true;
+
+  // 注销所有快捷键
+  globalShortcut.unregisterAll();
+
   if (apiProcess) {
-    apiProcess.kill()
-    // Wait briefly for process to exit, then force cleanup
+    apiProcess.kill();
     setTimeout(() => {
       if (apiProcess) {
-        apiProcess.kill('SIGKILL')
-        apiProcess = null
+        apiProcess.kill('SIGKILL');
+        apiProcess = null;
       }
-    }, 2000)
+    }, 2000);
     apiProcess.on('exit', () => {
-      apiProcess = null
-    })
+      apiProcess = null;
+    });
   }
-})
+
+  // 清理托盘
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+});

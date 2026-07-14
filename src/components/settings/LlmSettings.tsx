@@ -52,10 +52,10 @@ function normalizePreset(raw: any, storage: LlmStorage, index: number): LlmPrese
   };
 }
 
-export default function LlmSettings({ flashSaved }: { flashSaved: () => void }) {
+export default function LlmSettings({ flashSaved, localOnly }: { flashSaved: () => void; localOnly?: boolean }) {
   const [cloudPresets, setCloudPresets] = useState<LlmPreset[]>([]);
   const [localPresets, setLocalPresets] = useState<LlmPreset[]>([]);
-  const [activeStorage, setActiveStorage] = useState<LlmStorage>('cloud');
+  const [activeStorage, setActiveStorage] = useState<LlmStorage>(localOnly ? 'local' : 'cloud');
   const [activeId, setActiveId] = useState('');
   const [editingStorage, setEditingStorage] = useState<LlmStorage>('cloud');
   const [editingId, setEditingId] = useState('');
@@ -215,7 +215,7 @@ export default function LlmSettings({ flashSaved }: { flashSaved: () => void }) 
 
       <div className="grid md:grid-cols-[240px_1fr] gap-4">
         <div className="space-y-3">
-          {(['cloud', 'local'] as LlmStorage[]).map((storage) => {
+          {(localOnly ? (['local'] as LlmStorage[]) : (['cloud', 'local'] as LlmStorage[])).map((storage) => {
             const items = storage === 'cloud' ? cloudPresets : localPresets;
             const Icon = storage === 'cloud' ? Cloud : HardDrive;
             return (

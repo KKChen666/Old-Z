@@ -1,5 +1,5 @@
 import { registerPlugin } from '@capacitor/core';
-import type { AiActionSuggestion, ChatConversation, ChatReference, DailyReport, NoteChange, NoteSnapshot } from '@/types';
+import type { AiActionSuggestion, ChatConversation, ChatReference, DailyReport, GeneratedReport, NoteChange, NoteSnapshot, ReportGenerationResponse, SearchResponse, SearchResult, SyncOverview } from '@/types';
 
 // Capacitor: detect running inside native shell
 // isNativePlatform is a FUNCTION, must call it — checking truthiness of the function
@@ -179,6 +179,8 @@ export const api = {
     request<{ id: string; username: string; displayName: string }>('/auth/profile', { method: 'PATCH', body: JSON.stringify(updates) }),
   changePassword: (oldPassword: string, newPassword: string) =>
     request<{ message: string }>('/auth/change-password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) }),
+  mergeLocal: () =>
+    request<{ merged: number; skipped: number; message: string }>('/auth/merge-local', { method: 'POST' }),
 
   // Files
   getFiles: () => request<any[]>('/files'),
@@ -194,7 +196,10 @@ export const api = {
 
   // Notes
   getNotes: () => request<any[]>('/notes'),
-  getNoteChanges: (date: string) => request<NoteChange[]>(`/notes/changes?date=${encodeURIComponent(date)}`),
+  getNoteChanges: (dateOrId: string) =>
+    request<any[]>(dateOrId.length <= 10
+      ? `/notes/changes?date=${encodeURIComponent(dateOrId)}`
+      : `/notes/${dateOrId}/changes`),
   getNoteSnapshots: (id: string) => request<NoteSnapshot[]>(`/notes/${id}/snapshots`),
   restoreNoteSnapshot: (id: string, snapshotId: string) =>
     request<{ id: string; title: string; content: string; updatedAt: string }>(`/notes/${id}/restore`, { method: 'POST', body: JSON.stringify({ snapshotId }) }),
@@ -326,11 +331,96 @@ export const api = {
   getMonthlyDailyReports: (month: string) => request<DailyReport[]>(`/reports/daily?month=${encodeURIComponent(month)}`),
   saveDailyReport: (date: string, content: string) =>
     request<{ date: string; content: string }>('/reports/daily', { method: 'PUT', body: JSON.stringify({ date, content }) }),
+  generateReports: () =>
+    request<ReportGenerationResponse['data']>('/reports/generate', { method: 'POST' }),
+
+  // Search
+  search: (query: string, kind: 'note' | 'todo' | 'file' | 'all' = 'all', limit?: number) => {
+    const params = new URLSearchParams({ q: query, kind });
+    if (limit) params.set('limit', String(limit));
+    return request<SearchResponse['results']>(`/search?${params.toString()}`);
+  },
+  searchNotes: (query: string, limit?: number) => {
+    const params = new URLSearchParams({ q: query });
+    if (limit) params.set('limit', String(limit));
+    return request<SearchResponse['results']>(`/search/notes?${params.toString()}`);
+  },
+  searchTodos: (query: string, limit?: number) => {
+    const params = new URLSearchParams({ q: query });
+    if (limit) params.set('limit', String(limit));
+    return request<SearchResponse['results']>(`/search/todos?${params.toString()}`);
+  },
+  searchFiles: (query: string, limit?: number) => {
+    const params = new URLSearchParams({ q: query });
+    if (limit) params.set('limit', String(limit));
+    return request<SearchResponse['results']>(`/search/files?${params.toString()}`);
+  },
+  rebuildSearchIndex: () => request<{ message: string }>('/search/rebuild', { method: 'POST' }),
+
+  // Sync — 需要 X-Sync-Key header
+  sync: {
+    _getKey: () => {
+      try {
+        const remotes = JSON.parse(localStorage.getItem('oldz-remotes') || '[]');
+        const active = localStorage.getItem('oldz-active-remote') || '';
+        return remotes.find((r: any) => r.name === active)?.key || '';
+      } catch { return ''; }
+    },
+    status: () => {
+      const key = api.sync._getKey();
+      return request<SyncOverview>('/sync/status', { headers: { 'X-Sync-Key': key } as any });
+    },
+    push: (ids?: string[]) => {
+      const key = api.sync._getKey();
+      return request<{ pushed: number; errors: string[] }>('/sync/push', { method: 'POST', headers: { 'X-Sync-Key': key } as any, body: JSON.stringify({ ids }) });
+    },
+    pull: () => {
+      const key = api.sync._getKey();
+      return request<{ pulled: number; errors: string[] }>('/sync/pull', { method: 'POST', headers: { 'X-Sync-Key': key } as any });
+    },
+  },
 
   // Settings
   settings: {
     getLlmConfig: () => request<any>('/settings/llm'),
     saveLlmConfig: (config: any) => request<any>('/settings/llm', { method: 'POST', body: JSON.stringify(config) }),
     getLlmBalance: (preset: any) => request<any>('/settings/llm/balance', { method: 'POST', body: JSON.stringify({ preset }) }),
+    // 同步密钥
+    generateSyncKey: (label: string) => request<{ key: string; id: string; label: string }>('/settings/sync-key/generate', { method: 'POST', body: JSON.stringify({ label }) }),
+    getSyncKeys: () => request<any[]>('/settings/sync-keys'),
+    deleteSyncKey: (id: string) => request<any>('/settings/sync-key/' + id, { method: 'DELETE' }),
+  },
+
+  // Git 版本控制（本地模式）
+  git: {
+    info: () => request<{ initialized: boolean; path: string; branch: string; remotes: string[] }>('/git/info'),
+    status: () => request<{ staged: string[]; modified: string[]; created: string[]; deleted: string[]; renamed: Array<{ from: string; to: string }>; isClean: boolean }>('/git/status'),
+    log: (options?: { limit?: number; file?: string }) => {
+      const params = new URLSearchParams();
+      if (options?.limit) params.set('limit', String(options.limit));
+      if (options?.file) params.set('file', options.file);
+      const suffix = params.toString() ? `?${params.toString()}` : '';
+      return request<Array<{ hash: string; shortHash: string; date: string; message: string; authorName: string; authorEmail: string; refs: string }>>(`/git/log${suffix}`);
+    },
+    diff: (hash: string) => request<{ hash: string; message: string; date: string; authorName: string; diff: string }>(`/git/diff/${hash}`),
+    commit: (message: string) => request<{ hash: string; summary: { insertions: number; deletions: number; files: number } }>('/git/commit', { method: 'POST', body: JSON.stringify({ message }) }),
+    getRemotes: () => request<Array<{ name: string; fetch: string; push: string }>>('/git/remotes'),
+    addRemote: (name: string, url: string) => request<{ name: string; url: string }>('/git/remote', { method: 'POST', body: JSON.stringify({ name, url }) }),
+    removeRemote: (name: string) => request<{ removed: string }>(`/git/remote/${name}`, { method: 'DELETE' }),
+    push: (remote: string, branch: string) => request<{ pushed: boolean; result: string }>('/git/push', { method: 'POST', body: JSON.stringify({ remote, branch }) }),
+    pull: (remote: string, branch: string) => request<{ pulled: boolean; result: string; mergeSummary?: any }>('/git/pull', { method: 'POST', body: JSON.stringify({ remote, branch }) }),
+    getBranches: () => request<Array<{ name: string; current: boolean }>>('/git/branches'),
+  },
+
+  // 远程数据同步（笔记和待办）
+  remoteSync: {
+    test: (remote: { url: string; key: string }) =>
+      request<{ ok: boolean; serverInfo?: string; error?: string }>('/remote-sync/test', { method: 'POST', body: JSON.stringify(remote) }),
+    status: (remote: { url: string; key: string }) =>
+      request<{ local: { notes: number; todos: number }; remote: { notes: number; todos: number } | null; error?: string }>('/remote-sync/status', { method: 'POST', body: JSON.stringify(remote) }),
+    push: (remote: { name: string; url: string; key: string }) =>
+      request<{ notesPushed: number; todosPushed: number; errors: string[] }>('/remote-sync/push', { method: 'POST', body: JSON.stringify(remote) }),
+    pull: (remote: { name: string; url: string; key: string }) =>
+      request<{ notesPulled: number; todosPulled: number; errors: string[] }>('/remote-sync/pull', { method: 'POST', body: JSON.stringify(remote) }),
   },
 };

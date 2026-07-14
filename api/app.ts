@@ -21,7 +21,12 @@ import chatRoutes from './routes/chat.js'
 import timelineRoutes from './routes/timeline.js'
 import settingsRoutes from './routes/settings.js'
 import reportsRoutes from './routes/reports.js'
+import searchRoutes from './routes/search.js'
+import syncRoutes from './routes/sync.js'
+import gitRoutes from './routes/git.js'
+import remoteSyncRoutes from './routes/remote-sync.js'
 import { llmRequestContextMiddleware } from './services/llmRequestContext.js'
+import { contextMiddleware } from './middleware/auth.js'
 
 // for esm mode
 const __filename = fileURLToPath(import.meta.url)
@@ -77,6 +82,7 @@ app.use('/api/', apiLimiter)
 app.use('/api/auth/login', authLimiter)
 app.use('/api/auth/register', authLimiter)
 app.use('/api/auth/reset-password', authLimiter)
+app.use(contextMiddleware)
 app.use(llmRequestContextMiddleware)
 
 /**
@@ -90,17 +96,23 @@ app.use('/api/chat', chatRoutes)
 app.use('/api/timeline', timelineRoutes)
 app.use('/api/settings', settingsRoutes)
 app.use('/api/reports', reportsRoutes)
+app.use('/api/search', searchRoutes)
+app.use('/api/sync', syncRoutes)
+app.use('/api/git', gitRoutes)
+app.use('/api/remote-sync', remoteSyncRoutes)
 
 /**
  * health
  */
-app.use(
+app.get(
   '/api/health',
-  (req: Request, res: Response, next: NextFunction): void => {
+  (req: Request, res: Response): void => {
+    const mode = (process.env.DB_PROVIDER || 'sqlite').toLowerCase();
     res.status(200).json({
       success: true,
       message: 'ok',
-    })
+      dbMode: mode === 'mysql' ? 'cloud' : 'local',
+    });
   },
 )
 

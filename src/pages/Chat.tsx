@@ -1011,7 +1011,7 @@ function PlanPanel() {
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-      <div className="space-y-5 max-w-4xl mx-auto">
+      <div className="space-y-5">
         {/* 目标输入 */}
         <div className="glass-card p-5 space-y-4">
           <div>

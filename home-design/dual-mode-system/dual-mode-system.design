@@ -1,0 +1,141 @@
+{
+  "data": [
+    {
+      "id": "page-mode-select",
+      "title": "模式选择",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752500000000,
+      "canvasData": {
+        "x": 0,
+        "y": 754,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/mode-select.html",
+        "interactions": [
+          {
+            "domId": "card-local",
+            "targetPageId": "page-mode-select-local",
+            "hideEdge": true,
+            "transitionLabel": "选择本地模式"
+          },
+          {
+            "domId": "card-online",
+            "targetPageId": "page-mode-select-online",
+            "hideEdge": true,
+            "transitionLabel": "选择在线模式"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-mode-select-local",
+      "title": "模式选择 - 本地已选",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752500001000,
+      "canvasData": {
+        "x": 0,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/mode-select-local.html",
+        "interactions": [
+          {
+            "domId": "btn-enter-local",
+            "targetPageId": "page-home",
+            "transitionLabel": "进入系统"
+          },
+          {
+            "domId": "card-online-shrunk",
+            "targetPageId": "page-mode-select-online",
+            "hideEdge": true,
+            "transitionLabel": "切换到在线模式"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-mode-select-online",
+      "title": "模式选择 - 在线已选",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752500002000,
+      "canvasData": {
+        "x": 0,
+        "y": 377,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/mode-select-online.html",
+        "interactions": [
+          {
+            "domId": "btn-enter-online",
+            "targetPageId": "page-login",
+            "transitionLabel": "去登录"
+          },
+          {
+            "domId": "card-local-shrunk",
+            "targetPageId": "page-mode-select-local",
+            "hideEdge": true,
+            "transitionLabel": "切换到本地模式"
+          }
+        ]
+      }
+    },
+    {
+      "id": "page-home",
+      "title": "系统首页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752500003000,
+      "canvasData": {
+        "x": 620,
+        "y": 0,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/home.html",
+        "interactions": []
+      }
+    },
+    {
+      "id": "page-login",
+      "title": "登录页",
+      "type": "page",
+      "version": 1,
+      "createdAt": 1752500004000,
+      "canvasData": {
+        "x": 620,
+        "y": 377,
+        "group": 0
+      },
+      "devMetadata": {
+        "htmlSrc": "pages/login.html",
+        "interactions": [
+          {
+            "domId": "back-to-select",
+            "targetPageId": "page-mode-select",
+            "hideEdge": true,
+            "transitionLabel": "返回模式选择"
+          }
+        ]
+      }
+    }
+  ],
+  "config": {
+    "autoLayout": true,
+    "deviceType": "desktop",
+    "projectName": "双模式系统",
+    "designLibrary": {
+      "name": "谷歌",
+      "id": "dl_builtin_google",
+      "version": null,
+      "scope": "built-in-global",
+      "path": "c:\\Users\\Leonard\\.trae-cn\\design_libraries\\dl_builtin_google",
+      "versionSource": null
+    }
+  }
+}

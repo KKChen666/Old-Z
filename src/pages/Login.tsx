@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, UserPlus, Eye, EyeOff, Zap, KeyRound, Server, X, Check, RotateCcw } from 'lucide-react';
+import { LogIn, UserPlus, Eye, EyeOff, Zap, KeyRound, Server, X, Check, RotateCcw, Laptop, Cloud, HardDrive, ArrowLeft } from 'lucide-react';
 import { api, saveAuth, syncTokenToNative, getEffectiveApiBase, getDefaultApiBase } from '@/utils/api';
 import { useAppStore } from '@/stores/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -19,6 +19,8 @@ export default function Login() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [showOnlineLogin, setShowOnlineLogin] = useState(false);
 
   // 长按 Logo 10 秒设置后端地址（调试入口，对普通用户隐藏）
   const [showBackendSettings, setShowBackendSettings] = useState(false);
@@ -133,31 +135,74 @@ export default function Login() {
     }
     setLoading(true);
     try {
+      let res: { token: string; user: any };
       if (tab === 'login') {
-        const res = await api.login(username, password);
-        saveAuth(res.token);
-        syncTokenToNative(res.token);
-        setUser(res.user);
-        navigate('/');
+        res = await api.login(username, password);
       } else if (tab === 'register') {
-        const res = await api.register(username, password, displayName || undefined);
-        saveAuth(res.token);
-        syncTokenToNative(res.token);
-        setUser(res.user);
-        navigate('/');
+        res = await api.register(username, password, displayName || undefined);
       } else {
         const res = await api.resetPassword(username, oldPassword, password);
         saveAuth(res.token);
         syncTokenToNative(res.token);
         setUser(res.user);
+        localStorage.removeItem('old-z-local-mode');
         navigate('/');
+        return;
       }
+
+      saveAuth(res.token);
+      syncTokenToNative(res.token);
+      setUser(res.user);
+
+      // 如果之前用过本地模式，弹窗询问是否合并
+      if (localStorage.getItem('old-z-local-mode') === 'true') {
+        const shouldMerge = window.confirm(
+          '检测到你之前在本地模式下创建了数据。\n\n是否将这些数据合并到当前账户？\n\n• 云端没有的记录 → 迁移到当前账户\n• 云端已有的同名记录 → 保留为两份，互不覆盖\n\n选择"确定"合并，"取消"保留本地数据。'
+        );
+        if (shouldMerge) {
+          try {
+            const result = await api.mergeLocal();
+            if (result.merged > 0 || result.skipped > 0) {
+              alert(`合并结果：\n已迁移 ${result.merged} 条\n跳过 ${result.skipped} 条（云端已有同名记录）`);
+            }
+          } catch {}
+        }
+      }
+      localStorage.removeItem('old-z-local-mode');
+      navigate('/');
     } catch (e: any) {
       const msg = e.message || '操作失败，请重试';
       setError(msg);
       toast.error(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLocalMode = async () => {
+    setLocalLoading(true);
+    try {
+      // 尝试用固定用户名登录/注册本地用户
+      const localUser = 'local-user';
+      const localPass = 'oldz-local-' + (navigator.hardwareConcurrency || 1);
+      try {
+        const res = await api.login(localUser, localPass);
+        saveAuth(res.token);
+        syncTokenToNative(res.token);
+        setUser(res.user);
+      } catch {
+        // 登录失败则注册
+        const res = await api.register(localUser, localPass, '本地用户');
+        saveAuth(res.token);
+        syncTokenToNative(res.token);
+        setUser(res.user);
+      }
+      localStorage.setItem('old-z-local-mode', 'true');
+      navigate('/');
+    } catch (e: any) {
+      toast.error('本地模式初始化失败：' + (e.message || '未知错误'));
+    } finally {
+      setLocalLoading(false);
     }
   };
 
@@ -298,10 +343,60 @@ export default function Login() {
               </button>
             </div>
           </div>
+        ) : !showOnlineLogin ? (
+          <>
+            {/* 模式选择：两栏同等 */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* 在线模式 */}
+              <button
+                onClick={() => setShowOnlineLogin(true)}
+                className="p-5 rounded-2xl border border-ink-700/50 bg-ink-900/80 hover:border-gold-400/40 hover:bg-ink-900/95 transition-all text-left group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <Cloud className="w-5 h-5 text-cyan-400" />
+                </div>
+                <h3 className="text-sm font-bold text-parchment-100 mb-1">在线模式</h3>
+                <p className="text-[11px] text-ink-500 leading-relaxed">
+                  数据云端存储<br />
+                  多设备同步<br />
+                  需注册账户
+                </p>
+                <span className="inline-block mt-3 text-[11px] text-gold-400 font-medium">
+                  登录 / 注册 →
+                </span>
+              </button>
+
+              {/* 本地模式 */}
+              <button
+                onClick={handleLocalMode}
+                disabled={localLoading}
+                className="p-5 rounded-2xl border border-ink-700/50 bg-ink-900/80 hover:border-green-400/40 hover:bg-ink-900/95 transition-all text-left group"
+              >
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                  <HardDrive className="w-5 h-5 text-green-400" />
+                </div>
+                <h3 className="text-sm font-bold text-parchment-100 mb-1">本地模式</h3>
+                <p className="text-[11px] text-ink-500 leading-relaxed">
+                  数据本地存储<br />
+                  离线也能用<br />
+                  无需注册
+                </p>
+                <span className="inline-block mt-3 text-[11px] text-green-400 font-medium">
+                  {localLoading ? '加载中...' : '开始使用 →'}
+                </span>
+              </button>
+            </div>
+          </>
         ) : (
           <>
-            {/* Card - 去掉 backdrop-blur 以修复 Android WebView 中的点击穿透问题 */}
+            {/* 在线模式登录表单 */}
             <div className="glass-card p-6">
+              <button
+                onClick={() => setShowOnlineLogin(false)}
+                className="flex items-center gap-1 text-xs text-ink-500 hover:text-parchment-300 mb-4 transition-colors"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" /> 返回
+              </button>
           {/* Tabs */}
           {tab !== 'reset' && (
             <div className="flex mb-6 bg-ink-900/60 rounded-xl p-1">
@@ -462,6 +557,7 @@ export default function Login() {
                 </>
               )}
             </button>
+
           </form>
         </div>
 
