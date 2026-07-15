@@ -161,22 +161,17 @@ function registerGlobalShortcut(): void {
   }
 }
 
-function setupAutoStart(): void {
-  // 默认开机自启
-  app.setLoginItemSettings({
-    openAtLogin: true,
-    path: process.execPath,
-  });
-}
-
 function setupIPC(): void {
   // 设置开机自启
   ipcMain.handle('set-auto-start', (_event, enabled: boolean) => {
+    if (typeof enabled !== 'boolean') {
+      throw new TypeError('enabled must be a boolean');
+    }
     app.setLoginItemSettings({
       openAtLogin: enabled,
       path: process.execPath,
     });
-    return enabled;
+    return app.getLoginItemSettings().openAtLogin;
   });
 
   // 获取开机自启状态
@@ -254,7 +249,6 @@ app.whenReady().then(async () => {
   createWindow();
   createTray();
   registerGlobalShortcut();
-  setupAutoStart();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {

@@ -56,6 +56,9 @@ function DiffModal({ hash, title, onClose }: { hash: string; title: string; onCl
   const [loading, setLoading] = useState(true);
   const [diff, setDiff] = useState<{ message: string; date: string; authorName: string; diff: string } | null>(null);
   const [error, setError] = useState('');
+  const formattedDate = diff?.date && !Number.isNaN(new Date(diff.date).getTime())
+    ? new Date(diff.date).toLocaleString()
+    : '时间未知';
 
   useEffect(() => {
     api.git.diff(hash).then((d: any) => {
@@ -72,7 +75,7 @@ function DiffModal({ hash, title, onClose }: { hash: string; title: string; onCl
             <GitCommit className="w-4 h-4 text-amber-400 flex-shrink-0" />
             <span className="text-sm font-medium text-parchment-100 truncate">{title}</span>
           </div>
-          <button onClick={onClose} className="p-1 text-ink-500 hover:text-parchment-200"><X className="w-4 h-4" /></button>
+          <button aria-label="关闭差异" onClick={onClose} className="p-1 text-ink-500 hover:text-parchment-200"><X className="w-4 h-4" /></button>
         </div>
         <div className="overflow-y-auto p-4 max-h-[70vh]">
           {loading && <p className="text-sm text-ink-500 flex items-center gap-2"><Loader2 className="w-3.5 h-3.5 animate-spin" /> 加载差异...</p>}
@@ -82,7 +85,7 @@ function DiffModal({ hash, title, onClose }: { hash: string; title: string; onCl
               <div className="mb-3 p-3 rounded-lg bg-ink-950/60 border border-ink-800/50 space-y-1">
                 <p className="text-xs text-parchment-300 font-medium">{diff.message}</p>
                 <p className="text-[10px] text-ink-500">
-                  {diff.authorName} · {new Date(diff.date).toLocaleString()}
+                  {diff.authorName || 'Old Z'} · {formattedDate}
                 </p>
               </div>
               <pre className="text-xs font-mono text-parchment-300 whitespace-pre-wrap break-all bg-ink-950/80 rounded-lg p-3 border border-ink-800/50 max-h-[50vh] overflow-y-auto">
@@ -120,10 +123,8 @@ function GitLog() {
     setLoading(true);
     setError('');
     try {
-      const [gitInfo, logData] = await Promise.all([
-        api.git.info().catch(() => ({ initialized: false, branch: 'main' })),
-        api.git.log({ limit: 100 }).catch(() => []),
-      ]);
+      const gitInfo = await api.git.info();
+      const logData = await api.git.log({ limit: 100 });
       setInfo({ branch: (gitInfo as any).branch || 'main', initialized: (gitInfo as any).initialized });
       setCommits(Array.isArray(logData) ? logData : []);
     } catch (e: any) {

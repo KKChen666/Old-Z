@@ -1,6 +1,6 @@
 import jwt from 'jsonwebtoken';
 import type { Request, Response, NextFunction } from 'express';
-import { runInContext } from '../config/db.js';
+import { runInContext, type StorageMode } from '../config/db.js';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL ERROR: JWT_SECRET environment variable is required');
@@ -12,10 +12,11 @@ const JWT_SECRET: string = process.env.JWT_SECRET;
 
 export interface AuthRequest extends Request {
   userId?: string;
+  storage?: StorageMode;
 }
 
-export function generateToken(userId: string): string {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '30d' });
+export function generateToken(userId: string, storage: StorageMode = 'cloud'): string {
+  return jwt.sign({ userId, storage }, JWT_SECRET, { expiresIn: '30d' });
 }
 
 /**
@@ -25,18 +26,21 @@ export function generateToken(userId: string): string {
 export function contextMiddleware(req: AuthRequest, _res: Response, next: NextFunction) {
   const authHeader = req.headers.authorization;
   let userId: string | undefined;
+  let storage: StorageMode | undefined;
 
   if (authHeader?.startsWith('Bearer ')) {
     try {
-      const payload = jwt.verify(authHeader.split(' ')[1], JWT_SECRET) as { userId: string };
+      const payload = jwt.verify(authHeader.split(' ')[1], JWT_SECRET) as { userId: string; storage?: StorageMode };
       userId = payload.userId;
+      storage = payload.storage === 'local' ? 'local' : 'cloud';
       req.userId = userId;
+      req.storage = storage;
     } catch {
       // token 无效时不报错，让 authMiddleware 处理
     }
   }
 
-  runInContext(userId, next);
+  runInContext(userId, storage, next);
 }
 
 /**

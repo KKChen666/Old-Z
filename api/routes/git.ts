@@ -6,7 +6,9 @@
  * 云端模式也可使用（如果服务端有 git）。
  */
 
-import { Router, type Request, type Response } from 'express';
+import { Router, type NextFunction, type Response } from 'express';
+import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
+import { materializeAllGitContent } from '../services/git-content.js';
 import {
   ensureRepo,
   getInfo,
@@ -23,17 +25,26 @@ import {
 } from '../services/git.js';
 
 const router = Router();
+router.use(authMiddleware);
+router.use((req: AuthRequest, res: Response, next: NextFunction) => {
+  if (req.storage !== 'local') {
+    res.status(403).json({ success: false, error: 'Git 版本历史仅供本地模式使用' });
+    return;
+  }
+  next();
+});
 
 // 简单的错误包装
-function handle(handler: (req: Request, res: Response) => Promise<void>) {
-  return async (req: Request, res: Response) => {
+function handle(handler: (req: AuthRequest, res: Response) => Promise<void>) {
+  return async (req: AuthRequest, res: Response) => {
     try {
       await handler(req, res);
-    } catch (error: any) {
-      console.error(`[Git API] ${req.method} ${req.path} error:`, error?.message || error);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`[Git API] ${req.method} ${req.path} error:`, message);
       res.status(500).json({
         success: false,
-        error: error?.message || 'Git 操作失败',
+        error: message || 'Git 操作失败',
       });
     }
   };
@@ -41,7 +52,11 @@ function handle(handler: (req: Request, res: Response) => Promise<void>) {
 
 // ============ 仓库信息 ============
 
-router.get('/info', handle(async (_req, res) => {
+router.get('/info', handle(async (req, res) => {
+  await ensureRepo();
+  await materializeAllGitContent(req.userId!);
+  const snapshotStatus = await getStatus();
+  if (!snapshotStatus.isClean) await commit('snapshot: synchronize local notes and todos');
   // 首次访问自动初始化仓库
   await ensureRepo();
   const info = await getInfo();
@@ -58,8 +73,13 @@ router.get('/status', handle(async (_req, res) => {
 // ============ 提交历史 ============
 
 router.get('/log', handle(async (req, res) => {
-  const maxCount = req.query.limit ? parseInt(String(req.query.limit), 10) : 50;
+  const requestedLimit = req.query.limit ? parseInt(String(req.query.limit), 10) : 50;
+  const maxCount = Number.isFinite(requestedLimit) ? Math.min(200, Math.max(1, requestedLimit)) : 50;
   const file = req.query.file ? String(req.query.file) : undefined;
+  if (file && (file.startsWith('-') || file.includes('..'))) {
+    res.status(400).json({ success: false, error: '无效的文件路径' });
+    return;
+  }
   const log = await getLog({ maxCount, file });
   res.json({ success: true, data: log });
 }));
@@ -67,6 +87,10 @@ router.get('/log', handle(async (req, res) => {
 // ============ Diff ============
 
 router.get('/diff/:hash', handle(async (req, res) => {
+  if (!/^[0-9a-f]{7,40}$/i.test(req.params.hash)) {
+    res.status(400).json({ success: false, error: '无效的提交 ID' });
+    return;
+  }
   const diff = await getDiff(req.params.hash);
   res.json({ success: true, data: diff });
 }));

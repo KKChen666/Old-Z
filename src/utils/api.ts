@@ -167,6 +167,7 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
 
 export const api = {
   // Auth
+  localLogin: () => request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/local', { method: 'POST' }),
   register: (username: string, password: string, displayName?: string) =>
     request<{ token: string; user: { id: string; username: string; displayName: string } }>('/auth/register', { method: 'POST', body: JSON.stringify({ username, password, displayName }) }),
   login: (username: string, password: string) =>
@@ -414,13 +415,19 @@ export const api = {
 
   // 远程数据同步（笔记和待办）
   remoteSync: {
-    test: (remote: { url: string; key: string }) =>
+    preview: (remote: { key: string }) =>
+      request<{
+        local: Array<{ id: string; kind: 'note' | 'todo'; title: string; content: string; updatedAt: string | null }>;
+        remote: Array<{ id: string; kind: 'note' | 'todo'; title: string; content: string; updatedAt: string | null }>;
+        error?: string;
+      }>('/remote-sync/preview', { method: 'POST', body: JSON.stringify(remote) }),
+    test: (remote: { key: string }) =>
       request<{ ok: boolean; serverInfo?: string; error?: string }>('/remote-sync/test', { method: 'POST', body: JSON.stringify(remote) }),
-    status: (remote: { url: string; key: string }) =>
+    status: (remote: { key: string }) =>
       request<{ local: { notes: number; todos: number }; remote: { notes: number; todos: number } | null; error?: string }>('/remote-sync/status', { method: 'POST', body: JSON.stringify(remote) }),
-    push: (remote: { name: string; url: string; key: string }) =>
+    push: (remote: { name: string; key: string; selection?: { notes: string[]; todos: string[] } }) =>
       request<{ notesPushed: number; todosPushed: number; errors: string[] }>('/remote-sync/push', { method: 'POST', body: JSON.stringify(remote) }),
-    pull: (remote: { name: string; url: string; key: string }) =>
+    pull: (remote: { name: string; key: string; selection?: { notes: string[]; todos: string[] } }) =>
       request<{ notesPulled: number; todosPulled: number; errors: string[] }>('/remote-sync/pull', { method: 'POST', body: JSON.stringify(remote) }),
   },
 };

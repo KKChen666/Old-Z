@@ -4,9 +4,18 @@ import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
 import { callLLM, safeJsonParse } from '../services/ai.js';
 import { getUserLlmConfig } from '../services/settings.js';
 import { scheduleAutoCommit } from '../services/git.js';
+import { materializeNote } from '../services/git-content.js';
 
 const router = Router();
 router.use(authMiddleware);
+
+async function trackNoteInGit(userId: string, noteId: string, message: string): Promise<void> {
+  try {
+    if (await materializeNote(userId, noteId)) scheduleAutoCommit(message);
+  } catch (error) {
+    console.error('[Git] Failed to snapshot note:', error);
+  }
+}
 
 const APP_TIME_ZONE = process.env.APP_TIME_ZONE || 'Asia/Shanghai';
 const DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', {
@@ -326,8 +335,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Git auto-commit
-    try { scheduleAutoCommit(`note: create "${title}"`); } catch {}
+    await trackNoteInGit(req.userId!, id, `note: create "${title}"`);
 
     res.json({ success: true, data: { id } });
   } catch (error) {
@@ -617,13 +625,10 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Git auto-commit
-    try {
-      const nextTitle = title !== undefined ? title : existing.title;
-      const action = title !== undefined && content !== undefined ? 'edit'
-        : title !== undefined ? 'rename' : 'edit';
-      scheduleAutoCommit(`note: ${action} "${nextTitle}"`);
-    } catch {}
+    const nextTitle = title !== undefined ? title : existing.title;
+    const action = title !== undefined && content !== undefined ? 'edit'
+      : title !== undefined ? 'rename' : 'edit';
+    await trackNoteInGit(req.userId!, req.params.id, `note: ${action} "${nextTitle}"`);
 
     res.json({ success: true });
   } catch (error) {
@@ -653,8 +658,7 @@ router.delete('/:id', async (req: AuthRequest, res: Response) => {
     }
     await conn.commit();
 
-    // Git auto-commit
-    try { scheduleAutoCommit(`note: delete "${noteTitle}"`); } catch {}
+    await trackNoteInGit(req.userId!, req.params.id, `note: delete "${noteTitle}"`);
 
     res.json({ success: true });
   } catch (error) {

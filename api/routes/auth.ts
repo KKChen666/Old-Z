@@ -6,6 +6,47 @@ import { generateToken, authMiddleware, type AuthRequest } from '../middleware/a
 
 const router = Router()
 
+function isLoopbackRequest(req: Request): boolean {
+  const address = req.socket.remoteAddress || ''
+  return address === '127.0.0.1' || address === '::1' || address.startsWith('::ffff:127.')
+}
+
+/**
+ * 本地模式身份入口。它只接受来自本机的请求，不依赖设备硬件信息生成密码。
+ */
+router.post('/local', async (req: Request, res: Response): Promise<void> => {
+  if (!isLoopbackRequest(req) && process.env.ALLOW_REMOTE_LOCAL_MODE !== 'true') {
+    res.status(403).json({ success: false, error: '本地模式只能从本机访问' })
+    return
+  }
+
+  try {
+    const [rows] = await executeOnSQLite('SELECT id, username, display_name FROM users WHERE username = ?', ['local-user'])
+    let user = (rows as Array<{ id: string; username: string; display_name: string }>)[0]
+
+    if (!user) {
+      const id = crypto.randomUUID()
+      const passwordHash = await bcrypt.hash(crypto.randomBytes(32).toString('hex'), 10)
+      await executeOnSQLite(
+        'INSERT INTO users (id, username, password_hash, display_name) VALUES (?, ?, ?, ?)',
+        [id, 'local-user', passwordHash, '本地用户']
+      )
+      user = { id, username: 'local-user', display_name: '本地用户' }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        token: generateToken(user.id, 'local'),
+        user: { id: user.id, username: user.username, displayName: user.display_name },
+      },
+    })
+  } catch (error) {
+    console.error('POST /auth/local error:', error)
+    res.status(500).json({ success: false, error: '本地模式初始化失败' })
+  }
+})
+
 /**
  * 用户注册
  * POST /api/auth/register
@@ -50,7 +91,7 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       [id, username, passwordHash, displayName || username]
     )
 
-    const token = generateToken(id)
+    const token = generateToken(id, username === 'local-user' ? 'local' : 'cloud')
 
     res.status(201).json({
       success: true,
@@ -105,7 +146,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return
     }
 
-    const token = generateToken(user.id)
+    const token = generateToken(user.id, username === 'local-user' ? 'local' : 'cloud')
 
     res.json({
       success: true,
@@ -176,7 +217,7 @@ router.post('/reset-password', async (req: Request, res: Response): Promise<void
     await executeForUsername(username, 'UPDATE users SET password_hash = ? WHERE id = ?', [passwordHash, user.id])
 
     // 生成新 token 并自动登录
-    const token = generateToken(user.id)
+    const token = generateToken(user.id, username === 'local-user' ? 'local' : 'cloud')
 
     res.json({
       success: true,
@@ -400,4 +441,3 @@ router.post('/merge-local', authMiddleware, async (req: AuthRequest, res: Respon
 });
 
 export default router
-

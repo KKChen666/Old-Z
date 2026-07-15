@@ -6,7 +6,7 @@
  * Push: 读取本地 SQLite 中的笔记和待办 → POST 到远端 /api/sync/push
  * Pull: GET 远端 /api/sync/pull → 写入本地 SQLite
  *
- * 本地模式用户通过此服务与云端或其他 Old Z 实例同步数据。
+ * 本地模式用户通过此服务与应用统一配置的在线后端同步数据。
  */
 
 import sqliteProvider from '../config/sqlite-provider.js';
@@ -163,8 +163,66 @@ async function saveLocalData(data: { notes: any[]; todos: any[] }) {
 
 interface RemoteConfig {
   name: string;
-  url: string;
   key: string;
+}
+
+export interface SyncSelection {
+  notes: string[];
+  todos: string[];
+}
+
+export interface SyncPreviewItem {
+  id: string;
+  kind: 'note' | 'todo';
+  title: string;
+  content: string;
+  updatedAt: string | null;
+}
+
+function todoComparableText(todo: any): string {
+  const subtasks = Array.isArray(todo.subtasks)
+    ? todo.subtasks.map((item: any) => `${item.done ? '✓' : '○'} ${item.title || ''}`).join('\n')
+    : '';
+  return [
+    `描述：${todo.description || ''}`,
+    `优先级：${todo.priority || 'medium'}`,
+    `状态：${todo.status || 'pending'}`,
+    `截止日期：${todo.dueDate || todo.due_date || '无'}`,
+    `今日待办：${todo.isTodayTodo || todo.is_today_todo ? '是' : '否'}`,
+    ...(subtasks ? ['子任务：', subtasks] : []),
+  ].join('\n');
+}
+
+function getCloudBaseUrl(): string {
+  const configured = process.env.OLDZ_CLOUD_API_BASE_URL?.trim()
+    || process.env.VITE_API_BASE_URL?.trim();
+  if (!configured) {
+    throw new Error('在线同步服务尚未配置，请设置 VITE_API_BASE_URL');
+  }
+
+  let url: URL;
+  try {
+    url = new URL(configured);
+  } catch {
+    throw new Error('在线同步服务地址配置无效');
+  }
+
+  if (url.username || url.password) {
+    throw new Error('在线同步服务地址不能包含账号或密码');
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new Error('在线同步服务地址必须使用 HTTP(S)');
+  }
+
+  const isLoopback = ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
+  if (url.protocol === 'http:' && !isLoopback) {
+    throw new Error('在线同步服务必须使用 HTTPS');
+  }
+
+  url.search = '';
+  url.hash = '';
+  url.pathname = url.pathname.replace(/\/+$/, '').replace(/\/api$/, '');
+  return url.toString().replace(/\/+$/, '');
 }
 
 async function callRemote(
@@ -173,7 +231,7 @@ async function callRemote(
   path: string,
   body?: any
 ): Promise<any> {
-  const baseUrl = config.url.replace(/\/+$/, '');
+  const baseUrl = getCloudBaseUrl();
   const url = `${baseUrl}${path}`;
 
   const headers: Record<string, string> = {
@@ -185,6 +243,7 @@ async function callRemote(
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!res.ok) {
@@ -204,24 +263,30 @@ async function callRemote(
 
 // ---- Push: 本地 → 远端 ----
 
-export async function pushToRemote(config: RemoteConfig): Promise<{
+export async function pushToRemote(config: RemoteConfig, selection?: SyncSelection): Promise<{
   notesPushed: number;
   todosPushed: number;
   errors: string[];
 }> {
   const errors: string[] = [];
   const localData = await getLocalData();
+  const selectedNotes = selection ? new Set(selection.notes) : null;
+  const selectedTodos = selection ? new Set(selection.todos) : null;
 
-  const notesPayload = localData.notes.map(n => ({
+  const notesPayload = localData.notes
+    .filter(n => !selectedNotes || selectedNotes.has(String(n.id)))
+    .map(n => ({
     id: n.id,
     title: n.title,
     content: n.content,
     tags: n.tags,
     createdAt: n.created_at,
     updatedAt: n.updated_at,
-  }));
+    }));
 
-  const todosPayload = localData.todos.map(t => ({
+  const todosPayload = localData.todos
+    .filter(t => !selectedTodos || selectedTodos.has(String(t.id)))
+    .map(t => ({
     id: t.id,
     title: t.title,
     description: t.description,
@@ -231,7 +296,11 @@ export async function pushToRemote(config: RemoteConfig): Promise<{
     tags: t.tags,
     subtasks: t.subtasks,
     createdAt: t.created_at,
-  }));
+    }));
+
+  if (notesPayload.length === 0 && todosPayload.length === 0) {
+    return { notesPushed: 0, todosPushed: 0, errors };
+  }
 
   try {
     const result = await callRemote(config, 'POST', '/api/sync/push', {
@@ -251,26 +320,36 @@ export async function pushToRemote(config: RemoteConfig): Promise<{
 
 // ---- Pull: 远端 → 本地 ----
 
-export async function pullFromRemote(config: RemoteConfig): Promise<{
+export async function pullFromRemote(config: RemoteConfig, selection?: SyncSelection): Promise<{
   notesPulled: number;
   todosPulled: number;
   errors: string[];
 }> {
   const errors: string[] = [];
 
+  if (selection && selection.notes.length === 0 && selection.todos.length === 0) {
+    return { notesPulled: 0, todosPulled: 0, errors };
+  }
+
   try {
     const result = await callRemote(config, 'GET', '/api/sync/pull');
+    const selectedNotes = selection ? new Set(selection.notes) : null;
+    const selectedTodos = selection ? new Set(selection.todos) : null;
 
-    const remoteNotes = (result.notes || []).map((n: any) => ({
+    const remoteNotes = (result.notes || [])
+      .filter((n: any) => !selectedNotes || selectedNotes.has(String(n.id)))
+      .map((n: any) => ({
       id: n.id,
       title: n.title,
       content: n.content || '',
       tags: n.tags || [],
       created_at: n.createdAt || n.created_at,
       updated_at: n.updatedAt || n.updated_at,
-    }));
+      }));
 
-    const remoteTodos = (result.todos || []).map((t: any) => ({
+    const remoteTodos = (result.todos || [])
+      .filter((t: any) => !selectedTodos || selectedTodos.has(String(t.id)))
+      .map((t: any) => ({
       id: t.id,
       title: t.title,
       description: t.description || '',
@@ -285,7 +364,7 @@ export async function pullFromRemote(config: RemoteConfig): Promise<{
         done: !!s.done,
       })),
       created_at: t.createdAt || t.created_at,
-    }));
+      }));
 
     await saveLocalData({ notes: remoteNotes, todos: remoteTodos });
 
@@ -297,6 +376,55 @@ export async function pullFromRemote(config: RemoteConfig): Promise<{
   } catch (e: any) {
     errors.push(e.message || '拉取失败');
     return { notesPulled: 0, todosPulled: 0, errors };
+  }
+}
+
+// ---- Preview: 可选择的本地/远端清单 ----
+
+export async function getRemoteSyncPreview(config: RemoteConfig): Promise<{
+  local: SyncPreviewItem[];
+  remote: SyncPreviewItem[];
+  error?: string;
+}> {
+  const localData = await getLocalData();
+  const local: SyncPreviewItem[] = [
+    ...localData.notes.map(note => ({
+      id: String(note.id),
+      kind: 'note' as const,
+      title: note.title || '未命名笔记',
+      content: String(note.content || ''),
+      updatedAt: note.updated_at || note.created_at || null,
+    })),
+    ...localData.todos.map(todo => ({
+      id: String(todo.id),
+      kind: 'todo' as const,
+      title: todo.title || '未命名待办',
+      content: todoComparableText(todo),
+      updatedAt: todo.created_at || null,
+    })),
+  ];
+
+  try {
+    const remoteData = await callRemote(config, 'GET', '/api/sync/pull');
+    const remote: SyncPreviewItem[] = [
+      ...(remoteData.notes || []).map((note: any) => ({
+        id: String(note.id),
+        kind: 'note' as const,
+        title: note.title || '未命名笔记',
+        content: String(note.content || ''),
+        updatedAt: note.updatedAt || note.updated_at || note.createdAt || note.created_at || null,
+      })),
+      ...(remoteData.todos || []).map((todo: any) => ({
+        id: String(todo.id),
+        kind: 'todo' as const,
+        title: todo.title || '未命名待办',
+        content: todoComparableText(todo),
+        updatedAt: todo.updatedAt || todo.updated_at || todo.createdAt || todo.created_at || null,
+      })),
+    ];
+    return { local, remote };
+  } catch (error: any) {
+    return { local, remote: [], error: error.message || '无法连接远端' };
   }
 }
 
@@ -333,19 +461,25 @@ export async function testConnection(config: RemoteConfig): Promise<{
   error?: string;
 }> {
   try {
-    const baseUrl = config.url.replace(/\/+$/, '');
-    const res = await fetch(`${baseUrl}/api/health`, {
+    const baseUrl = getCloudBaseUrl();
+    const res = await fetch(`${baseUrl}/api/sync/verify`, {
       method: 'GET',
       headers: { 'X-Sync-Key': config.key },
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
-      return { ok: false, error: `服务器返回 ${res.status}` };
+      if (res.status === 401) {
+        return { ok: false, error: '同步密钥无效或已失效' };
+      }
+      return { ok: false, error: `在线服务返回 ${res.status}` };
     }
     const data = await res.json();
+    if (!data?.success) {
+      return { ok: false, error: data?.error || '在线服务返回异常' };
+    }
     return {
       ok: true,
-      serverInfo: data?.dbMode === 'cloud' ? '云端服务器' : data?.message || '连接正常',
+      serverInfo: '同步密钥有效',
     };
   } catch (e: any) {
     return { ok: false, error: e.message || '无法连接' };

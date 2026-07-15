@@ -11,13 +11,15 @@
 
 import { Router } from 'express';
 import crypto from 'node:crypto';
-import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
+import { type AuthRequest } from '../middleware/auth.js';
 import { getSyncOverview, gitPush, gitPull } from '../services/sync.js';
-import { executeOnMySQL } from '../config/db.js';
+import { executeOnMySQL, getConnectionOnMySQL } from '../config/db.js';
 import db from '../config/db.js';
 
 const router = Router();
-router.use(authMiddleware);
+
+// 不在路由入口强制 JWT：本地模式通过 X-Sync-Key 访问云端。
+// 每个接口会在读取数据前分别校验同步密钥，或在明确支持时使用登录用户。
 
 /** 通过 sync key 解析云端用户 ID */
 async function resolveSyncUser(syncKey: string): Promise<string | null> {
@@ -48,6 +50,24 @@ router.get('/status', async (req: AuthRequest, res) => {
   }
 });
 
+// ============ Verify Key ============
+
+router.get('/verify', async (req: AuthRequest, res) => {
+  try {
+    const syncKey = req.headers['x-sync-key'] as string || '';
+    const cloudUserId = await resolveSyncUser(syncKey);
+    if (!cloudUserId) {
+      res.status(401).json({ success: false, error: '无效的同步密钥' });
+      return;
+    }
+    res.json({ success: true, data: { valid: true } });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('GET /sync/verify error:', message);
+    res.status(500).json({ success: false, error: '验证同步密钥失败' });
+  }
+});
+
 // ============ Push（接收数据写入）============
 
 router.post('/push', async (req: AuthRequest, res) => {
@@ -69,7 +89,9 @@ router.post('/push', async (req: AuthRequest, res) => {
       let notesPushed = 0;
       let todosPushed = 0;
 
-      const conn = await db.getConnection();
+      const conn = cloudUserId
+        ? await getConnectionOnMySQL()
+        : await db.getConnection();
       try {
         // 写入笔记
         if (Array.isArray(req.body.notes)) {
@@ -143,9 +165,10 @@ router.get('/pull', async (req: AuthRequest, res) => {
     const cloudUserId = await resolveSyncUser(syncKey);
     const userId = cloudUserId || req.userId;
     if (!userId) { res.status(401).json({ success: false, error: '需要认证或有效的同步密钥' }); return; }
+    const execute = cloudUserId ? executeOnMySQL : db.execute;
 
     // 从数据库读取所有笔记
-    const [noteRows] = await db.execute(
+    const [noteRows] = await execute(
       'SELECT id, title, content, created_at AS createdAt, updated_at AS updatedAt FROM notes WHERE user_id = ? ORDER BY updated_at DESC',
       [userId]
     );
@@ -155,7 +178,7 @@ router.get('/pull', async (req: AuthRequest, res) => {
     const noteIds = notes.map(n => n.id);
     const noteTagsMap: Record<string, string[]> = {};
     if (noteIds.length > 0) {
-      const [tagRows] = await db.execute(
+      const [tagRows] = await execute(
         `SELECT note_id, tag FROM note_tags WHERE note_id IN (${noteIds.map(() => '?').join(',')})`,
         noteIds
       );
@@ -170,7 +193,7 @@ router.get('/pull', async (req: AuthRequest, res) => {
     }));
 
     // 读取所有待办
-    const [todoRows] = await db.execute(
+    const [todoRows] = await execute(
       'SELECT id, title, description, priority, status, due_date AS dueDate, is_today_todo AS isTodayTodo, created_at AS createdAt FROM todos WHERE user_id = ? ORDER BY created_at DESC',
       [userId]
     );
@@ -182,7 +205,7 @@ router.get('/pull', async (req: AuthRequest, res) => {
     const subtasksMap: Record<string, any[]> = {};
 
     if (todoIds.length > 0) {
-      const [tagRows] = await db.execute(
+      const [tagRows] = await execute(
         `SELECT todo_id, tag FROM todo_tags WHERE todo_id IN (${todoIds.map(() => '?').join(',')})`,
         todoIds
       );
@@ -191,7 +214,7 @@ router.get('/pull', async (req: AuthRequest, res) => {
         todoTagsMap[row.todo_id].push(row.tag);
       }
 
-      const [subRows] = await db.execute(
+      const [subRows] = await execute(
         `SELECT id, todo_id, title, done FROM subtasks WHERE todo_id IN (${todoIds.map(() => '?').join(',')})`,
         todoIds
       );

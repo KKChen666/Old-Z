@@ -14,16 +14,22 @@ import sqliteProvider from './sqlite-provider.js';
 import type { Pool } from 'mysql2/promise';
 
 // ---- 请求上下文 ----
-const requestContext = new AsyncLocalStorage<{ userId?: string }>();
+export type StorageMode = 'local' | 'cloud';
+
+const requestContext = new AsyncLocalStorage<{ userId?: string; storage?: StorageMode }>();
 
 /** 在请求上下文中执行回调（中间件调用） */
-export function runInContext(userId: string | undefined, fn: () => void): void {
-  requestContext.run({ userId }, fn);
+export function runInContext(userId: string | undefined, storage: StorageMode | undefined, fn: () => void): void {
+  requestContext.run({ userId, storage }, fn);
 }
 
 /** 获取当前请求的 userId */
 export function getCurrentUserId(): string | undefined {
   return requestContext.getStore()?.userId;
+}
+
+export function getCurrentStorage(): StorageMode | undefined {
+  return requestContext.getStore()?.storage;
 }
 
 // ---- 数据库实例 ----
@@ -52,8 +58,9 @@ export function isMySQLAvailable(): boolean {
 
 async function routeExecute(sql: string, params?: any[]): Promise<[any[], any]> {
   const userId = getCurrentUserId();
+  const storage = getCurrentStorage();
   // local-user 或无上下文 → SQLite；其他用户 → MySQL
-  if (userId && userId !== 'local-user' && _mysqlProvider && _mysqlAvailable) {
+  if (storage !== 'local' && userId && _mysqlProvider && _mysqlAvailable) {
     return _mysqlProvider.execute(sql, params);
   }
   await sqliteProvider.initialize();
@@ -63,7 +70,8 @@ async function routeExecute(sql: string, params?: any[]): Promise<[any[], any]> 
 // 兼容旧代码的 getConnection（按需选择库）
 async function routeGetConnection(): Promise<import('./database-provider.js').DatabaseConnection> {
   const userId = getCurrentUserId();
-  if (userId && userId !== 'local-user' && _mysqlProvider && _mysqlAvailable) {
+  const storage = getCurrentStorage();
+  if (storage !== 'local' && userId && _mysqlProvider && _mysqlAvailable) {
     return _mysqlProvider.getConnection();
   }
   await sqliteProvider.initialize();
@@ -82,6 +90,12 @@ export async function executeOnSQLite(sql: string, params?: any[]): Promise<[any
 export async function executeOnMySQL(sql: string, params?: any[]): Promise<[any[], any]> {
   if (!_mysqlProvider) throw new Error('MySQL not available');
   return _mysqlProvider.execute(sql, params);
+}
+
+/** 强制获取 MySQL 连接（同步密钥认证的云端请求使用） */
+export async function getConnectionOnMySQL(): Promise<import('./database-provider.js').DatabaseConnection> {
+  if (!_mysqlProvider) throw new Error('MySQL not available');
+  return _mysqlProvider.getConnection();
 }
 
 /** 根据用户名推测用户类型，路由到正确的库 */
@@ -103,7 +117,8 @@ export async function upsert(
   table: string, columns: string[], values: any[], conflictColumns: string[]
 ): Promise<[any[], any]> {
   const userId = getCurrentUserId();
-  if (userId && userId !== 'local-user' && _mysqlProvider && _mysqlAvailable) {
+  const storage = getCurrentStorage();
+  if (storage !== 'local' && userId && _mysqlProvider && _mysqlAvailable) {
     // MySQL: INSERT ... ON DUPLICATE KEY UPDATE
     const placeholders = columns.map(() => '?').join(', ');
     const updates = columns

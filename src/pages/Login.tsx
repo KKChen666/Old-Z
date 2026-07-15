@@ -1,15 +1,31 @@
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, UserPlus, Eye, EyeOff, Zap, KeyRound, Server, X, Check, RotateCcw, Laptop, Cloud, HardDrive, ArrowLeft } from 'lucide-react';
-import { api, saveAuth, syncTokenToNative, getEffectiveApiBase, getDefaultApiBase } from '@/utils/api';
+import {
+  ArrowRight,
+  Check,
+  Cloud,
+  Eye,
+  EyeOff,
+  HardDrive,
+  KeyRound,
+  Loader2,
+  RotateCcw,
+  Server,
+  X,
+  Zap,
+} from 'lucide-react';
+import { api, getDefaultApiBase, getEffectiveApiBase, saveAuth, syncTokenToNative } from '@/utils/api';
 import { useAppStore } from '@/stores/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { toast } from '@/components/Toast';
 
+type AuthTab = 'login' | 'register' | 'reset';
+
 export default function Login() {
   const navigate = useNavigate();
-  const { setUser } = useAppStore(useShallow((s) => ({ setUser: s.setUser })));
-  const [tab, setTab] = useState<'login' | 'register' | 'reset'>('login');
+  const { setUser } = useAppStore(useShallow((state) => ({ setUser: state.setUser })));
+  const [view, setView] = useState<'online' | 'local'>('online');
+  const [tab, setTab] = useState<AuthTab>('login');
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [password, setPassword] = useState('');
@@ -17,12 +33,9 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
-  const [showOnlineLogin, setShowOnlineLogin] = useState(false);
 
-  // 长按 Logo 10 秒设置后端地址（调试入口，对普通用户隐藏）
   const [showBackendSettings, setShowBackendSettings] = useState(false);
   const [longPressProgress, setLongPressProgress] = useState(0);
   const [customApiBase, setCustomApiBase] = useState('');
@@ -30,27 +43,19 @@ export default function Login() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const progressRef = useRef(0);
 
-  // 加载已保存的后端地址
   useEffect(() => {
-    const saved = localStorage.getItem('old-z-api-base');
-    if (saved) setCustomApiBase(saved);
-  }, []);
-
-  // 组件卸载时清除计时器
-  useEffect(() => {
+    setCustomApiBase(localStorage.getItem('old-z-api-base') || '');
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, []);
 
-  const startLongPress = (e: React.PointerEvent) => {
-    e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+  const startLongPress = (event: React.PointerEvent) => {
+    event.preventDefault();
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     progressRef.current = 0;
-    setLongPressProgress(0);
     timerRef.current = setInterval(() => {
       progressRef.current += 1;
-      // 前 50 步（5 秒）静默，之后 50 步（5 秒）显示进度环
       if (progressRef.current >= 100) {
         clearInterval(timerRef.current!);
         timerRef.current = null;
@@ -58,122 +63,90 @@ export default function Login() {
         setShowBackendSettings(true);
         setBackendSaved(false);
         setCustomApiBase(localStorage.getItem('old-z-api-base') || '');
-        return;
-      }
-      // 第 5 秒后才开始显示进度（50-100 映射到 0-100）
-      if (progressRef.current >= 50) {
+      } else if (progressRef.current >= 50) {
         setLongPressProgress((progressRef.current - 50) * 2);
       }
-    }, 100); // 100 × 100ms = 10 秒总长按
+    }, 100);
   };
 
-  const cancelLongPress = (e: React.PointerEvent) => {
-    e.preventDefault();
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+  const cancelLongPress = (event: React.PointerEvent) => {
+    event.preventDefault();
+    if (timerRef.current) clearInterval(timerRef.current);
+    timerRef.current = null;
     setLongPressProgress(0);
   };
 
-  // 进度环参数
-  const ringR = 30;
-  const ringCirc = 2 * Math.PI * ringR;
-  const ringOffset = ringCirc * (1 - longPressProgress / 100);
-
-  const saveBackendUrl = () => {
-    const trimmed = customApiBase.trim();
-    if (trimmed) {
-      localStorage.setItem('old-z-api-base', trimmed);
-    } else {
-      localStorage.removeItem('old-z-api-base');
-    }
+  const persistBackendUrl = (reset = false) => {
+    const value = reset ? '' : customApiBase.trim();
+    if (value) localStorage.setItem('old-z-api-base', value);
+    else localStorage.removeItem('old-z-api-base');
+    if (reset) setCustomApiBase('');
     setBackendSaved(true);
-    // 延迟刷新，让用户看到"已保存"的反馈
-    setTimeout(() => {
-      window.location.reload();
-    }, 800);
+    setTimeout(() => window.location.reload(), 800);
   };
 
-  const resetBackendUrl = () => {
-    localStorage.removeItem('old-z-api-base');
-    setCustomApiBase('');
-    setBackendSaved(true);
-    setTimeout(() => {
-      window.location.reload();
-    }, 800);
+  const switchTab = (nextTab: AuthTab) => {
+    setTab(nextTab);
+    setError('');
+    setPassword('');
+    setOldPassword('');
+    setConfirmPassword('');
+    setDisplayName('');
   };
 
-  const closeBackendSettings = () => {
-    setShowBackendSettings(false);
-    setLongPressProgress(0);
-  };
-
-  const validate = (): string | null => {
-    if (tab === 'reset') {
-      if (username.length < 3) return '用户名至少 3 个字符';
-      if (oldPassword.length < 6) return '旧密码至少 6 个字符';
-      if (password.length < 6) return '新密码至少 6 个字符';
-      if (password !== confirmPassword) return '两次密码输入不一致';
-      return null;
-    }
+  const validate = () => {
     if (username.length < 3) return '用户名至少 3 个字符';
-    if (password.length < 6) return '密码至少 6 个字符';
-    if (tab === 'register' && password !== confirmPassword) return '两次密码输入不一致';
+    if (tab === 'reset' && oldPassword.length < 6) return '旧密码至少 6 个字符';
+    if (password.length < 6) return tab === 'reset' ? '新密码至少 6 个字符' : '密码至少 6 个字符';
+    if (tab !== 'login' && password !== confirmPassword) return '两次密码输入不一致';
     return null;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setSuccess('');
-    const err = validate();
-    if (err) {
-      setError(err);
-      toast.warning(err);
-      return;
-    }
-    setLoading(true);
-    try {
-      let res: { token: string; user: any };
-      if (tab === 'login') {
-        res = await api.login(username, password);
-      } else if (tab === 'register') {
-        res = await api.register(username, password, displayName || undefined);
-      } else {
-        const res = await api.resetPassword(username, oldPassword, password);
-        saveAuth(res.token);
-        syncTokenToNative(res.token);
-        setUser(res.user);
-        localStorage.removeItem('old-z-local-mode');
-        navigate('/');
-        return;
-      }
+  const completeOnlineAuth = async (response: { token: string; user: any }) => {
+    saveAuth(response.token);
+    syncTokenToNative(response.token);
+    setUser(response.user);
 
-      saveAuth(res.token);
-      syncTokenToNative(res.token);
-      setUser(res.user);
-
-      // 如果之前用过本地模式，弹窗询问是否合并
-      if (localStorage.getItem('old-z-local-mode') === 'true') {
-        const shouldMerge = window.confirm(
-          '检测到你之前在本地模式下创建了数据。\n\n是否将这些数据合并到当前账户？\n\n• 云端没有的记录 → 迁移到当前账户\n• 云端已有的同名记录 → 保留为两份，互不覆盖\n\n选择"确定"合并，"取消"保留本地数据。'
-        );
-        if (shouldMerge) {
-          try {
-            const result = await api.mergeLocal();
-            if (result.merged > 0 || result.skipped > 0) {
-              alert(`合并结果：\n已迁移 ${result.merged} 条\n跳过 ${result.skipped} 条（云端已有同名记录）`);
-            }
-          } catch {}
+    if (localStorage.getItem('old-z-local-mode') === 'true') {
+      const shouldMerge = window.confirm('检测到本地模式数据，是否合并到当前账户？\n\n云端数据不会被覆盖。');
+      if (shouldMerge) {
+        try {
+          const result = await api.mergeLocal();
+          if (result.merged || result.skipped) {
+            alert(`合并完成：已迁移 ${result.merged} 条，跳过 ${result.skipped} 条。`);
+          }
+        } catch {
+          toast.warning('账户已登录，但本地数据合并失败，可稍后重试');
         }
       }
-      localStorage.removeItem('old-z-local-mode');
-      navigate('/');
-    } catch (e: any) {
-      const msg = e.message || '操作失败，请重试';
-      setError(msg);
-      toast.error(msg);
+    }
+
+    localStorage.removeItem('old-z-local-mode');
+    navigate('/');
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setError('');
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      toast.warning(validationError);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const response = tab === 'login'
+        ? await api.login(username, password)
+        : tab === 'register'
+          ? await api.register(username, password, displayName || undefined)
+          : await api.resetPassword(username, oldPassword, password);
+      await completeOnlineAuth(response);
+    } catch (authError: any) {
+      const message = authError.message || '操作失败，请重试';
+      setError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
@@ -182,411 +155,86 @@ export default function Login() {
   const handleLocalMode = async () => {
     setLocalLoading(true);
     try {
-      // 尝试用固定用户名登录/注册本地用户
-      const localUser = 'local-user';
-      const localPass = 'oldz-local-' + (navigator.hardwareConcurrency || 1);
-      try {
-        const res = await api.login(localUser, localPass);
-        saveAuth(res.token);
-        syncTokenToNative(res.token);
-        setUser(res.user);
-      } catch {
-        // 登录失败则注册
-        const res = await api.register(localUser, localPass, '本地用户');
-        saveAuth(res.token);
-        syncTokenToNative(res.token);
-        setUser(res.user);
-      }
+      const response = await api.localLogin();
+      saveAuth(response.token);
+      syncTokenToNative(response.token);
+      setUser(response.user);
       localStorage.setItem('old-z-local-mode', 'true');
       navigate('/');
-    } catch (e: any) {
-      toast.error('本地模式初始化失败：' + (e.message || '未知错误'));
+    } catch (localError: any) {
+      toast.error(`本地模式初始化失败：${localError.message || '未知错误'}`);
     } finally {
       setLocalLoading(false);
     }
   };
 
-  const switchTab = (t: 'login' | 'register' | 'reset') => {
-    setTab(t);
-    setError('');
-    setSuccess('');
-    setPassword('');
-    setOldPassword('');
-    setConfirmPassword('');
-    setDisplayName('');
-  };
+  const ringCircumference = 2 * Math.PI * 28;
 
   return (
-    <div className="flex items-center justify-center bg-ink-950 relative min-h-screen login-min-h-mobile">
-      {/* Background decorative elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 rounded-full bg-forest-800/20 blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 rounded-full bg-gold-400/5 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full bg-forest-900/10 blur-3xl" />
-      </div>
-
-      <div className="relative z-10 w-full max-w-md mx-4 safe-area-pb">
-        {/* Logo — 长按 10 秒设置后端地址（调试入口） */}
-        <div className="text-center mb-8">
-          <div
-            className="relative w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-gold-400 to-forest-500 flex items-center justify-center mb-4 shadow-lg shadow-gold-400/20 select-none transition-shadow duration-300"
-            onPointerDown={startLongPress}
-            onPointerUp={cancelLongPress}
-            onPointerLeave={cancelLongPress}
-            onPointerCancel={cancelLongPress}
-            onContextMenu={(e) => e.preventDefault()}
-          >
-            {/* 长按进度环 */}
-            {longPressProgress > 0 && (
-              <svg className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none" viewBox="0 0 64 64">
-                <circle
-                  cx="32" cy="32" r={ringR}
-                  fill="none" stroke="currentColor"
-                  strokeWidth="2.5" strokeLinecap="round"
-                  strokeDasharray={ringCirc}
-                  strokeDashoffset={ringOffset}
-                  className="text-gold-400/80"
-                />
-              </svg>
-            )}
-            <Zap className="w-8 h-8 text-ink-950 pointer-events-none" />
+    <main className="animated-login-page login-min-h-mobile">
+      <section className={`animated-login ${view === 'local' ? 'is-local' : ''}`} aria-label="模式选择">
+        <div className="animated-login__form animated-login__local">
+          <div className="animated-login__local-content">
+            <span className="animated-login__mode-icon"><HardDrive size={30} /></span>
+            <h1>本地模式</h1>
+            <p>数据仅保存在当前设备</p>
+            <button type="button" className="animated-login__primary" onClick={handleLocalMode} disabled={localLoading}>
+              {localLoading ? <><Loader2 className="animate-spin" size={17} />正在进入</> : <>进入系统<ArrowRight size={17} /></>}
+            </button>
           </div>
-          <h1 className="font-serif text-3xl font-bold text-parchment-100 tracking-wide">
-            Old Z
-          </h1>
-          <p className="text-sm text-parchment-400 mt-2">
-            AI 驱动的个人知识管理
-          </p>
         </div>
 
-        {/* Backend settings panel — 长按 Logo 10 秒后显示 */}
-        {showBackendSettings ? (
-          <div className="p-6 rounded-2xl border border-gold-400/20 bg-ink-900/95 animate-fade-in">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-10 h-10 rounded-xl bg-forest-800/30 flex items-center justify-center">
-                <Server className="w-5 h-5 text-gold-400" />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-parchment-100">后端服务器设置</h2>
-                <p className="text-xs text-parchment-400">自定义 API 服务器地址</p>
-              </div>
-              <button
-                onClick={closeBackendSettings}
-                className="ml-auto w-8 h-8 flex items-center justify-center rounded-lg text-ink-500 hover:text-parchment-200 hover:bg-ink-800/50 transition-colors"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* 当前生效地址 */}
-            <div className="mb-4 px-3 py-2 rounded-lg bg-ink-950/50 border border-ink-700/30">
-              <p className="text-[10px] uppercase tracking-wider text-ink-500 mb-0.5">当前后端地址</p>
-              <p className="text-xs text-parchment-300 font-mono break-all">
-                {getEffectiveApiBase()}
-              </p>
-            </div>
-
-            {/* 默认地址 */}
-            <div className="mb-4 px-3 py-2 rounded-lg bg-ink-950/50 border border-ink-700/30">
-              <p className="text-[10px] uppercase tracking-wider text-ink-500 mb-0.5">默认地址</p>
-              <p className="text-xs text-parchment-400 font-mono break-all">
-                {getDefaultApiBase()}
-              </p>
-            </div>
-
-            {/* 自定义地址输入 */}
-            <div className="mb-4">
-              <label className="block text-xs font-medium text-parchment-400 mb-1.5">
-                自定义后端地址
-              </label>
-              <input
-                type="text"
-                value={customApiBase}
-                onChange={(e) => {
-                  setCustomApiBase(e.target.value);
-                  setBackendSaved(false);
-                }}
-                placeholder="例如: http://192.168.1.100:3001/api"
-                className="w-full px-4 py-2.5 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm font-mono outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
-              />
-              <p className="text-[10px] text-ink-500 mt-1.5">
-                留空则使用默认地址。修改后页面将自动刷新。
-              </p>
-            </div>
-
-            {/* 操作按钮 */}
-            <div className="flex gap-3">
-              <button
-                onClick={saveBackendUrl}
-                disabled={backendSaved}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gradient-to-r from-gold-500 to-gold-400 hover:from-gold-400 hover:to-gold-300 text-ink-950 font-semibold rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-gold-400/10 text-sm"
-              >
-                {backendSaved ? (
-                  <>
-                    <Check className="w-4 h-4" />
-                    已保存
-                  </>
-                ) : (
-                  <>
-                    <Check className="w-4 h-4" />
-                    保存并刷新
-                  </>
-                )}
-              </button>
-              <button
-                onClick={resetBackendUrl}
-                disabled={backendSaved}
-                className="flex items-center justify-center gap-2 px-4 py-2.5 border border-ink-700/50 text-parchment-400 hover:text-parchment-200 hover:border-ink-600/50 rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed text-sm"
-              >
-                <RotateCcw className="w-4 h-4" />
-                恢复默认
-              </button>
-            </div>
-          </div>
-        ) : !showOnlineLogin ? (
-          <>
-            {/* 模式选择：两栏同等 */}
-            <div className="grid grid-cols-2 gap-3">
-              {/* 在线模式 */}
-              <button
-                onClick={() => setShowOnlineLogin(true)}
-                className="p-5 rounded-2xl border border-ink-700/50 bg-ink-900/80 hover:border-gold-400/40 hover:bg-ink-900/95 transition-all text-left group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <Cloud className="w-5 h-5 text-cyan-400" />
-                </div>
-                <h3 className="text-sm font-bold text-parchment-100 mb-1">在线模式</h3>
-                <p className="text-[11px] text-ink-500 leading-relaxed">
-                  数据云端存储<br />
-                  多设备同步<br />
-                  需注册账户
-                </p>
-                <span className="inline-block mt-3 text-[11px] text-gold-400 font-medium">
-                  登录 / 注册 →
-                </span>
-              </button>
-
-              {/* 本地模式 */}
-              <button
-                onClick={handleLocalMode}
-                disabled={localLoading}
-                className="p-5 rounded-2xl border border-ink-700/50 bg-ink-900/80 hover:border-green-400/40 hover:bg-ink-900/95 transition-all text-left group"
-              >
-                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                  <HardDrive className="w-5 h-5 text-green-400" />
-                </div>
-                <h3 className="text-sm font-bold text-parchment-100 mb-1">本地模式</h3>
-                <p className="text-[11px] text-ink-500 leading-relaxed">
-                  数据本地存储<br />
-                  离线也能用<br />
-                  无需注册
-                </p>
-                <span className="inline-block mt-3 text-[11px] text-green-400 font-medium">
-                  {localLoading ? '加载中...' : '开始使用 →'}
-                </span>
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* 在线模式登录表单 */}
-            <div className="glass-card p-6">
-              <button
-                onClick={() => setShowOnlineLogin(false)}
-                className="flex items-center gap-1 text-xs text-ink-500 hover:text-parchment-300 mb-4 transition-colors"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" /> 返回
-              </button>
-          {/* Tabs */}
-          {tab !== 'reset' && (
-            <div className="flex mb-6 bg-ink-900/60 rounded-xl p-1">
-              <button
-                onClick={() => switchTab('login')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  tab === 'login'
-                    ? 'bg-forest-800/50 text-gold-400 shadow-sm'
-                    : 'text-parchment-400 hover:text-parchment-200'
-                }`}
-              >
-                <LogIn className="w-4 h-4" />
-                登录
-              </button>
-              <button
-                onClick={() => switchTab('register')}
-                className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                  tab === 'register'
-                    ? 'bg-forest-800/50 text-gold-400 shadow-sm'
-                    : 'text-parchment-400 hover:text-parchment-200'
-                }`}
-              >
-                <UserPlus className="w-4 h-4" />
-                注册
-              </button>
-            </div>
-          )}
-
-          {/* Reset password header */}
-          {tab === 'reset' && (
-            <div className="mb-6 text-center">
-              <div className="w-12 h-12 mx-auto rounded-xl bg-forest-800/30 flex items-center justify-center mb-3">
-                <KeyRound className="w-6 h-6 text-gold-400" />
-              </div>
-              <h2 className="text-lg font-semibold text-parchment-100">重置密码</h2>
-              <p className="text-xs text-parchment-400 mt-1">输入用户名和新密码来重置账户密码</p>
-            </div>
-          )}
-
-          {/* Error message */}
-          {error && (
-            <div className="mb-4 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-lg text-red-400 text-sm animate-fade-in">
-              {error}
-            </div>
-          )}
-
-          {/* Success message */}
-          {success && (
-            <div className="mb-4 px-4 py-2.5 bg-green-500/10 border border-green-500/20 rounded-lg text-green-400 text-sm animate-fade-in">
-              {success}
-            </div>
-          )}
-
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Username */}
-            <div>
-              <label className="block text-xs font-medium text-parchment-400 mb-1.5">
-                用户名
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="请输入用户名"
-                autoComplete="username"
-                className="input-field text-sm"
-              />
-            </div>
-
-            {/* Display name (register only) */}
-            {tab === 'register' && (
-              <div className="animate-fade-in">
-                <label className="block text-xs font-medium text-parchment-400 mb-1.5">
-                  显示名称 <span className="text-ink-500">（选填）</span>
-                </label>
-                <input
-                  type="text"
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="给自己取个名字吧"
-                  autoComplete="name"
-                  className="input-field text-sm"
-                />
-              </div>
-            )}
-
-            {/* Old Password (reset only) */}
-            {tab === 'reset' && (
-              <div>
-                <label className="block text-xs font-medium text-parchment-400 mb-1.5">旧密码</label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={oldPassword}
-                  onChange={(e) => setOldPassword(e.target.value)}
-                  placeholder="请输入旧密码"
-                  autoComplete="current-password"
-                  className="input-field text-sm"
-                />
-              </div>
-            )}
-
-            {/* Password */}
-            <div>
-              <label className="block text-xs font-medium text-parchment-400 mb-1.5">
-                {tab === 'reset' ? '新密码' : '密码'}
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder={tab === 'reset' ? '请输入新密码' : '请输入密码'}
-                  autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
-                  className="w-full px-4 py-2.5 pr-12 bg-ink-900/80 border border-ink-700/50 rounded-lg text-parchment-100 placeholder-ink-500 text-sm outline-none focus:border-gold-400/60 focus:ring-1 focus:ring-gold-400/30 transition-all duration-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 w-10 h-10 flex items-center justify-center text-ink-500 hover:text-parchment-300 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
-            </div>
-
-            {/* Confirm password (register & reset) */}
-            {(tab === 'register' || tab === 'reset') && (
-              <div className="animate-fade-in">
-                <label className="block text-xs font-medium text-parchment-400 mb-1.5">
-                  确认密码
-                </label>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="请再次输入密码"
-                  autoComplete="new-password"
-                  className="input-field text-sm"
-                />
-              </div>
-            )}
-
-            {/* Submit button */}
+        <div className="animated-login__form animated-login__online">
+          <form onSubmit={handleSubmit}>
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-2.5 mt-2 bg-gradient-to-r from-gold-500 to-gold-400 hover:from-gold-400 hover:to-gold-300 text-ink-950 font-semibold rounded-lg transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed shadow-lg shadow-gold-400/10"
+              type="button"
+              className="animated-login__brand"
+              aria-label="Old Z"
+              onPointerDown={startLongPress}
+              onPointerUp={cancelLongPress}
+              onPointerLeave={cancelLongPress}
+              onPointerCancel={cancelLongPress}
+              onContextMenu={(event) => event.preventDefault()}
             >
-              {loading ? (
-                <span className="w-4 h-4 border-2 border-ink-950/30 border-t-ink-950 rounded-full animate-spin" />
-              ) : (
-                <>
-                  {tab === 'login' && <LogIn className="w-4 h-4" />}
-                  {tab === 'register' && <UserPlus className="w-4 h-4" />}
-                  {tab === 'reset' && <KeyRound className="w-4 h-4" />}
-                  {tab === 'login' ? '登录' : tab === 'register' ? '注册' : '重置密码'}
-                </>
-              )}
+              <span><Zap size={19} />{longPressProgress > 0 && <svg viewBox="0 0 64 64"><circle cx="32" cy="32" r="28" strokeDasharray={ringCircumference} strokeDashoffset={ringCircumference * (1 - longPressProgress / 100)} /></svg>}</span>
+              <strong>Old Z</strong>
             </button>
 
+            <h1>{tab === 'login' ? '在线登录' : tab === 'register' ? '创建账户' : '重置密码'}</h1>
+            <p className="animated-login__hint">{tab === 'reset' ? '验证旧密码并设置新密码' : '登录后同步你的知识与记录'}</p>
+
+            {error && <div className="animated-login__error">{error}</div>}
+            <input value={username} onChange={(event) => setUsername(event.target.value)} placeholder="用户名" autoComplete="username" />
+            {tab === 'register' && <input value={displayName} onChange={(event) => setDisplayName(event.target.value)} placeholder="显示名称（选填）" autoComplete="name" />}
+            {tab === 'reset' && <input type={showPassword ? 'text' : 'password'} value={oldPassword} onChange={(event) => setOldPassword(event.target.value)} placeholder="旧密码" autoComplete="current-password" />}
+            <span className="animated-login__password"><input type={showPassword ? 'text' : 'password'} value={password} onChange={(event) => setPassword(event.target.value)} placeholder={tab === 'reset' ? '新密码' : '密码'} autoComplete={tab === 'login' ? 'current-password' : 'new-password'} /><button type="button" aria-label={showPassword ? '隐藏密码' : '显示密码'} onClick={() => setShowPassword((value) => !value)}>{showPassword ? <EyeOff size={16} /> : <Eye size={16} />}</button></span>
+            {tab !== 'login' && <input type={showPassword ? 'text' : 'password'} value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} placeholder="确认密码" autoComplete="new-password" />}
+
+            {tab === 'login' && <button type="button" className="animated-login__text-button" onClick={() => switchTab('reset')}><KeyRound size={12} />忘记密码？</button>}
+            <button type="submit" className="animated-login__primary" disabled={loading}>{loading ? <><Loader2 className="animate-spin" size={17} />请稍候</> : <>{tab === 'login' ? '登录' : tab === 'register' ? '注册' : '更新密码'}</>}</button>
+            <button type="button" className="animated-login__switch-auth" onClick={() => switchTab(tab === 'login' ? 'register' : 'login')}>{tab === 'login' ? '没有账户？立即注册' : '已有账户？返回登录'}</button>
           </form>
         </div>
 
-        {/* Footer hint */}
-        <p className="text-center text-xs text-ink-500 mt-6">
-          {tab === 'login' && '还没有账号？'}
-          {tab === 'register' && '已有账号？'}
-          {tab === 'reset' && '想起密码了？'}
-          <button
-            onClick={() => switchTab(tab === 'login' ? 'register' : 'login')}
-            className="text-gold-400 hover:text-gold-300 ml-1 transition-colors"
-          >
-            {tab === 'login' ? '立即注册' : '去登录'}
-          </button>
-          {tab === 'login' && (
-            <>
-              <span className="mx-2 text-ink-700">|</span>
-              <button
-                onClick={() => switchTab('reset')}
-                className="text-gold-400 hover:text-gold-300 transition-colors"
-              >
-                忘记密码
-              </button>
-            </>
-          )}
-        </p>
-          </>
-        )}
-      </div>
-    </div>
+        <div className="animated-login__toggle-wrap">
+          <div className="animated-login__toggle">
+            <div className="animated-login__toggle-panel animated-login__toggle-left">
+              <span className="animated-login__mode-icon"><Cloud size={28} /></span>
+              <h2>在线模式</h2>
+              <p>登录账户，在不同设备间同步数据</p>
+              <button type="button" onClick={() => setView('online')}>切换到在线模式</button>
+            </div>
+            <div className="animated-login__toggle-panel animated-login__toggle-right">
+              <span className="animated-login__mode-icon"><HardDrive size={28} /></span>
+              <h2>本地模式</h2>
+              <p>无需注册，数据保存在当前设备</p>
+              <button type="button" onClick={() => setView('local')}>切换到本地模式</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {showBackendSettings && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-6 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="后端服务器设置"><div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 p-6 shadow-2xl"><div className="mb-5 flex items-center gap-3"><Server className="text-gold-400" size={20} /><div><h2 className="text-base font-semibold text-parchment-100">后端服务器设置</h2><p className="text-xs text-ink-400">自定义 API 连接地址</p></div><button type="button" className="ml-auto text-ink-400 hover:text-parchment-100" onClick={() => setShowBackendSettings(false)} aria-label="关闭"><X size={18} /></button></div><div className="space-y-2 rounded-lg bg-ink-950/60 p-3 text-xs"><p className="text-ink-400">当前：<code className="text-parchment-300">{getEffectiveApiBase()}</code></p><p className="text-ink-400">默认：<code className="text-parchment-300">{getDefaultApiBase()}</code></p></div><input className="input-field mt-4 text-sm" value={customApiBase} onChange={(event) => { setCustomApiBase(event.target.value); setBackendSaved(false); }} placeholder="http://192.168.1.100:3001/api" /><div className="mt-4 flex gap-2"><button type="button" className="btn-primary flex flex-1 items-center justify-center gap-2 text-sm" disabled={backendSaved} onClick={() => persistBackendUrl()}><Check size={15} />{backendSaved ? '已保存' : '保存并刷新'}</button><button type="button" className="btn-ghost flex items-center gap-2 text-sm" disabled={backendSaved} onClick={() => persistBackendUrl(true)}><RotateCcw size={15} />恢复默认</button></div></div></div>}
+    </main>
   );
 }

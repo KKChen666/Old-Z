@@ -1,9 +1,19 @@
 import { Router, type Response } from 'express';
 import db from '../config/db.js';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.js';
+import { scheduleAutoCommit } from '../services/git.js';
+import { materializeTodo } from '../services/git-content.js';
 
 const router = Router();
 router.use(authMiddleware);
+
+async function trackTodoInGit(userId: string, todoId: string, message: string): Promise<void> {
+  try {
+    if (await materializeTodo(userId, todoId)) scheduleAutoCommit(message);
+  } catch (error) {
+    console.error('[Git] Failed to snapshot todo:', error);
+  }
+}
 
 // 获取所有待办
 router.get('/', async (req: AuthRequest, res: Response) => {
@@ -114,6 +124,8 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       }
     }
 
+    await trackTodoInGit(req.userId!, id, `todo: create "${title}"`);
+
     res.json({ success: true, data: { id } });
   } catch (error) {
     console.error('POST /todos error:', error);
@@ -146,6 +158,10 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
       await db.execute(`UPDATE todos SET ${fields.join(', ')} WHERE id = ? AND user_id = ?`, values);
     }
 
+    const [titleRows] = await db.execute('SELECT title FROM todos WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]);
+    const todoTitle = String((titleRows as Array<{ title?: string }>)[0]?.title || req.params.id);
+    await trackTodoInGit(req.userId!, req.params.id, `todo: update "${todoTitle}"`);
+
     res.json({ success: true });
   } catch (error) {
     console.error('PATCH /todos error:', error);
@@ -157,9 +173,10 @@ router.patch('/:id', async (req: AuthRequest, res: Response) => {
 router.patch('/:todoId/subtasks/:subtaskId', async (req: AuthRequest, res: Response) => {
   try {
     await db.execute(
-      'UPDATE subtasks s JOIN todos t ON s.todo_id = t.id SET s.done = NOT s.done WHERE s.id = ? AND s.todo_id = ? AND t.user_id = ?',
+      'UPDATE subtasks SET done = CASE WHEN done = 1 THEN 0 ELSE 1 END WHERE id = ? AND todo_id = ? AND EXISTS (SELECT 1 FROM todos WHERE todos.id = subtasks.todo_id AND todos.user_id = ?)',
       [req.params.subtaskId, req.params.todoId, req.userId!]
     );
+    await trackTodoInGit(req.userId!, req.params.todoId, `todo: update subtask ${req.params.subtaskId}`);
     res.json({ success: true });
   } catch (error) {
     console.error('PATCH subtask error:', error);
@@ -170,11 +187,14 @@ router.patch('/:todoId/subtasks/:subtaskId', async (req: AuthRequest, res: Respo
 // 删除待办
 router.delete('/:id', async (req: AuthRequest, res: Response) => {
   try {
+    const [titleRows] = await db.execute('SELECT title FROM todos WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]);
+    const todoTitle = String((titleRows as Array<{ title?: string }>)[0]?.title || req.params.id);
     const [result] = await db.execute('DELETE FROM todos WHERE id = ? AND user_id = ?', [req.params.id, req.userId!]) as any;
     if (result.affectedRows === 0) {
       res.status(404).json({ success: false, error: '待办不存在' });
       return;
     }
+    await trackTodoInGit(req.userId!, req.params.id, `todo: delete "${todoTitle}"`);
     res.json({ success: true });
   } catch (error) {
     console.error('DELETE /todos error:', error);

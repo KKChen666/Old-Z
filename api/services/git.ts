@@ -43,6 +43,19 @@ function git(): SimpleGit {
   return _git;
 }
 
+async function ensureCommitIdentity(g: SimpleGit): Promise<void> {
+  try {
+    await g.raw(['config', 'user.name']);
+  } catch {
+    await g.raw(['config', 'user.name', 'Old Z']);
+  }
+  try {
+    await g.raw(['config', 'user.email']);
+  } catch {
+    await g.raw(['config', 'user.email', 'oldz@localhost']);
+  }
+}
+
 // ---- ensureRepo ----
 
 export async function ensureRepo(): Promise<{ initialized: boolean; path: string }> {
@@ -54,7 +67,12 @@ export async function ensureRepo(): Promise<{ initialized: boolean; path: string
     return { initialized: false, path: DATA_DIR };
   }
 
-  await g.init();
+  try {
+    await g.init({ '--initial-branch': 'main' });
+  } catch {
+    await g.init();
+  }
+  await ensureCommitIdentity(g);
   _repoReady = true;
 
   // 创建 .gitignore
@@ -196,14 +214,14 @@ export async function getDiff(hash: string): Promise<{
   const showOutput = await g.show([hash, '--stat', '--patch', '--format=fuller']);
 
   // 也获取 commit 基本信息
-  const log = await g.log({ maxCount: 1, from: hash, to: hash });
-  const entry = log.latest;
+  const metadata = await g.raw(['show', '-s', '--format=%s%x00%aI%x00%an', hash]);
+  const [message = '', date = '', authorName = ''] = metadata.trim().split('\0');
 
   return {
     hash,
-    message: entry?.message || '',
-    date: entry?.date || '',
-    authorName: entry?.author_name || '',
+    message,
+    date,
+    authorName,
     diff: showOutput,
   };
 }
@@ -247,14 +265,28 @@ export interface GitRemote {
   push: string;
 }
 
+function redactRemoteUrl(value: string): string {
+  if (!value) return '';
+  try {
+    const parsed = new URL(value);
+    parsed.username = '';
+    parsed.password = '';
+    parsed.search = '';
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return /^[A-Za-z0-9._-]+@[A-Za-z0-9._-]+:.+/.test(value) ? value : '[configured]';
+  }
+}
+
 export async function getRemotes(): Promise<GitRemote[]> {
   await ensureRepo();
   const g = git();
   const remotes = await g.getRemotes(true);
   return remotes.map((r) => ({
     name: r.name,
-    fetch: r.refs.fetch || '',
-    push: r.refs.push || '',
+    fetch: redactRemoteUrl(r.refs.fetch || ''),
+    push: redactRemoteUrl(r.refs.push || ''),
   }));
 }
 
@@ -369,6 +401,8 @@ export function scheduleAutoCommit(message: string): void {
 
     try {
       await ensureRepo();
+      const status = await getStatus();
+      if (status.isClean) return;
       await commit(commitMessage);
       console.log('[Git] Auto-commit:', commitMessage.split('\n')[0]);
     } catch (e: any) {

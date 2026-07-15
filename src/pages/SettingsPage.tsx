@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { api } from '@/utils/api';
-import { Settings, Zap, Check, Loader2, User, Lock, LogOut, Palette, Moon, Sun, Plus, Trash2, Cloud, HardDrive, Wallet, Key, Copy, Eye, EyeOff } from 'lucide-react';
+import { Settings, Zap, Check, Loader2, User, Lock, LogOut, Palette, Moon, Sun, Plus, Trash2, Cloud, HardDrive, Wallet, Key, Copy, Eye, EyeOff, Rocket } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { type Theme, useTheme } from '@/hooks/useTheme';
 import AdvancedLlmSettings from '@/components/settings/LlmSettings';
 
-type SettingsTab = 'user' | 'llm' | 'sync';
+type SettingsTab = 'user' | 'appearance' | 'llm' | 'sync';
 
 type LlmStorage = 'cloud' | 'local';
 type LlmProvider = 'openai' | 'anthropic';
@@ -36,7 +36,7 @@ interface LlmPreset {
 export default function SettingsPage() {
   const user = useAppStore((s) => s.user);
   const isLocalUser = user?.username === 'local-user';
-  const [activeTab, setActiveTab] = useState<SettingsTab>(isLocalUser ? 'llm' : 'user');
+  const [activeTab, setActiveTab] = useState<SettingsTab>(isLocalUser ? 'appearance' : 'user');
   const [saved, setSaved] = useState(false);
 
   const flashSaved = () => {
@@ -65,6 +65,11 @@ export default function SettingsPage() {
             <User className="w-3.5 h-3.5" /> 用户设置
           </button>
         )}
+        <button onClick={() => setActiveTab('appearance')}
+          className={cn('flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-[1px] transition-all',
+            activeTab === 'appearance' ? 'border-gold-400 text-gold-400' : 'border-transparent text-parchment-400 hover:text-parchment-200')}>
+          <Palette className="w-3.5 h-3.5" /> 外观与应用
+        </button>
         <button onClick={() => setActiveTab('llm')}
           className={cn('flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 -mb-[1px] transition-all',
             activeTab === 'llm' ? 'border-gold-400 text-gold-400' : 'border-transparent text-parchment-400 hover:text-parchment-200')}>
@@ -80,8 +85,125 @@ export default function SettingsPage() {
       </div>
 
       {activeTab === 'user' && !isLocalUser && <UserSettings flashSaved={flashSaved} />}
+      {activeTab === 'appearance' && <AppearanceSettings flashSaved={flashSaved} />}
       {activeTab === 'llm' && <AdvancedLlmSettings flashSaved={flashSaved} localOnly={isLocalUser} />}
       {activeTab === 'sync' && !isLocalUser && <SyncKeySettings flashSaved={flashSaved} />}
+    </div>
+  );
+}
+
+function AppearanceSettings({ flashSaved }: { flashSaved: () => void }) {
+  const { theme, setTheme } = useTheme();
+  const electronAPI = window.electronAPI;
+  const [autoStart, setAutoStart] = useState(false);
+  const [autoStartLoading, setAutoStartLoading] = useState(!!electronAPI);
+  const [autoStartError, setAutoStartError] = useState('');
+  const options = [
+    { value: 'dark' as Theme, label: '经典暗色', description: '深色背景，适合夜间和长时间专注', icon: Moon, preview: 'bg-[#111313]' },
+    { value: 'mimo' as Theme, label: '暖白', description: '温暖纸张质感，适合白天阅读与整理', icon: Sun, preview: 'bg-[#f2ead8]' },
+  ];
+
+  const selectTheme = (nextTheme: Theme) => {
+    setTheme(nextTheme);
+    flashSaved();
+  };
+
+  useEffect(() => {
+    if (!electronAPI) return;
+
+    let active = true;
+    electronAPI.getAutoStart()
+      .then((enabled) => {
+        if (active) setAutoStart(enabled);
+      })
+      .catch(() => {
+        if (active) setAutoStartError('无法读取开机自启动状态');
+      })
+      .finally(() => {
+        if (active) setAutoStartLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [electronAPI]);
+
+  const toggleAutoStart = async () => {
+    if (!electronAPI || autoStartLoading) return;
+
+    setAutoStartLoading(true);
+    setAutoStartError('');
+    try {
+      const enabled = await electronAPI.setAutoStart(!autoStart);
+      setAutoStart(enabled);
+      flashSaved();
+    } catch {
+      setAutoStartError('修改开机自启动设置失败');
+    } finally {
+      setAutoStartLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="glass-card p-5">
+        <div className="mb-4">
+          <h3 className="flex items-center gap-2 text-sm font-semibold text-parchment-100">
+            <Palette className="h-4 w-4 text-gold-400" /> 外观主题
+          </h3>
+          <p className="mt-1 text-xs text-ink-500">主题保存在当前设备，切换后立即生效，不需要在线账户。</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {options.map(item => {
+            const Icon = item.icon;
+            const active = theme === item.value;
+            return (
+              <button key={item.value} type="button" onClick={() => selectTheme(item.value)}
+                className={cn('overflow-hidden rounded-xl border text-left transition-all', active ? 'border-gold-400/60 bg-gold-400/10 ring-1 ring-gold-400/20' : 'border-ink-800/60 bg-ink-950/40 hover:border-ink-700')}>
+                <span className={cn('block h-20 border-b border-ink-800/40 p-3', item.preview)}>
+                  <span className="flex h-full gap-2 rounded-lg border border-black/10 bg-black/10 p-2">
+                    <span className="w-8 rounded bg-black/20" />
+                    <span className="flex-1 space-y-1.5 pt-1"><span className="block h-2 w-2/3 rounded bg-current opacity-30" /><span className="block h-2 w-full rounded bg-current opacity-15" /><span className="block h-2 w-4/5 rounded bg-current opacity-15" /></span>
+                  </span>
+                </span>
+                <span className="flex items-start gap-3 p-3">
+                  <Icon className={cn('mt-0.5 h-4 w-4 shrink-0', active ? 'text-gold-300' : 'text-ink-500')} />
+                  <span className="min-w-0 flex-1"><span className="block text-sm font-medium text-parchment-100">{item.label}</span><span className="mt-0.5 block text-[10px] leading-4 text-ink-500">{item.description}</span></span>
+                  {active && <Check className="h-4 w-4 shrink-0 text-gold-300" />}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {electronAPI && (
+        <div className="glass-card p-5">
+          <div className="mb-4">
+            <h3 className="flex items-center gap-2 text-sm font-semibold text-parchment-100">
+              <Rocket className="h-4 w-4 text-gold-400" /> 应用行为
+            </h3>
+            <p className="mt-1 text-xs text-ink-500">这些设置仅保存在当前电脑。</p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={autoStart}
+            disabled={autoStartLoading}
+            onClick={toggleAutoStart}
+            className="flex w-full items-center justify-between gap-4 rounded-xl border border-ink-800/60 bg-ink-950/40 p-4 text-left transition-colors hover:border-ink-700 disabled:cursor-wait disabled:opacity-60"
+          >
+            <span>
+              <span className="block text-sm font-medium text-parchment-100">开机自启动</span>
+              <span className="mt-1 block text-xs text-ink-500">登录系统后自动启动 Old Z</span>
+            </span>
+            <span className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', autoStart ? 'bg-gold-400' : 'bg-ink-700')}>
+              <span className={cn('absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform', autoStart ? 'translate-x-6' : 'translate-x-1')} />
+            </span>
+          </button>
+          {autoStartError && <p className="mt-2 text-xs text-red-400">{autoStartError}</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -93,7 +215,6 @@ function UserSettings({ flashSaved }: { flashSaved: () => void }) {
     setUser: s.setUser,
     logout: s.logout,
   })));
-  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const [username, setUsername] = useState(user?.username || '');
   const [nickname, setNickname] = useState(user?.displayName || '');
@@ -173,39 +294,6 @@ function UserSettings({ flashSaved }: { flashSaved: () => void }) {
 
   return (
     <div className="space-y-5">
-      <div className="glass-card p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-parchment-100 flex items-center gap-2">
-          <Palette className="w-4 h-4 text-gold-400" />
-          外观主题
-        </h3>
-        <div className="grid grid-cols-2 gap-2 rounded-xl bg-ink-950/50 p-1 border border-ink-800/50">
-          {[
-            { value: 'dark' as Theme, label: '经典暗色', icon: Moon },
-            { value: 'mimo' as Theme, label: '暖白', icon: Sun },
-          ].map((item) => {
-            const Icon = item.icon;
-            const active = theme === item.value;
-
-            return (
-              <button
-                key={item.value}
-                type="button"
-                onClick={() => setTheme(item.value)}
-                className={cn(
-                  'flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all',
-                  active
-                    ? 'bg-gold-400 text-ink-950 shadow-sm shadow-gold-400/20'
-                    : 'text-parchment-400 hover:bg-ink-800/60 hover:text-parchment-100'
-                )}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
       {/* 个人信息 */}
       <div className="glass-card p-5 space-y-4">
         <h3 className="text-sm font-semibold text-parchment-100 flex items-center gap-2">
