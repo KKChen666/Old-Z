@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/stores/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { api } from '@/utils/api';
+import { isLocalModeActive } from '@/utils/runtime';
 import {
   ArrowLeft,
   LayoutDashboard,
@@ -64,7 +65,7 @@ export default function Layout() {
   const navigate = useNavigate();
   const location = useLocation();
   const mobileBackTitle = discoverRoutes[location.pathname];
-  const isLocalMode = localStorage.getItem('old-z-local-mode') === 'true';
+  const isLocalMode = isLocalModeActive();
   // 需要登录才能使用的功能
   // 本地模式无锁：功能全开，数据存 SQLite
   const lockedRoutes: string[] = [];

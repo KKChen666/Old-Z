@@ -8,6 +8,7 @@ import { api, getToken, clearAuth, syncTokenToNative, clearNativeToken } from "@
 import { useTheme } from "@/hooks/useTheme";
 import { ToastProvider } from "@/components/Toast";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { isLocalModeActive, supportsLocalMode } from "@/utils/runtime";
 
 // 路由级 code splitting — 每个页面独立 chunk，首屏只加载当前路由
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
@@ -77,6 +78,15 @@ export default function App() {
   const [authChecked, setAuthChecked] = useState(false);
 
   useEffect(() => {
+    if (!supportsLocalMode() && localStorage.getItem('old-z-local-mode') === 'true') {
+      localStorage.removeItem('old-z-local-mode');
+      clearAuth();
+      clearNativeToken();
+      setUser(null);
+      setAuthChecked(true);
+      return;
+    }
+
     const token = getToken();
     if (!token) {
       setAuthChecked(true);
@@ -112,7 +122,7 @@ export default function App() {
         <Router>
           <Suspense fallback={<PageLoader />}>
             <Routes>
-              <Route path="/login" element={(user && localStorage.getItem('old-z-local-mode') !== 'true') ? <Navigate to="/" replace /> : <Login />} />
+              <Route path="/login" element={(user && !isLocalModeActive()) ? <Navigate to="/" replace /> : <Login />} />
               <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/files" element={<Files />} />

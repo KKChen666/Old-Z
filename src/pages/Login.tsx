@@ -18,11 +18,13 @@ import { api, getDefaultApiBase, getEffectiveApiBase, saveAuth, syncTokenToNativ
 import { useAppStore } from '@/stores/useAppStore';
 import { useShallow } from 'zustand/react/shallow';
 import { toast } from '@/components/Toast';
+import { supportsLocalMode } from '@/utils/runtime';
 
 type AuthTab = 'login' | 'register' | 'reset';
 
 export default function Login() {
   const navigate = useNavigate();
+  const localModeAvailable = supportsLocalMode();
   const { setUser } = useAppStore(useShallow((state) => ({ setUser: state.setUser })));
   const [view, setView] = useState<'online' | 'local'>('online');
   const [tab, setTab] = useState<AuthTab>('login');
@@ -45,6 +47,10 @@ export default function Login() {
 
   useEffect(() => {
     setCustomApiBase(localStorage.getItem('old-z-api-base') || '');
+    if (!localModeAvailable) {
+      setView('online');
+      localStorage.removeItem('old-z-local-mode');
+    }
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
@@ -107,7 +113,7 @@ export default function Login() {
     syncTokenToNative(response.token);
     setUser(response.user);
 
-    if (localStorage.getItem('old-z-local-mode') === 'true') {
+    if (localModeAvailable && localStorage.getItem('old-z-local-mode') === 'true') {
       const shouldMerge = window.confirm('检测到本地模式数据，是否合并到当前账户？\n\n云端数据不会被覆盖。');
       if (shouldMerge) {
         try {
@@ -153,6 +159,7 @@ export default function Login() {
   };
 
   const handleLocalMode = async () => {
+    if (!localModeAvailable) return;
     setLocalLoading(true);
     try {
       const response = await api.localLogin();
@@ -172,8 +179,11 @@ export default function Login() {
 
   return (
     <main className="animated-login-page login-min-h-mobile">
-      <section className={`animated-login ${view === 'local' ? 'is-local' : ''}`} aria-label="模式选择">
-        <div className="animated-login__form animated-login__local">
+      <section
+        className={`animated-login ${view === 'local' ? 'is-local' : ''} ${localModeAvailable ? '' : 'is-online-only'}`}
+        aria-label={localModeAvailable ? '模式选择' : '在线登录'}
+      >
+        {localModeAvailable && <div className="animated-login__form animated-login__local">
           <div className="animated-login__local-content">
             <span className="animated-login__mode-icon"><HardDrive size={30} /></span>
             <h1>本地模式</h1>
@@ -182,7 +192,7 @@ export default function Login() {
               {localLoading ? <><Loader2 className="animate-spin" size={17} />正在进入</> : <>进入系统<ArrowRight size={17} /></>}
             </button>
           </div>
-        </div>
+        </div>}
 
         <div className="animated-login__form animated-login__online">
           <form onSubmit={handleSubmit}>
@@ -216,7 +226,7 @@ export default function Login() {
           </form>
         </div>
 
-        <div className="animated-login__toggle-wrap">
+        {localModeAvailable && <div className="animated-login__toggle-wrap">
           <div className="animated-login__toggle">
             <div className="animated-login__toggle-panel animated-login__toggle-left">
               <span className="animated-login__mode-icon"><Cloud size={28} /></span>
@@ -231,7 +241,7 @@ export default function Login() {
               <button type="button" onClick={() => setView('local')}>切换到本地模式</button>
             </div>
           </div>
-        </div>
+        </div>}
       </section>
 
       {showBackendSettings && <div className="fixed inset-0 z-[100] grid place-items-center bg-black/75 p-6 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="后端服务器设置"><div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 p-6 shadow-2xl"><div className="mb-5 flex items-center gap-3"><Server className="text-gold-400" size={20} /><div><h2 className="text-base font-semibold text-parchment-100">后端服务器设置</h2><p className="text-xs text-ink-400">自定义 API 连接地址</p></div><button type="button" className="ml-auto text-ink-400 hover:text-parchment-100" onClick={() => setShowBackendSettings(false)} aria-label="关闭"><X size={18} /></button></div><div className="space-y-2 rounded-lg bg-ink-950/60 p-3 text-xs"><p className="text-ink-400">当前：<code className="text-parchment-300">{getEffectiveApiBase()}</code></p><p className="text-ink-400">默认：<code className="text-parchment-300">{getDefaultApiBase()}</code></p></div><input className="input-field mt-4 text-sm" value={customApiBase} onChange={(event) => { setCustomApiBase(event.target.value); setBackendSaved(false); }} placeholder="http://192.168.1.100:3001/api" /><div className="mt-4 flex gap-2"><button type="button" className="btn-primary flex flex-1 items-center justify-center gap-2 text-sm" disabled={backendSaved} onClick={() => persistBackendUrl()}><Check size={15} />{backendSaved ? '已保存' : '保存并刷新'}</button><button type="button" className="btn-ghost flex items-center gap-2 text-sm" disabled={backendSaved} onClick={() => persistBackendUrl(true)}><RotateCcw size={15} />恢复默认</button></div></div></div>}

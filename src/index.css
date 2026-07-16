@@ -161,6 +161,24 @@
   .animated-login__toggle-panel p { margin: 7px 0 10px; }
 }
 
+/* Web 端固定为在线模式，不保留原生客户端的模式切换布局。 */
+.animated-login.is-online-only .animated-login__online {
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  transform: none;
+}
+.animated-login.is-online-only .animated-login__online form {
+  width: 100%;
+  max-width: 520px;
+  margin: 0 auto;
+  padding-inline: 32px;
+}
+.animated-login.is-online-only .animated-login__local,
+.animated-login.is-online-only .animated-login__toggle-wrap {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animated-login *, .animated-login *::before, .animated-login *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
