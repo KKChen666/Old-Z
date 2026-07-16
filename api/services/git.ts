@@ -13,7 +13,7 @@
  *   - git branch
  */
 
-import simpleGit, { type SimpleGit, type LogResult, type StatusResult, type DiffResult } from 'simple-git';
+import { simpleGit, type SimpleGit, type LogResult, type StatusResult, type DiffResult } from 'simple-git';
 import path from 'path';
 import fs from 'fs';
 

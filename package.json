@@ -14,7 +14,8 @@
     "dev": "concurrently -n client,server,electron \"npm run client:dev\" \"npm run server:dev\" \"npm run electron:dev\"",
     "electron:dev": "wait-on http://localhost:5173 && npm run build:electron && electron .",
     "build": "tsc -b && vite build",
-    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:api": "tsc -p api/tsconfig.json",
+    "build:electron": "npm run build:api && tsc -p electron/tsconfig.json",
     "build:all": "npm run build && npm run build:electron",
     "lint": "eslint .",
     "preview": "vite preview",
@@ -115,14 +116,11 @@
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
-      "api/**/*",
+      "dist-api/**/*",
       "node_modules/**/*",
       "package.json"
     ],
     "asar": true,
-    "asarUnpack": [
-      "api/**"
-    ],
     "win": {
       "target": [
         {

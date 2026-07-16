@@ -1,6 +1,7 @@
 import { app, BrowserWindow, shell, Tray, Menu, nativeImage, globalShortcut, ipcMain } from 'electron';
 import path from 'path';
 import fs from 'fs';
+import crypto from 'crypto';
 import { spawn, type ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
 
@@ -17,13 +18,17 @@ let isQuitting = false;
 const API_PORT = 3001;
 const DEFAULT_SHORTCUT = 'CommandOrControl+Shift+O';
 
-function resolveUnpackedPath(...segments: string[]) {
-  if (app.isPackaged) {
-    const asarDir = path.join(__dirname, '..');
-    const unpackedDir = asarDir + '.unpacked';
-    return path.join(unpackedDir, ...segments);
-  }
-  return path.join(__dirname, '..', ...segments);
+function getOrCreateLocalJwtSecret(): string {
+  const secretPath = path.join(app.getPath('userData'), 'local-jwt-secret');
+  try {
+    const existing = fs.readFileSync(secretPath, 'utf8').trim();
+    if (existing.length >= 32) return existing;
+  } catch {}
+
+  const secret = crypto.randomBytes(48).toString('hex');
+  fs.mkdirSync(path.dirname(secretPath), { recursive: true });
+  fs.writeFileSync(secretPath, secret, { encoding: 'utf8', mode: 0o600 });
+  return secret;
 }
 
 function getAppIcon(): Electron.NativeImage {
@@ -49,24 +54,35 @@ function startApiServer(): Promise<void> {
       return;
     }
 
-    const apiLoaderPath = resolveUnpackedPath('api', 'server-loader.js');
-    const appRoot = resolveUnpackedPath();
+    const apiEntryPath = path.join(__dirname, '../dist-api/server.js');
+    const appRoot = path.join(__dirname, '..');
+    const userDataDir = app.getPath('userData');
+    const dataDir = path.join(userDataDir, 'data');
 
-    console.log('[Electron] API loader path:', apiLoaderPath);
+    console.log('[Electron] API entry path:', apiEntryPath);
     console.log('[Electron] App root:', appRoot);
-    console.log('[Electron] Loader exists:', fs.existsSync(apiLoaderPath));
+    console.log('[Electron] API entry exists:', fs.existsSync(apiEntryPath));
 
-    apiProcess = spawn('node', [apiLoaderPath], {
+    if (!fs.existsSync(apiEntryPath)) {
+      reject(new Error(`Packaged API entry not found: ${apiEntryPath}`));
+      return;
+    }
+
+    apiProcess = spawn(process.execPath, [apiEntryPath], {
       env: {
         ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
         NODE_ENV: 'production',
         PORT: String(API_PORT),
-        NODE_PATH: path.join(appRoot, 'node_modules'),
+        HOST: '127.0.0.1',
         DB_PROVIDER: 'sqlite', // 桌面应用默认使用 SQLite
         AUTO_REPORT_GENERATION: 'true',
+        OLDZ_DATA_DIR: dataDir,
+        JWT_SECRET: process.env.JWT_SECRET || getOrCreateLocalJwtSecret(),
+        CORS_ORIGINS: process.env.CORS_ORIGINS || 'null,file://',
       },
       stdio: 'pipe',
-      cwd: appRoot,
+      cwd: userDataDir,
     });
 
     let resolved = false;
@@ -89,6 +105,14 @@ function startApiServer(): Promise<void> {
       if (!resolved) {
         resolved = true;
         reject(err);
+      }
+    });
+
+    apiProcess.on('exit', (code, signal) => {
+      console.error(`[Electron] API process exited (code=${code}, signal=${signal})`);
+      if (!resolved) {
+        resolved = true;
+        reject(new Error(`API process exited before becoming ready (code=${code})`));
       }
     });
 

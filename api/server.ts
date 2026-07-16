@@ -33,13 +33,18 @@ validateEnv();
  * start server with port
  */
 const PORT = process.env.PORT || 3001;
+const HOST = process.env.HOST?.trim();
 
 let server: ReturnType<typeof app.listen>;
+
+function listen(onReady: () => void) {
+  return HOST ? app.listen(Number(PORT), HOST, onReady) : app.listen(Number(PORT), onReady);
+}
 
 // 先初始化数据库，再启动服务器
 initDB()
   .then(() => {
-    server = app.listen(PORT, () => {
+    server = listen(() => {
       console.log(`Server ready on port ${PORT}`);
 
       // 自动生成缺失的周报/月报（延迟5秒避免阻塞启动）
@@ -65,7 +70,7 @@ initDB()
   .catch((err) => {
     console.error('Failed to initialize database, starting server anyway:', err);
     // 即使数据库初始化失败也启动服务器，但注册等操作会报错
-    server = app.listen(PORT, () => {
+    server = listen(() => {
       console.log(`Server ready on port ${PORT} (WARNING: database not initialized)`);
     });
   });
