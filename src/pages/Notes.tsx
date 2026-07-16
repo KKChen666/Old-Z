@@ -1316,19 +1316,22 @@ export default function Notes() {
 
   return (
     <div className="flex h-full">
-      <div className={`${showEditorOnMobile ? 'hidden md:flex' : 'flex'} w-full md:w-72 border-r border-ink-800/50 flex-col flex-shrink-0`}>
+      <div className={`${showEditorOnMobile ? 'hidden md:flex' : 'flex'} w-full md:w-80 border-r border-ink-800/50 bg-ink-950/45 flex-col flex-shrink-0`}>
         <div className="p-4 border-b border-ink-800/50">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-serif text-lg font-semibold text-parchment-100">笔记</h2>
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="page-title !text-xl">笔记</h2>
+              <p className="page-description !mt-1">{notes.length} 篇笔记</p>
+            </div>
             <button
               onClick={() => setShowNew(true)}
-              className="p-1.5 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-gold-400 transition-colors"
+              className="btn-primary flex items-center gap-1.5 !px-3 !py-2 text-xs"
               title="新建笔记"
             >
               <Plus className="w-4 h-4" />
+              <span>新建</span>
             </button>
           </div>
-          <p className="text-xs text-parchment-400">{notes.length} 篇笔记</p>
         </div>
 
         {showNew && (
@@ -1362,8 +1365,8 @@ export default function Notes() {
                 setSelectedNote(note.id);
                 resetSelectionActions();
               }}
-              className={`p-3 border-b border-ink-800/30 cursor-pointer transition-colors ${
-                selectedNote === note.id ? 'bg-forest-800/20 border-l-2 border-l-gold-400' : 'hover:bg-ink-800/30'
+              className={`mx-2 mt-1 rounded-lg border px-3 py-3 cursor-pointer transition-colors ${
+                selectedNote === note.id ? 'border-gold-400/20 bg-forest-800/25' : 'border-transparent hover:bg-ink-800/35'
               }`}
             >
               <p className="text-sm font-medium text-parchment-100 truncate">{note.title}</p>
@@ -1380,7 +1383,7 @@ export default function Notes() {
       <div className={`${showEditorOnMobile ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-w-0`}>
         {currentNote ? (
           <>
-            <div className="p-3 sm:p-4 border-b border-ink-800/50 flex items-center justify-between gap-3">
+            <div className="min-h-16 px-3 py-3 sm:px-5 border-b border-ink-800/50 bg-ink-950/45 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <button onClick={handleBackToList} className="md:hidden p-1.5 rounded-md hover:bg-ink-700/50 text-parchment-400" title="返回">
                   <ArrowLeft className="w-5 h-5" />
@@ -1393,7 +1396,7 @@ export default function Notes() {
                     className="input-field text-lg font-serif font-bold flex-1"
                   />
                 ) : (
-                  <h1 className="font-serif text-lg sm:text-xl font-bold text-parchment-100 truncate">{currentNote.title}</h1>
+                  <h1 className="page-title !text-lg sm:!text-xl truncate">{currentNote.title}</h1>
                 )}
               </div>
               <div className="flex items-center gap-1 sm:gap-2">
@@ -1411,7 +1414,7 @@ export default function Notes() {
                         setDeleteConfirmingNoteId(null);
                         showSnapshots ? setShowSnapshots(false) : loadSnapshots(currentNote.id);
                       }}
-                      className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-gold-400 transition-colors"
+                      className="icon-button hover:!text-gold-400"
                       title="历史版本"
                     >
                       <History className="w-4 h-4" />
@@ -1421,14 +1424,14 @@ export default function Notes() {
                         setDeleteConfirmingNoteId(null);
                         startEdit(currentNote.id);
                       }}
-                      className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-gold-400 transition-colors"
+                      className="icon-button hover:!text-gold-400"
                       title="编辑"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => setDeleteConfirmingNoteId(currentNote.id)}
-                      className="p-2 rounded-lg hover:bg-ink-800 text-parchment-400 hover:text-red-400 transition-colors"
+                      className="icon-button hover:!text-red-400"
                       title="删除"
                     >
                       <Trash2 className="w-4 h-4" />

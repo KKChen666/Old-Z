@@ -207,29 +207,32 @@ export default function Todos() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 sm:p-6 pb-3 sm:pb-4 border-b border-ink-800/50">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <h1 className="font-serif text-xl sm:text-2xl font-bold text-parchment-100">待办管理</h1>
-            <p className="text-xs sm:text-sm text-parchment-400 mt-1">
-              {todos.filter((t) => t.status !== 'completed').length} 项待处理
-              {todos.filter(isOverdue).length > 0 && (
-                <span className="text-red-400 ml-2">
-                  · {todos.filter(isOverdue).length} 项已过期
-                </span>
-              )}
-            </p>
+      <div className="border-b border-ink-800/50">
+        <div className="page-frame !pb-4">
+          <div className="page-header !min-h-0 !border-b-0 !pb-0">
+            <div>
+              <h1 className="page-title">待办</h1>
+              <p className="page-description">
+                {todos.filter((t) => t.status !== 'completed').length} 项待处理
+                {todos.filter(isOverdue).length > 0 && (
+                  <span className="text-red-400 ml-2">
+                    · {todos.filter(isOverdue).length} 项已过期
+                  </span>
+                )}
+              </p>
+            </div>
+            <button onClick={() => setShowNewTodo(true)} className="btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" /> 新建待办
+            </button>
           </div>
-          <button onClick={() => setShowNewTodo(true)} className="btn-primary flex items-center gap-2">
-            <Plus className="w-4 h-4" /> 新建待办
-          </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+      <div className="flex-1 overflow-y-auto">
+        <div className="page-frame !pt-5 space-y-4">
         {/* New Todo Form */}
         {showNewTodo && (
-          <div className="glass-card p-4 sm:p-5 space-y-3 sm:space-y-4 animate-slide-in-up">
+          <div className="surface-card p-4 sm:p-5 space-y-3 sm:space-y-4 animate-slide-in-up">
             <div className="flex gap-2 sm:gap-3">
               <input
                 type="text"
@@ -421,7 +424,7 @@ export default function Todos() {
                     return (
                       <div
                         key={todo.id}
-                        className={`glass-card border-l-4 ${priorityColors[todo.priority]} animate-fade-in relative ${
+                        className={`surface-card border-l-4 ${priorityColors[todo.priority]} animate-fade-in relative ${
                           overdue ? 'ring-1 ring-red-500/30' : ''
                         }`}
                         style={{ animationDelay: `${index * 30}ms` }}
@@ -625,6 +628,7 @@ export default function Todos() {
             <p className="text-parchment-400">没有匹配的待办事项</p>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -316,6 +316,38 @@
 }
 
 @layer components {
+  .page-frame {
+    @apply mx-auto w-full max-w-[1440px] p-4 sm:p-6;
+  }
+
+  .page-header {
+    @apply flex min-h-16 items-start justify-between gap-4 border-b border-ink-800/60 pb-5;
+  }
+
+  .page-title {
+    @apply font-serif text-xl font-bold tracking-tight text-parchment-100 sm:text-2xl;
+  }
+
+  .page-description {
+    @apply mt-1.5 text-xs leading-relaxed text-parchment-400 sm:text-sm;
+  }
+
+  .page-status {
+    @apply inline-flex min-h-9 items-center gap-2 rounded-lg border border-ink-700/50 bg-ink-900/55 px-3 text-xs text-parchment-400;
+  }
+
+  .surface-card {
+    @apply rounded-xl border border-ink-800/70 bg-ink-900/45;
+  }
+
+  .section-heading {
+    @apply font-serif text-sm font-semibold text-parchment-100 sm:text-base;
+  }
+
+  .icon-button {
+    @apply inline-flex min-h-10 min-w-10 items-center justify-center rounded-lg text-parchment-400 transition-colors hover:bg-ink-800 hover:text-parchment-100;
+  }
+
   .glass-card {
     @apply bg-ink-900/60 backdrop-blur-md border border-ink-700/50 rounded-xl;
   }
